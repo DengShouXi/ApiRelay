@@ -92,7 +92,7 @@ Active workline for key vault. Commit here daily. When Phase N passes, tag `v0.1
 |-----|--------|---------|----------|
 | `v0.0.1` | `2cf6803` | Earliest engineering baseline | 最初工程基线 |
 | `v0.0.2` | `a62244d` | Specs/planning freeze @ 20:47 | 20:47 前规格快照 |
-| `v0.1.1` | *(tip of `v0.1` when tagged)* | Playbooks + Phase 1 scaffold checkpoint | playbooks + Phase 1 脚手架检查点 |
+| `v0.1.1` | `6ede3aa`（之后 `v0.1` 上还有忽略规则等小提交；回看检查点以 tag 为准） | Playbooks + Phase 1 scaffold checkpoint | playbooks + Phase 1 脚手架检查点 |
 
 ### Deprecated / 已废弃的旧用法
 
@@ -103,10 +103,11 @@ Older refs named `v0.0.1` / `v0.0.2` / `v0.1.1` **as branches** mixed layer-2 an
 
 ## Workflow / 日常怎么做
 
-1. **Now**: work on `v0.1` only.  
-2. Finish a Phase → update this ledger (EN + 中文) → commit on `v0.1` → `git tag v0.1.N` → push branch + tag.  
+1. **Now**: work on branch `v0.1` only.  
+2. Finish Phase N → open **`v1-key-vault/phases/P0N-save.md`** (full prompt): English+中文 notes in this file → commit on `v0.1` → annotated tag `v0.1.N` → push branch + `refs/tags/v0.1.N`.  
 3. **Do not** create `v0.2` / `v0.3` until that ROADMAP stage starts.  
 4. **Do not** create `v0.4`.  
-5. **Do not** create an empty parent branch `v0` unless you later want it as a trunk alias.
+5. Indexes only: `05-annotate-branch.md` / `15-phase-push.md` → they link to each `P0N-save.md`.
 
-Playbook prompts: `05-annotate-branch.md`（写备注）→ `15-phase-push.md`（提交 + **打 tag** + 推送）。
+**简体中文**  
+当前只在 `v0.1` 干活。每完成 Phase N，打开对应 **`P0N-save.md` 完整提示词**（不要只用摘要）：先写本台账英→中，再 commit、打 tag、push。`05`/`15` 只是索引。做到 V2/V3 再分别开 `v0.2`/`v0.3`。

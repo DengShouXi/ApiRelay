@@ -1,28 +1,22 @@
-# V1 — 每个小 Phase 保存并上传（tag）提示词
+# V1 — 小 Phase 保存与上传（索引）
 
-先 [`05-annotate-branch.md`](./05-annotate-branch.md)，再贴本段。
+**不要用本文件代替 Phase 专用提示词。** 每个小阶段请打开对应的完整文件（备注格式、分支、tag 都已写死）：
 
----
+| Phase | 提示词 | 分支 | tag |
+|-------|--------|------|-----|
+| 1 | [`phases/P01-save.md`](./phases/P01-save.md) | `v0.1` | `v0.1.1` |
+| 2 | [`phases/P02-save.md`](./phases/P02-save.md) | `v0.1` | `v0.1.2` |
+| 3 | [`phases/P03-save.md`](./phases/P03-save.md) | `v0.1` | `v0.1.3` |
+| 4 | [`phases/P04-save.md`](./phases/P04-save.md) | `v0.1` | `v0.1.4` |
+| 5 | [`phases/P05-save.md`](./phases/P05-save.md) | `v0.1` | `v0.1.5` |
+| 6 | [`phases/P06-save.md`](./phases/P06-save.md) | `v0.1` | `v0.1.6` |
+| 7 | [`phases/P07-save.md`](./phases/P07-save.md) | `v0.1` | `v0.1.7` |
+| 8 | [`phases/P08-save.md`](./phases/P08-save.md) | `v0.1` | `v0.1.8` |
 
-请把刚完成的 **Phase N** 保存为检查点并上传。
+统一规则（各 `P0N-save.md` 已写明，此处仅摘要）：
 
-对照：`Phase 1 → tag v0.1.1`，`Phase 2 → v0.1.2`，…，`Phase 8 → v0.1.8`。  
-（若我是从某个 `phases/P0N-*.md` 过来的，用该文件写明的 tag 名。）
-
-## 正确做法
-
-1. 确认在工作分支 **`v0.1`**（没有就从当前 HEAD：`git checkout -b v0.1`）。  
-2. `git status` / `diff` / `log`；禁止提交密钥、`build/`、明文。  
-3. 经我确认后 **commit**（人仍留在 `v0.1`，不要为检查点新建分支）。  
-4. 打 **annotated tag**（第三层是 tag，不是分支）：  
-   `git tag -a v0.1.N -m "Phase N checkpoint"`  
-5. 上传：`git push -u origin v0.1`，再 `git push origin refs/tags/v0.1.N`  
-6. 报告：分支名、tag 名、commit hash。
-
-## 不要做
-
-- 不要新建名为 `v0.1.N` 的分支  
-- 不要预先创建 `v0.2` / `v0.3` / `v0.4`  
-- 不要 force push；不要擅自删 tag  
-
-人继续留在 `v0.1` 做下一 Phase。
+1. 人留在分支 **`v0.1`** 上 commit  
+2. 第三层是 **tag `v0.1.N`**，禁止新建同名分支  
+3. `BRANCHES.md` 必须先 English、后简体中文  
+4. `git push origin v0.1` + `git push origin refs/tags/v0.1.N`  
+5. 禁止 force push；禁止预建 `v0.2`/`v0.3`/`v0.4`

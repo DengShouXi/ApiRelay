@@ -1,13 +1,18 @@
-# 写检查点备注（英 → 中）提示词
+# V1 — 写检查点备注（索引）
 
-打 tag / 推送前使用。
+小 Phase 保存时，**优先直接使用**对应的完整提示词：
 
----
+`phases/P0N-save.md`（内含英→中备注 + commit + tag + push，tag 已写死为 `v0.1.N`）
 
-请更新 `ApiRelay/specs/playbooks/BRANCHES.md` 的 checkpoint tags 表（或对应大阶段说明）。
+| Phase | 完整保存/上传提示词 | tag |
+|-------|---------------------|-----|
+| 1 | [`phases/P01-save.md`](./phases/P01-save.md) | `v0.1.1` |
+| 2 | [`phases/P02-save.md`](./phases/P02-save.md) | `v0.1.2` |
+| 3 | [`phases/P03-save.md`](./phases/P03-save.md) | `v0.1.3` |
+| 4 | [`phases/P04-save.md`](./phases/P04-save.md) | `v0.1.4` |
+| 5 | [`phases/P05-save.md`](./phases/P05-save.md) | `v0.1.5` |
+| 6 | [`phases/P06-save.md`](./phases/P06-save.md) | `v0.1.6` |
+| 7 | [`phases/P07-save.md`](./phases/P07-save.md) | `v0.1.7` |
+| 8 | [`phases/P08-save.md`](./phases/P08-save.md) | `v0.1.8` |
 
-目标一般是 **tag** `v0.Y.N`（第三层），不是新建第三层分支。
-
-格式：**先 English 2–4 句，后简体中文**；写清相对上一检查点多了什么、不含什么；填 tip commit。  
-确认仍遵守：大阶段用分支、小阶段用 tag、不预建未来大阶段、无 v0.4。  
-经我确认后纳入 commit。禁止 force push。
+工作分支始终是 **`v0.1`**。台账：[`../BRANCHES.md`](../BRANCHES.md)。

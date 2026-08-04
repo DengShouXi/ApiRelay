@@ -1,3 +1,3 @@
-# 留在 `v0.3` 或按指定 tag 回看
+# V3 收官后 — 停留提示词
 
-`git checkout v0.3` 或 `git checkout v0.3.N`（分离 HEAD 仅用于查看）。
+留在 `v0.3`，或 `git checkout <tag>` 只读回看历史检查点。报告 `git tag -l 'v0.*'` 与当前分支。
