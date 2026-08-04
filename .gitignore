@@ -34,6 +34,21 @@ playground.xcworkspace
 
 .build/
 
+# Xcode / local build products (never commit)
+ApiRelay/build/
+DerivedData/
+*.xcuserstate
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Vendored Spec Kit upstream tree (project uses ApiRelay/.specify/ already)
+ApiRelay/spec-kit-0.15.2/
+
 # CocoaPods
 #
 # We recommend against adding the Pods directory to your .gitignore. However
