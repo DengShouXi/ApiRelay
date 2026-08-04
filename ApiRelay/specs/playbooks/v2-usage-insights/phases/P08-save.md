@@ -1,65 +1,73 @@
-# V2 用量看板与关系图 · Phase 8 — 检查点保存与上传提示词
+# V2 用量看板与关系图 · 小迭代 Phase 8 — 保存并上传提示词
 
 **把下面从「请为」开始到文末整段复制给 Cursor。**  
-本对话只做：写备注 + commit + 推送到小阶段分支。**不要**继续写实现代码。
+本对话只做：写备注 + commit + 推送到**小迭代分支**。不要继续写实现代码。
+
+命名记法：`v0.{大阶段}.{小迭代}` —— **三层都是分支**（本仓库不用 tag 做迭代里程碑）。
 
 ---
 
-请为 **V2 用量看板与关系图 · Phase 8（上架与收尾）** 做检查点保存并上传到远程。
+请为 **V2 用量看板与关系图 · Phase 8（上架与收尾）** 保存本小迭代并上传。
 
-## 固定目标（写错分支视为失败）
+## 固定目标（写错迭代名视为失败）
 
 | 项 | 必须使用的值 |
 |----|----------------|
-| 大阶段分支（第 2 层，可选同步） | `v0.2` |
-| **小阶段分支（第 3 层，本次上传目标）** | `v0.2.8` |
+| 大阶段分支（第 2 层） | `v0.2` |
+| **本小迭代分支（第 3 层 · 本次上传目标）** | `v0.2.8` |
+| 下一小迭代（本步不要创建） | `v0.2.9` |
 | 远程 | `origin` |
 | 台账 | `ApiRelay/specs/playbooks/BRANCHES.md` |
-| 对应实现提示词 | `phases/P08-上架与收尾.md`（本对话不实现） |
-| 本阶段测试目录 | `ApiRelay/ApiRelayTests/V2/Phase08_Store/` |
+| 实现提示词（对照，勿在本对话实现） | `phases/P08-上架与收尾.md` |
+| 本迭代测试目录 | `ApiRelay/ApiRelayTests/V2/Phase08_Store/` |
 
-## A. 更新分支备注（必须英 → 中）
+## A. 更新迭代备注（必须英 → 中）
 
-编辑 `BRANCHES.md`，为小阶段分支 **`v0.2.8`** 写入/更新：
+编辑 `BRANCHES.md`，为小迭代 **`v0.2.8`** 写入/更新：
 
-1. **English**（2–4 句）：相对上一小阶段多了什么、不含什么、何时 checkout `v0.2.8`。  
+1. **English**（2–4 句）：相对上一小迭代多了什么、不含什么、何时 `git checkout v0.2.8`。  
 2. **简体中文**：同样信息。  
-3. 记录 tip commit（push 后的 hash）。
+3. tip commit（push 后的 hash）。
 
-确认命名：`v0` 未上架；`v0.2` 大阶段；`v0.2.N` 小阶段分支。无 `v0.4`。
-
-## B. 提交并推到小阶段分支 `v0.2.8`
+## B. 提交并推到小迭代分支 `v0.2.8`
 
 1. 汇报：`git status -sb`、`git branch --show-current`、`git log -5 --oneline`。  
-2. 若当前不在 `v0.2.8`：从大阶段线创建或检出  
-   `git checkout v0.2` && `git pull` && `git checkout -B v0.2.8`  
-   （`-B` 把本小阶段分支指到当前大阶段最新提交；**经我确认后再执行**）。  
-3. 暂存：本 Phase 实现 + 对应 `ApiRelayTests/V2/Phase08_*/` 测试 + `BRANCHES.md`。  
-4. **禁止**加入：`ApiRelay/build/`、`ApiRelay/DebugScratch/`、`__pycache__/`、`spec-kit-0.15.2/`、密钥、`.env`。  
-5. 展示 `git diff --cached --stat`，**等我同意后再 commit**。  
-6. 建议 message：
+2. 确保在 `v0.2.8` 上工作（经我确认后再执行切换/创建）：
 
-```text
-feat(v0.2.8): Phase 8 上架与收尾 checkpoint
+```bash
+git checkout v0.2
+git pull
+git checkout -B v0.2.8
 ```
 
-7. 上传小阶段分支：
+3. 暂存：本 Phase 实现 + `ApiRelayTests/V2/Phase08_Store/` 下本迭代测试 + `BRANCHES.md`。  
+4. **禁止**加入：`ApiRelay/build/`、`ApiRelay/DebugScratch/`、`__pycache__/`、`spec-kit-0.15.2/`、密钥、`.env`。  
+5. 展示 `git diff --cached --stat`，**等我同意后再 commit**。  
+6. 建议 message：`feat(v0.2.8): Phase 8 上架与收尾 iteration`  
+7. 上传本小迭代：
 
 ```bash
 git push -u origin v0.2.8
 ```
 
-8. （推荐）同步大阶段分支尖端：`git checkout v0.2` && `git merge v0.2.8` && `git push origin v0.2`，再回到 `v0.2.8`。
+8. （推荐）同步大阶段线：
+
+```bash
+git checkout v0.2
+git merge v0.2.8
+git push origin v0.2
+git checkout v0.2.8
+```
 
 ## C. 完成汇报
 
-- 小阶段分支 `v0.2.8` @ `<hash>`（远程已有）  
-- `BRANCHES.md` 是否已含英+中  
-- 测试是否只在 `ApiRelayTests/V2/Phase08_*/`  
-- 下一步：下一 Phase 的**实现**提示词；新小阶段将上传到 `v0.2.9`  
+- 小迭代 `v0.2.8` @ `<hash>` 已在远程  
+- `BRANCHES.md` 已有英 + 中备注  
+- 测试仅在对应 `Phase08_Store/`  
+- 下一步：打开下一 Phase **实现**提示词；保存时再开下一小迭代 `v0.2.9`  
 
 ## 禁止
 
-- 用 Git tag 代替小迭代分支（本仓库统一用三层分支迭代）  
-- 预建未开始的 `v0.2` / `v0.3` / `v0.4`  
-- force push；把 `DebugScratch` 或 `build` 推上去  
+- 用 Git tag 充当 `v0.2.8`（迭代一律用分支）  
+- 预建未开始的大阶段 / 小迭代（如 `v0.2.9` 要等下一 Phase 完成再开）  
+- 预建 `v0.4`；force push；上传 `build` / `DebugScratch`  
