@@ -1,0 +1,42 @@
+---
+description: 密钥明文处理的红线，涉及 Keychain、剪贴板、门闩、日志时必读
+alwaysApply: true
+---
+
+# 密钥明文红线
+
+明文只允许存在于三处：**Keychain**、**单次操作的局部作用域**、**剪贴板（限时）**。
+
+## 绝对禁止
+
+```swift
+// ❌ 明文进入可观察状态
+@Published var apiKey: String
+
+// ❌ 明文进入日志（包括「只打印前几位」）
+print("key: \(secret.prefix(8))")
+
+// ❌ 明文进入 SwiftData / CloudKit
+@Model class APIKeyRecord { var secret: String }
+
+// ✅ 取出后立即用掉，不持有
+let secret = try await vault.revealSecret(keyId: id, purpose: .copy)
+clipboard.write(secret, expiresAfter: 120, localOnly: true)
+```
+
+## Keychain 的一条致命约束
+
+`kSecAttrAccessControl`（系统级生物识别 ACL）与 `kSecAttrSynchronizable`（iCloud 同步）
+**互斥**，同时设置返回 `errSecParam`。本项目选择同步，因此：
+
+- `KeychainStore` MUST NOT 设置 `kSecAttrAccessControl`。
+- 门闩在**应用层**用 `LAContext` 实现。
+- 文案 MUST NOT 声称「系统级强制」「无法绕过」——那是不实陈述。
+
+详见 `ApiRelay/specs/001-key-vault/research.md` §1。
+
+## 门闩的触发点
+
+- 门闩挡的是**用户取出明文**（查看与复制**共用一道门闩、一个设置项**，不得拆成两个开关）。
+- 自动刷新读取管理类凭证 **MUST NOT** 触发门闩（后台弹不出 Face ID）。
+  这条例外须以显式命名体现，如 `readCredentialForAutomatedRefresh`。

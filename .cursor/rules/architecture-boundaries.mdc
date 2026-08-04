@@ -1,0 +1,40 @@
+---
+description: ApiRelay 三层架构与模块边界，改代码前必读
+alwaysApply: true
+---
+
+# 架构边界
+
+三层纵向解耦 + 模块横向隔离。权威定义见 `ApiRelay/.specify/memory/constitution.md`
+与 `ApiRelay/specs/001-key-vault/contracts/module-interfaces.md`。
+
+## 依赖方向（不可违反）
+
+| 允许 | 禁止 |
+|------|------|
+| `UI/` → `Business/` 的 protocol | `UI/` → Keychain / URLSession / ModelContext |
+| `Business/` → `Data/` 的 protocol | `Business/` → SwiftUI |
+| `Data/` → Apple Frameworks | `Data/` → SwiftUI |
+| 模块间经 protocol | 跨模块访问 internal 类型 |
+
+改动时若发现需要打破上表，**先停下来报告**，不要「临时」绕过。
+
+## 模块边界
+
+`Business/` 下每个目录是一个独立模块，对外只暴露 `XxxServing.swift` 里的 protocol：
+
+```text
+Business/Vault/      保管与分发（含门闩、剪贴板）
+Business/Provider/   平台侧签发与作废
+Business/Insights/   用量与统计
+Business/System/     权益、偏好、备份、调度、通知
+```
+
+**新增一个上游平台 = 新增一个 `Data/Network/Adapters/XxxAdapter.swift`，
+不得修改既有 adapter 或上层 protocol。**
+
+## 并发
+
+工程默认 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`。
+`KeychainStore` 与所有 `PlatformAdapting` 实现 MUST 显式声明为 `actor`，
+否则 Keychain 与网络会被拖到主线程。

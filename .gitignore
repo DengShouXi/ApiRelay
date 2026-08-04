@@ -52,6 +52,9 @@ playground.xcworkspace
 
 Carthage/Build/
 
+# Spec Kit docs live under ApiRelay/specs/, not repo root
+/specs/
+
 # fastlane
 #
 # It is recommended to not store the screenshots in the git repo.
