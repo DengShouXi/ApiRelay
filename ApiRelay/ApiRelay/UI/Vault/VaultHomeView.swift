@@ -240,7 +240,7 @@ private struct AddAccountSheet: View {
                     ForEach(PresetCatalog.platforms, id: \.id) { p in
                         Text(p.displayName).tag(p.id)
                     }
-                    Text("自定义").tag(PresetCatalog.customPlatformID)
+                    Text("vault.custom.platform").tag(PresetCatalog.customPlatformID)
                 }
                 TextField("vault.account.name", text: $name)
                 if platform == PresetCatalog.customPlatformID {

@@ -78,6 +78,13 @@
       <StoreKitConfigurationFileReference
          identifier = "../../ApiRelay/Configuration/ApiRelay.storekit">
       </StoreKitConfigurationFileReference>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "AppleLanguages"
+            value = "(zh-Hans)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
