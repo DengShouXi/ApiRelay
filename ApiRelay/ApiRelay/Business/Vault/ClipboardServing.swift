@@ -21,20 +21,21 @@ actor SecureClipboard: ClipboardServing {
         lastWritten = secret
         clearTask?.cancel()
 
+        let expires = Date().addingTimeInterval(expiresAfter)
+
         #if canImport(UIKit)
-        let board = UIPasteboard.general
-        board.setValue(secret, forPasteboardType: "public.utf8-plain-text")
-        board.string = secret
-        if #available(iOS 16.0, macCatalyst 16.0, *) {
-            board.expirationDate = Date().addingTimeInterval(expiresAfter)
-        }
-        // localOnly: set items with localOnly option when available
+        // 不用 `UIPasteboard.expirationDate` 属性：Mac / 部分 Catalyst SDK 无此成员。
+        // 统一走 setItems(options:)；App 进程内再用 Timer 兜底 clearIfStillOurs。
+        var options: [UIPasteboard.OptionsKey: Any] = [
+            .expirationDate: expires
+        ]
         if localOnly {
-            board.setItems(
-                [[UIPasteboard.typeAutomatic: secret]],
-                options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(expiresAfter)]
-            )
+            options[.localOnly] = true
         }
+        UIPasteboard.general.setItems(
+            [["public.utf8-plain-text": secret]],
+            options: options
+        )
         #elseif canImport(AppKit)
         let board = NSPasteboard.general
         board.clearContents()
