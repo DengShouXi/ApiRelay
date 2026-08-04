@@ -60,6 +60,6 @@ git push -u origin v0.1.7
 
 ## 禁止
 
-- 把第三层建成 Git tag（按你的命名：第三层是**分支**）  
+- 用 Git tag 代替小迭代分支（本仓库统一用三层分支迭代）  
 - 预建未开始的 `v0.2` / `v0.3` / `v0.4`  
 - force push；把 `DebugScratch` 或 `build` 推上去  

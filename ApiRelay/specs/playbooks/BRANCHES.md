@@ -1,72 +1,61 @@
-# Git Branch Ledger / 分支台账
+# 分支迭代台账（统一规则）
 
-**按你的命名（第三层也是分支，不是 tag）。**  
-产品范围仍以 [ROADMAP.md](../ROADMAP.md) 为准。
+**只用一种结构：三层都是 Git 分支，按迭代往前走。不用 tag 做版本里程碑。**
+
+产品范围仍看 [ROADMAP.md](../ROADMAP.md)。
 
 ---
 
-## 命名（你的规则）
+## 怎么记（就这一套）
 
 ```text
-v0                        ← 未上架（概念，可不建分支）
-├── 分支 v0.0             ← 规划大阶段
-│   ├── 分支 v0.0.1
-│   └── 分支 v0.0.2
-├── 分支 v0.1             ← 产品大阶段 1（密钥库）工作线
-│   ├── 分支 v0.1.1       ← 小阶段 1 检查点（当前）
-│   ├── 分支 v0.1.2       ← 小阶段 2（做到再创建/推送）
-│   └── …
-├── 分支 v0.2             ← 做到再创建
-└── 分支 v0.3
-    （无 v0.4）
+v0.大阶段.小迭代
+ │   │      └── 第 3 位：小阶段迭代（做到 Phase N 就开/推 v0.1.N）
+ │   └───────── 第 2 位：大阶段（0 规划 / 1 密钥库 / 2 用量 / 3 中转）
+ └───────────── 第 1 位：0 = 还没正式上架
 ```
 
-| 层 | Git 对象 | 例子 |
-|----|----------|------|
-| 未上架 | 概念 / 可选 | `v0` |
-| 大阶段 | **分支** | `v0.1` |
-| 小阶段 | **分支** | `v0.1.1` |
+| 名字 | 是什么 | 何时出现 |
+|------|--------|----------|
+| `v0.0` | 规划大阶段线 | 已有 |
+| `v0.0.1` → `v0.0.2` | 规划小迭代 | 已有 |
+| `v0.1` | 产品第 1 大阶段线 | 已有 |
+| `v0.1.1` → `v0.1.8` | 第 1 大阶段里的小迭代 | 做到再开；现在到 `v0.1.1` |
+| `v0.2` / `v0.2.N` | 第 2 大阶段 | **做到再创建** |
+| `v0.3` / `v0.3.N` | 第 3 大阶段 | **做到再创建** |
+| `v0.4…` | — | **不做**（ROADMAP 只有三大产品阶段） |
 
-上传小阶段时：推送到 **`v0.1.N`**；可同时把 `v0.1` fast-forward 到同一提交。
+日常记忆：
 
----
-
-## English notes / 简体中文备注
-
-### `v0.0` / `v0.0.1` / `v0.0.2`
-
-**English**  
-Planning line. `v0.0.1` = earliest engineering baseline (`2cf6803`). `v0.0.2` = specs freeze before playbooks (`a62244d`).  
-
-**简体中文**  
-规划线。`v0.0.1` 最早工程基线；`v0.0.2` 为 20:47 前规格冻住点。
-
-### `v0.1`（大阶段工作线）
-
-**English**  
-Stage-1 tip; keep it equal to the latest finished small-stage branch when you sync.
-
-**简体中文**  
-大阶段 1 尖端；每完成一个小阶段，可把本分支 merge/快进到最新 `v0.1.N`。
-
-### `v0.1.1`（当前小阶段 · Phase 1）
-
-**English**  
-Phase 1 checkpoint branch: playbooks (implement + per-phase save prompts), test folder layout under `ApiRelayTests/V1/…`, gitignore for build/DebugScratch. Upload target for “Phase 1 done” saves.
-
-**简体中文**  
-Phase 1 小阶段分支：实现/保存提示词已统一；测试按 `ApiRelayTests/V1/Phase01_Setup/` 隔离；构建与 DebugScratch 不上传。当前改动应落在本分支。
-
-| | |
-|--|--|
-| Tip | 以 `origin/v0.1.1` 为准 |
+1. 正在写代码 → 待在当前小迭代分支（现在是 `v0.1.1`）  
+2. 本 Phase 过关 → 按 `P0N-save.md` 推这个小迭代；需要时把 `v0.1` 快进到同一点  
+3. 下一 Phase → 开下一个小迭代（如 `v0.1.2`）继续  
 
 ---
 
-## 测试隔离
+## 当前仓库里有哪些迭代分支
 
-正式代码：`ApiRelay/ApiRelay/`  
-阶段测试：`ApiRelay/ApiRelayTests/V{大阶段}/Phase{小阶段}_*/`（见该目录 README）  
-本地乱写：`ApiRelay/DebugScratch/`（gitignore，不上传）
+| 分支 | 含义（English） | 含义（简体中文） |
+|------|-----------------|------------------|
+| `v0.0.1` | Earliest engineering baseline | 最初工程基线 |
+| `v0.0.2` / `v0.0` | Specs/planning freeze | 规格/规划冻住点 |
+| `v0.1` | Stage-1 workline tip | 大阶段 1 工作线尖端 |
+| `v0.1.1` | Phase 1 iteration（current） | 小迭代 1（当前干活） |
 
-Playbook：每个小阶段用 `phases/P0N-save.md` 推到对应 **`v0.Y.N` 分支**。
+---
+
+## 测试怎么跟迭代对齐
+
+| 路径 | 说明 |
+|------|------|
+| `ApiRelay/ApiRelay/` | 正式代码 |
+| `ApiRelay/ApiRelayTests/V1/Phase0N_*/` | 与 `v0.1.N` 一一对应的测试 |
+| `ApiRelay/DebugScratch/` | 本地乱写，不上传 |
+
+详见 `ApiRelay/ApiRelayTests/README.md`。
+
+---
+
+## Playbook
+
+每个小迭代：实现用 `P0N-某某.md`，保存上传用 `P0N-save.md` → 推到 **`v0.Y.N` 分支**。
