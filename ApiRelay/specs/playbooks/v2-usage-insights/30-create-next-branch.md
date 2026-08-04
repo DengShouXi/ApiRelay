@@ -1,3 +1,3 @@
-# V2 完成后 — 创建 V3 起点分支提示词
+# 创建 `v0.3`（懒创建）
 
-从已验收的最新 `v0.2.N` 创建并推送 `v0.3.1`；先写 BRANCHES 英+中备注。不要从 `v0.0.x` 切出。完成后打开 `40-checkout-next-branch.md`。
+从已验收 `v0.2`：`git checkout -b v0.3`，写 BRANCHES 备注，push。不要建 `v0.4`。

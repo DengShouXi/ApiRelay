@@ -25,6 +25,7 @@
 
 汇报：剪贴板与门闩在 Mac 上的实测结论。
 
+
 ---
 
-Checkpoint 通过后：先贴 [`../05-annotate-branch.md`](../05-annotate-branch.md)，再贴 [`../15-phase-push.md`](../15-phase-push.md) 上传本 Phase 里程碑分支。
+Checkpoint 通过后：[`../05-annotate-branch.md`](../05-annotate-branch.md) → [`../15-phase-push.md`](../15-phase-push.md)（在大阶段分支上 commit，并打 **tag** 推送）。

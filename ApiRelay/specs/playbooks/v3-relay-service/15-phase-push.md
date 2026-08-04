@@ -1,3 +1,3 @@
-# V3 — 每个小 Phase 上传提示词
+# V3 — Phase 保存上传（tag）
 
-先备注，再推送 `v0.3.N`。经我确认后 commit + `git push -u origin v0.3.N`。禁止 force push。
+在 `v0.3` 上 commit → tag `v0.3.N` → push。不要预建其他大阶段分支。

@@ -1,3 +1,3 @@
-# V3 完成后 — 回到当前稳定线提示词
+# 留在 `v0.3` 或按指定 tag 回看
 
-检出你指定的稳定里程碑（通常为最新 `v0.3.N` 或日后正式发布分支），`git status -sb`，报告相关 tag。
+`git checkout v0.3` 或 `git checkout v0.3.N`（分离 HEAD 仅用于查看）。

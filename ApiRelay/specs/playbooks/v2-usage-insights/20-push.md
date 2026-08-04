@@ -1,3 +1,3 @@
-# V2 — 大阶段收尾上传提示词
+# V2 收尾核对
 
-核对远程 `v0.2.*` 与 `BRANCHES.md` 一致；缺的经确认后 push。然后提示创建 `v0.3.1`（见 `30-create-next-branch.md`）。禁止 force push。
+确认 `v0.2` 与 tag `v0.2.*` 已推送。要开 V3 时再执行 `30-create-next-branch.md` 创建 `v0.3`。

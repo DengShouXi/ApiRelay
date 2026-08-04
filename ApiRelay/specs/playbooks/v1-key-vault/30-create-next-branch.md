@@ -1,22 +1,12 @@
-# V1 完成后 — 创建 V2 起点分支提示词
+# V1 完成后 — 创建大阶段分支 `v0.2` 提示词
 
 ---
 
-请创建产品第 2 大阶段的起点分支并准备推送。
+**现在才创建**第 2 大阶段分支（懒创建，不要更早建）。
 
-## 目标名
+1. 从已验收的 `v0.1`（含最新 tag）执行：`git checkout v0.1` && `git checkout -b v0.2`  
+2. 更新 `BRANCHES.md`（英+中说明 `v0.2` 起点）  
+3. 经确认后 commit（若有）并 `git push -u origin v0.2`  
+4. 打开 `40-checkout-next-branch.md` 与 `../v2-usage-insights/00-README.md`  
 
-`v0.2.1`（未上架 · 大阶段 2 · 第 1 个小检查点）
-
-## 步骤
-
-1. 确认 V1 侧最新里程碑（如 `v0.1.8`）已验收并已在远程。  
-2. 从该提交检出：`git checkout -b v0.2.1`（不要从过期的 `v0.0.x` 切出漏掉 V1 实现）。  
-3. 先贴/执行 `05-annotate-branch.md` 的要求，为 `v0.2.1` 写英+中备注到 `BRANCHES.md`。  
-4. 经我确认后 commit（若有占位文件）并 `git push -u origin v0.2.1`。  
-5. 提示打开 `40-checkout-next-branch.md`，以及 `../v2-usage-insights/00-README.md`。
-
-## 不要做
-
-- 不要删除 `v0.1.*`  
-- 不要在本步骤实现 V2 业务（除非我接着贴 V2 Phase 提示词）  
+不要创建 `v0.3`/`v0.4`；不要删 `v0.1` 与历史 tag。

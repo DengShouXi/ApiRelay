@@ -1,93 +1,112 @@
 # Git Branch Ledger / 分支台账
 
-**Scheme authority / 命名规则以本文为准。**  
-Product stage scope still follows [ROADMAP.md](../ROADMAP.md)（产品三大阶段范围仍以 ROADMAP 为准）。
+**Scheme authority / 命名与层级以本文为准。**  
+Product stages follow [ROADMAP.md](../ROADMAP.md).
 
 ---
 
-## Version scheme / 版本号规则
-
-Format: `v{release}.{stage}.{revision}`
-
-| Digit / 位 | English | 简体中文 |
-|------------|---------|----------|
-| 1st — release | `0` = not published to the App Store yet. Flip only when you actually ship. | `0` = 尚未正式上架。真正发布后再改这一位。 |
-| 2nd — stage | `0` = planning/spec writing only (no product-stage implementation). `1` / `2` / `3` = ROADMAP product stages (key vault / insights / relay). | `0` = 仅规划与规格文档阶段。`1` / `2` / `3` = 产品三大阶段（密钥库 / 用量看板 / 中转）。 |
-| 3rd — revision | Patch or checkpoint inside that stage. For stage `1`, prefer aligning with Phase 1…8 → `v0.1.1` … `v0.1.8`. | 该大阶段内的修订/检查点。大阶段 `1` 建议与 Phase 1…8 对齐 → `v0.1.1` … `v0.1.8`。 |
-
-**Is this reasonable? / 这样是否合理？**  
-Yes for a **pre-release personal milestone trail**: each branch freezes a readable snapshot you can check out later.  
-可以：适合「尚未上架」时用分支当里程碑快照，方便以后回看。  
-
-Trade-off: GitHub’s usual default is a long-lived `main`; here milestones are the branches themselves. Keep one “current work” branch checked out locally; do not rewrite history on older `v0.*.*` branches.  
-代价：和常见的长期 `main` 不同。本地只在「当前工作」分支上继续改；**不要**改写旧里程碑分支的历史。
-
----
-
-## Current branches / 当前三分支备注
-
-### `v0.0.1` (was `main`)
+## Important: Git has no nested folders / 先纠正一个误解
 
 **English**  
-Earliest engineering baseline after the initial ApiRelay app + Spec Kit tooling landed. Almost no product specs/playbooks yet. Use when you need “empty-ish project before the big spec write-up.”
+Git branches are **flat pointers** to commits. Names like `v0.1.1` look hierarchical, but there is no real parent/child branch tree in Git. Hierarchy is a **naming convention** only.
 
 **简体中文**  
-最初工程基线：ApiRelay 应用骨架与 Spec Kit 工具已就位，但产品规格/playbook 基本还没有。需要回到「大规格撰写之前的工程起点」时用这个分支。
-
-| | |
-|--|--|
-| Tip commit | `2cf6803` |
-| Role | Planning stage, revision 1（规划阶段 · 第 1 次落盘） |
+Git 分支是指向提交的**扁平指针**。`v0.1.1` 看起来像子文件夹，但 Git **没有**真正的「父分支套子分支」。层级只靠**命名约定**表达。
 
 ---
 
-### `v0.0.2` (was `archive/baseline-20260804`, cutoff 2026-08-04 20:47 +0800)
-
-**English**  
-Frozen snapshot **before** the implement-playbooks conversation. Contains ROADMAP, `001-key-vault` specs (spec/plan/tasks/…), constitution updates, and Cursor rules. No `specs/playbooks/` and no Phase 1 scaffold code. This is the “design/spec complete, implementation playbooks not started” bookmark.
-
-**简体中文**  
-上一对话（约 20:47）**之前**冻住的快照。含 ROADMAP、`001-key-vault` 全套规格、宪法修订、Cursor 规则。**不含** `specs/playbooks/`，也**不含** Phase 1 脚手架代码。相当于「规划/规格已定稿，实现提示词与写码尚未开始」的书签。
-
-| | |
-|--|--|
-| Tip commit | `a62244d` |
-| Role | Planning stage, revision 2（规划阶段 · 第 2 次落盘） |
-
----
-
-### `v0.1.1` (was `001-key-vault`, current work)
-
-**English**  
-Start of **product stage 1** (key vault). Adds implement playbooks under `specs/playbooks/` plus early Phase 1 engineering scaffold (Shared/DTOs, entitlements, empty tests, etc.). Continue Phase work here; when a Phase checkpoint passes, bump the 3rd digit (e.g. finish Phase 2 → push `v0.1.2`) per playbook `15-phase-push.md`.
-
-**简体中文**  
-**产品第 1 大阶段**（密钥保险库）的起点。新增 `specs/playbooks/` 实现提示词，以及 Phase 1 早期工程脚手架。后续 Phase 在此线上推进；某 Phase 的 Checkpoint 通过后，按 playbook 的 `15-phase-push.md` 把第 3 位加一并上传（例如 Phase 2 完成 → 推送 `v0.1.2`）。
-
-| | |
-|--|--|
-| Tip commit | `d1be607`（含 BRANCHES / playbook 上传流程；此前脚手架为 `c83f213`） |
-| Role | Product stage 1, revision/Phase checkpoint 1（大阶段 1 · 小阶段/修订 1） |
-
----
-
-## Lineage / 演进关系
+## Recommended model (standard) / 推荐结构（通用做法）
 
 ```text
-v0.0.1  (engineering baseline)
-  └── v0.0.2  (specs & planning freeze @ 20:47)
-        └── v0.1.1  (playbooks + Phase 1 scaffold)  ← current
-              └── v0.1.2 … v0.1.8  (future Phase checkpoints)
+含义上的三层（不是 Git 真文件夹）:
+
+v0                          ← 第 1 层：未上架（一般不单独建分支）
+├── v0.0                    ← 第 2 层：长期「大阶段分支」（规划）
+│   ├── tag v0.0.1
+│   └── tag v0.0.2
+├── v0.1                    ← 第 2 层：产品大阶段 1（密钥库）← 当前干活
+│   ├── tag v0.1.1
+│   ├── tag v0.1.2 …        ← 第 3 层：小阶段检查点用 tag，不是新分支
+│   └── tag v0.1.8
+├── v0.2                    ← 用到第 2 大阶段时再创建（现在不要建）
+└── v0.3                    ← 用到第 3 大阶段时再创建
+    （不设 v0.4：ROADMAP 只有三大产品阶段）
 ```
+
+| Layer / 层 | What to create / 建什么 | When / 何时建 |
+|------------|-------------------------|---------------|
+| 1 — `v0` | Usually **nothing** (concept only) | — |
+| 2 — `v0.0` / `v0.1` / `v0.2` / `v0.3` | **Branch** (long-lived while that stage is active) | **When you start that stage** — lazy, not upfront |
+| 3 — `v0.1.1` … | **Tag** (immutable checkpoint) | **When a Phase checkpoint passes** |
+
+### Why not pre-create all branches? / 为什么不要事先建好全部？
+
+**English**  
+Empty future branches (`v0.2`, `v0.3`, `v0.4`) add noise, go stale, and confuse “where do I commit?”. Create the stage branch when you actually start that work; save checkpoints with tags as you go.
+
+**简体中文**  
+提前建空的 `v0.2`/`v0.3`/`v0.4` 只会干扰「到底往哪提交」。**做到那个大阶段再开对应分支**；小阶段完成时用 **tag 保存**，不要每做完一小步就永久留一个第三层分支。
+
+### Why tags for the 3rd level? / 为什么第三层用 tag？
+
+Industry default: **branch = moving workline**, **tag = frozen milestone**.  
+业界常规：**分支继续往前改**，**tag 钉住历史检查点**（可回看、不改写）。
 
 ---
 
-## How to write future branch notes / 以后怎么写分支备注
+## Digit meanings / 各位数字含义
 
-When creating or pushing a milestone branch, update **this file** with a new section:
+`v{release}.{stage}.{checkpoint}`
 
-1. **English** — 2–4 sentences: what changed, what is *not* included, when to check it out.  
-2. **简体中文** — same content, plain language.  
-3. Tip commit hash + role in the `vX.Y.Z` scheme.
+| Digit | Meaning |
+|-------|---------|
+| 1st = `0` | Not App Store published yet |
+| 2nd = `0`–`3` | `0` planning; `1` key vault; `2` insights; `3` relay. **No `4`.** |
+| 3rd | Phase/revision checkpoint → recorded as a **tag** on the stage branch |
 
-Prompt templates live in each playbook folder: `05-annotate-branch.md` and `15-phase-push.md`.
+---
+
+## Current refs / 当前仓库状态
+
+### Stage branches（第 2 层 · 分支）
+
+#### `v0.0` — planning stage tip
+
+**English**  
+Long-lived tip of the planning/spec line. Points at the post-spec freeze (same commit as historical tag `v0.0.2`). Do not keep implementing product Phase code here.
+
+**简体中文**  
+规划/规格线的长期尖端。停在规格冻住点（与历史 tag `v0.0.2` 同提交）。不要在这里继续写产品 Phase 实现代码。
+
+#### `v0.1` — product stage 1 (current work)
+
+**English**  
+Active workline for key vault. Commit here daily. When Phase N passes, tag `v0.1.N` and push the tag — stay on `v0.1`.
+
+**简体中文**  
+密钥库大阶段的**当前工作分支**。日常提交都在这里。Phase N 通过后打 tag `v0.1.N` 并推送，**人仍留在 `v0.1` 上继续做**。
+
+### Checkpoint tags（第 3 层 · 标签）
+
+| Tag | Commit | English | 简体中文 |
+|-----|--------|---------|----------|
+| `v0.0.1` | `2cf6803` | Earliest engineering baseline | 最初工程基线 |
+| `v0.0.2` | `a62244d` | Specs/planning freeze @ 20:47 | 20:47 前规格快照 |
+| `v0.1.1` | *(tip of `v0.1` when tagged)* | Playbooks + Phase 1 scaffold checkpoint | playbooks + Phase 1 脚手架检查点 |
+
+### Deprecated / 已废弃的旧用法
+
+Older refs named `v0.0.1` / `v0.0.2` / `v0.1.1` **as branches** mixed layer-2 and layer-3. Prefer stage **branches** + checkpoint **tags** going forward.  
+以前把第三层也建成分支，会和第 2 层搅在一起；以后统一为「大阶段分支 + 小阶段 tag」。
+
+---
+
+## Workflow / 日常怎么做
+
+1. **Now**: work on `v0.1` only.  
+2. Finish a Phase → update this ledger (EN + 中文) → commit on `v0.1` → `git tag v0.1.N` → push branch + tag.  
+3. **Do not** create `v0.2` / `v0.3` until that ROADMAP stage starts.  
+4. **Do not** create `v0.4`.  
+5. **Do not** create an empty parent branch `v0` unless you later want it as a trunk alias.
+
+Playbook prompts: `05-annotate-branch.md`（写备注）→ `15-phase-push.md`（提交 + **打 tag** + 推送）。

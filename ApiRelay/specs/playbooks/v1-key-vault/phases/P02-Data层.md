@@ -30,6 +30,7 @@
 
 汇报：Checkpoint 2 是否通过（含 Production schema 证据说明）。
 
+
 ---
 
-Checkpoint 通过后：先贴 [`../05-annotate-branch.md`](../05-annotate-branch.md)，再贴 [`../15-phase-push.md`](../15-phase-push.md) 上传本 Phase 里程碑分支。
+Checkpoint 通过后：[`../05-annotate-branch.md`](../05-annotate-branch.md) → [`../15-phase-push.md`](../15-phase-push.md)（在大阶段分支上 commit，并打 **tag** 推送）。
