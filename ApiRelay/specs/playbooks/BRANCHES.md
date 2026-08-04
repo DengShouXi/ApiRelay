@@ -66,7 +66,7 @@ Start of **product stage 1** (key vault). Adds implement playbooks under `specs/
 
 | | |
 |--|--|
-| Tip commit | `c83f213` |
+| Tip commit | `d1be607`（含 BRANCHES / playbook 上传流程；此前脚手架为 `c83f213`） |
 | Role | Product stage 1, revision/Phase checkpoint 1（大阶段 1 · 小阶段/修订 1） |
 
 ---
