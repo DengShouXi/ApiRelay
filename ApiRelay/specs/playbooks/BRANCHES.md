@@ -38,7 +38,7 @@ v0 . 大阶段 . 小迭代
 | `v0.0.3` | （尚未创建）Next planning iteration when needed | 下一规划小迭代：写完再用 P03-save 上传 |
 | `v0.1` | Stage-1 workline tip | 大阶段 1 尖端 |
 | `v0.1.1` | Phase 1 iteration — engineering scaffold | 小迭代 1 — 工程配置 |
-| `v0.1.2` | Phase 2 Data layer — **current work**. Adds actor `KeychainStore` (no ACL), ten SwiftData models with synced+local configs, V1 repositories, and `PresetCatalog`. Does **not** include vault UI, gates, StoreKit, or CloudKit Production deploy (T014b still human). Check out when you need Data-layer code without Phase 3+ UI. | 小迭代 2 — Data 层（**当前**）。含 actor KeychainStore（无 ACL）、十实体双配置、V1 Repository、PresetCatalog。不含保管 UI/门闩/StoreKit；T014b CloudKit Production 部署仍需人工。需要 Data 层代码、不要 Phase 3+ UI 时检出。 |
+| `v0.1.2` | Phase 2 Data layer — **current work** @ `d89f4e3`. Adds actor `KeychainStore` (no ACL), ten SwiftData models with synced+local configs, V1 repositories, and `PresetCatalog`. Does **not** include vault UI, gates, StoreKit, or CloudKit Production deploy (T014b still human). Check out when you need Data-layer code without Phase 3+ UI. | 小迭代 2 — Data 层（**当前**）@ `d89f4e3`。含 actor KeychainStore（无 ACL）、十实体双配置、V1 Repository、PresetCatalog。不含保管 UI/门闩/StoreKit；T014b CloudKit Production 部署仍需人工。需要 Data 层代码、不要 Phase 3+ UI 时检出。 |
 
 ---
 
