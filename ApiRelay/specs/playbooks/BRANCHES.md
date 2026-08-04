@@ -1,61 +1,61 @@
 # 分支迭代台账（统一规则）
 
-**只用一种结构：三层都是 Git 分支，按迭代往前走。不用 tag 做版本里程碑。**
+**只用一种结构：三层都是 Git 分支，按小迭代往前走。不用 tag 做版本里程碑。**
 
-产品范围仍看 [ROADMAP.md](../ROADMAP.md)。
+**硬规则：每一个小阶段写完，都必须打对应小迭代分支并上传（规划线 `v0.0.N` 与产品线 `v0.1.N` / `v0.2.N` / `v0.3.N` 相同）。**
+
+产品范围：[ROADMAP.md](../ROADMAP.md)
 
 ---
 
-## 怎么记（就这一套）
+## 怎么记
 
 ```text
-v0.大阶段.小迭代
- │   │      └── 第 3 位：小阶段迭代（做到 Phase N 就开/推 v0.1.N）
- │   └───────── 第 2 位：大阶段（0 规划 / 1 密钥库 / 2 用量 / 3 中转）
- └───────────── 第 1 位：0 = 还没正式上架
+v0 . 大阶段 . 小迭代
+      0 规划
+      1 密钥库
+      2 用量
+      3 中转
 ```
 
-| 名字 | 是什么 | 何时出现 |
-|------|--------|----------|
-| `v0.0` | 规划大阶段线 | 已有 |
-| `v0.0.1` → `v0.0.2` | 规划小迭代 | 已有 |
-| `v0.1` | 产品第 1 大阶段线 | 已有 |
-| `v0.1.1` → `v0.1.8` | 第 1 大阶段里的小迭代 | 做到再开；现在到 `v0.1.1` |
-| `v0.2` / `v0.2.N` | 第 2 大阶段 | **做到再创建** |
-| `v0.3` / `v0.3.N` | 第 3 大阶段 | **做到再创建** |
-| `v0.4…` | — | **不做**（ROADMAP 只有三大产品阶段） |
+| 写完什么 | 打开哪个 save | 推到哪个分支 |
+|----------|---------------|--------------|
+| 规划小阶段 N | `v0-planning/phases/P0N-save.md` | `v0.0.N`（例：`v0.0.3`） |
+| 产品 V1 Phase N | `v1-key-vault/phases/P0N-save.md` | `v0.1.N` |
+| 产品 V2 Phase N | `v2-usage-insights/phases/P0N-save.md` | `v0.2.N` |
+| 产品 V3 Phase N | `v3-relay-service/phases/P0N-save.md` | `v0.3.N` |
 
-日常记忆：
-
-1. 正在写代码 → 待在当前小迭代分支（现在是 `v0.1.1`）  
-2. 本 Phase 过关 → 按 `P0N-save.md` 推这个小迭代；需要时把 `v0.1` 快进到同一点  
-3. 下一 Phase → 开下一个小迭代（如 `v0.1.2`）继续  
+每次 save 还必须：更新本文件 **English → 简体中文** 备注。
 
 ---
 
-## 当前仓库里有哪些迭代分支
+## 当前分支
 
-| 分支 | 含义（English） | 含义（简体中文） |
-|------|-----------------|------------------|
+| 分支 | English | 简体中文 |
+|------|---------|----------|
 | `v0.0.1` | Earliest engineering baseline | 最初工程基线 |
-| `v0.0.2` / `v0.0` | Specs/planning freeze | 规格/规划冻住点 |
-| `v0.1` | Stage-1 workline tip | 大阶段 1 工作线尖端 |
-| `v0.1.1` | Phase 1 iteration（current） | 小迭代 1（当前干活） |
+| `v0.0.2` / `v0.0` | Specs/planning freeze @ ~20:47 | 规格/规划冻住 |
+| `v0.0.3` | （尚未创建）Next planning iteration when needed | 下一规划小迭代：写完再用 P03-save 上传 |
+| `v0.1` | Stage-1 workline tip | 大阶段 1 尖端 |
+| `v0.1.1` | Phase 1 iteration — **current work** | 小迭代 1 — **当前** |
+| `v0.1.2` | （下一产品小迭代） | Phase 2 写完后用 P02-save 上传 |
 
 ---
 
-## 测试怎么跟迭代对齐
+## 测试隔离
 
 | 路径 | 说明 |
 |------|------|
 | `ApiRelay/ApiRelay/` | 正式代码 |
-| `ApiRelay/ApiRelayTests/V1/Phase0N_*/` | 与 `v0.1.N` 一一对应的测试 |
+| `ApiRelay/ApiRelayTests/V0/Phase*/` | 规划迭代（可空） |
+| `ApiRelay/ApiRelayTests/V1/Phase*/` | 与 `v0.1.N` 对应 |
 | `ApiRelay/DebugScratch/` | 本地乱写，不上传 |
-
-详见 `ApiRelay/ApiRelayTests/README.md`。
 
 ---
 
-## Playbook
+## Playbook 入口
 
-每个小迭代：实现用 `P0N-某某.md`，保存上传用 `P0N-save.md` → 推到 **`v0.Y.N` 分支**。
+- 规划：[`v0-planning/00-README.md`](./v0-planning/00-README.md)  
+- V1：[`v1-key-vault/00-README.md`](./v1-key-vault/00-README.md)  
+- V2 / V3：对应目录 `00-README.md`  
+- 总览：[`README.md`](./README.md)
