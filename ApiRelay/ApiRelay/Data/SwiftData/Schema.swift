@@ -40,13 +40,35 @@ enum AppSchema: Sendable {
         Schema(localModels)
     }
 
-    /// 生产容器：synced → CloudKit private DB；local → 本机。
+    /// 生产容器。当前默认本机双配置（T014b / 付费开发者账号开通前）。
+    /// 开通 iCloud 容器并 Deploy Production 后，再切回 `makeCloudKitContainer()`。
     @MainActor
     static func makeProductionContainer() throws -> ModelContainer {
+        try makeLocalDiskContainer()
+    }
+
+    /// CloudKit private DB + local（需付费账号与 T014b）。
+    @MainActor
+    static func makeCloudKitContainer() throws -> ModelContainer {
         let synced = ModelConfiguration(
             "synced",
             schema: syncedSchema,
             cloudKitDatabase: .private(cloudKitContainerID)
+        )
+        let local = ModelConfiguration(
+            "local",
+            schema: localSchema,
+            cloudKitDatabase: .none
+        )
+        return try ModelContainer(for: fullSchema, configurations: synced, local)
+    }
+
+    /// 无 CloudKit 的本机持久化双配置（开发期 / 无付费账号回退）。
+    nonisolated static func makeLocalDiskContainer() throws -> ModelContainer {
+        let synced = ModelConfiguration(
+            "synced",
+            schema: syncedSchema,
+            cloudKitDatabase: .none
         )
         let local = ModelConfiguration(
             "local",

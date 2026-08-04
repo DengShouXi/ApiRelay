@@ -69,19 +69,23 @@ struct KeyRecordDraft: Sendable {
     var secretLength: Int?
 }
 
+typealias KeyDraft = KeyRecordDraft
+
 struct KeyRecordPatch: Sendable {
-    var displayName: String?
-    var maskedHint: String?
-    var lifecycle: KeyLifecycle?
-    var spendLimit: Decimal?
-    var notes: String?
-    var deletedAt: Date?
-    var purgeAfter: Date?
-    var healthState: KeyHealthState?
-    var lastCheckedAt: Date?
-    var lastCheckNote: String?
-    var secretLength: Int?
+    var displayName: String? = nil
+    var maskedHint: String? = nil
+    var lifecycle: KeyLifecycle? = nil
+    var spendLimit: Decimal? = nil
+    var notes: String? = nil
+    var deletedAt: Date? = nil
+    var purgeAfter: Date? = nil
+    var healthState: KeyHealthState? = nil
+    var lastCheckedAt: Date? = nil
+    var lastCheckNote: String? = nil
+    var secretLength: Int? = nil
 }
+
+typealias KeyPatch = KeyRecordPatch
 
 // MARK: - Entitlement snapshot
 

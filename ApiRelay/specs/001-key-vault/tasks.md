@@ -113,6 +113,8 @@
       按 data-model §7.1 逐项核对 Production 侧全部 record types 与预留字段
       （尤其 `APIKeyRecord.healthState` / `lastCheckedAt` / `lastCheckNote`）。
       **仅 Development 可见不算通过。** 将核对结果记入 PR / 提交说明。
+      **延期（2026-08-04）**：尚未开通 Apple Developer Program；本机开发先继续 Phase 3+。
+      建议在 Phase 7 完成、首次真机 iCloud 联调或 TestFlight 之前补做；编号保留不删。
 
 **Checkpoint 2**：Keychain 读写在真机通过（含 iCloud 钥匙串开启态）；SwiftData 容器可初始化；
 **CloudKit Dashboard → Production 侧**可见 §7.1 全部 record types（T014b）；
@@ -124,73 +126,73 @@
 
 ### 门闩（四档）
 
-- [ ] **T015** `Business/Vault/RevealGateServing.swift` + `RevealGate.swift`：按 contracts §3.2 实现。
+- [x] **T015** `Business/Vault/RevealGateServing.swift` + `RevealGate.swift`：按 contracts §3.2 实现。
       四档 `RevealPolicy`：`biometricOrPasscode`（`LAPolicy.deviceOwnerAuthentication`）、
       `biometricOnly`（`...WithBiometrics`）、`masterPassword`、`none`。
       `availableBiometry()` 返回 faceID / touchID / none。
       **MUST NOT 跨操作缓存确认结果。**
-- [ ] **T016** `Business/System/MasterPasswordService.swift`：`CommonCrypto` 的
+- [x] **T016** `Business/System/MasterPasswordService.swift`：`CommonCrypto` 的
       `CCKeyDerivationPBKDF` + SHA256，随机 16 字节 salt，迭代次数校准到约 100ms；
       校验用**恒定时间比较**。存 Keychain `masterpw` Service，**不同步**（FR-038）。
       **主密码仅用于门闩校验，MUST NOT 用于加密任何数据**（research §1.2）。
-- [ ] **T017** 主密码的设置、修改与**重置路径**：经生物识别或设备密码确认后可重置（FR-037）。
+- [x] **T017** 主密码的设置、修改与**重置路径**：经生物识别或设备密码确认后可重置（FR-037）。
       设置界面 MUST 明确告知该重置路径存在——**主密码的实际强度不高于设备密码，
       MUST NOT 让用户误以为它不可绕过**（宪法 IX）。
-- [ ] **T018** [P] `ApiRelayTests/RevealGateTests.swift`：`policy == .none` 时不调用 `LAContext`；
+- [x] **T018** [P] `ApiRelayTests/RevealGateTests.swift`：`policy == .none` 时不调用 `LAContext`；
       无生物识别设备上 `biometricOnly` 返回 `biometryUnavailable`；未设主密码时
       `masterPassword` 档不可用。
-- [ ] **T019** [P] `ApiRelayTests/MasterPasswordServiceTests.swift`：正确/错误口令的校验结果；
+- [x] **T019** [P] `ApiRelayTests/MasterPasswordServiceTests.swift`：正确/错误口令的校验结果；
       salt 每次设置都不同；派生结果不可逆；重置后旧口令失效。
 
 ### 剪贴板
 
-- [ ] **T020** `Business/Vault/ClipboardServing.swift` + `SecureClipboard.swift`：
+- [x] **T020** `Business/Vault/ClipboardServing.swift` + `SecureClipboard.swift`：
       `UIPasteboard` + `.expirationDate` + `.localOnly`。
       `clearIfStillOurs()` 兜底清除 **MUST 先校验剪贴板内容仍是本产品写入的那一份**，
       否则会误清用户后续复制的内容（FR-005）。
 
 ### 保管服务
 
-- [ ] **T021** `Business/Vault/KeyVaultServing.swift`：按 contracts §3.1 定义 protocol
+- [x] **T021** `Business/Vault/KeyVaultServing.swift`：按 contracts §3.1 定义 protocol
       （含 `readSecretForAutomatedUse`；T009a 若已建则对齐签名）。
       V2 相关方法（`issueKey` 等）不在本 protocol 内，属 `ProviderKeyServing`。
-- [ ] **T022** `Business/Vault/KeyVaultService.swift`：账号与密钥 CRUD；
+- [x] **T022** `Business/Vault/KeyVaultService.swift`：账号与密钥 CRUD；
       **`revealSecret` 与 `copySecretToClipboard` 是面向用户取出明文的唯一入口，
       内部串联门闩→Keychain→剪贴板**，UI 层不得自行拼装这三步。
       `readSecretForAutomatedUse` MUST NOT 调用门闩；V1 可先实现为读取 Keychain 或
       明确抛「V2 才启用」，但签名必须存在。
-- [ ] **T023** 免费额度校验：`remainingFreeQuota()` 与 `createKey` 前置检查，
+- [x] **T023** 免费额度校验：`remainingFreeQuota()` 与 `createKey` 前置检查，
       超限抛 `quotaExceededFreeTier(limit: 3)`（FR-026）。
-- [ ] **T024** 回收站删除与级联（FR-006 / DC-029）：`deleteKey` = `softDeleted` + 写
+- [x] **T024** 回收站删除与级联（FR-006 / DC-029）：`deleteKey` = `softDeleted` + 写
       `deletedAt` / `purgeAfter(=+30天)` + **保留 Keychain** + **保留 KeyAssignment**；
       删除账号级联将其下密钥移入回收站。`restoreKey` / `permanentlyDeleteKey` /
       `recentlyDeletedKeys` / `purgeExpiredDeletedKeys` 按 contracts §3.1。
       进入回收站 / 恢复 / 立即删除 MUST 经 `confirmMandatory`。
-- [ ] **T024a** 「最近删除」UI：列表展示剩余天数；恢复 / 立即删除；入口放在设置或保险库
+- [x] **T024a** 「最近删除」UI：列表展示剩余天数；恢复 / 立即删除；入口放在设置或保险库
       次级页面。主列表 MUST NOT 出现回收站密钥。
-- [ ] **T025** 启动时巡检：① 孤儿（元信息有而 Keychain 无 → `secretAvailable = false`；
+- [x] **T025** 启动时巡检：① 孤儿（元信息有而 Keychain 无 → `secretAvailable = false`；
       Keychain 有而元信息无 → 提示）；② **`purgeExpiredDeletedKeys()`** 永久清除到期项。
-- [ ] **T026** [P] `ApiRelayTests/KeyVaultServiceTests.swift`：额度边界（第 3 把成功 / 第 4 把被拒 /
+- [x] **T026** [P] `ApiRelayTests/KeyVaultServiceTests.swift`：额度边界（第 3 把成功 / 第 4 把被拒 /
       移入回收站后可再建）、`revealSecret` 必经门闩、**回收站期间 Keychain 仍在**、
       恢复后可复制、永久清除后 Keychain 已移除、`purgeAfter` 过期后被清理。
 
 ### UI
 
-- [ ] **T027** `UI/Vault/`：平台分组的密钥列表，**只显示掩码**；`secretAvailable == false`
+- [x] **T027** `UI/Vault/`：平台分组的密钥列表，**只显示掩码**；`secretAvailable == false`
       时显示「本机暂无明文」状态（FR-002、FR-033）。
-- [ ] **T028** 账号与密钥的新建/编辑表单，含名称校验与掩码生成
+- [x] **T028** 账号与密钥的新建/编辑表单，含名称校验与掩码生成
       （`maskedHint` **MUST NOT 存足以还原明文的内容**）。
-- [ ] **T028a** **密钥录入正确性**（FR-056、FR-057 / SC-012）：
+- [x] **T028a** **密钥录入正确性**（FR-056、FR-057 / SC-012）：
       - 密钥输入控件 MUST 关闭自动更正、自动大写、智能标点/智能引号。
       - 保存前去除首尾空白；含空格/制表符/换行 MUST 拒绝并说明原因。
       - 长度明显异常时提醒但 MUST NOT 阻止保存。
       - 同一上游账号下已存在**末 4 位与 `secretLength` 都相同**的密钥时，提示可能重复并指出是哪一条，
         用户确认后才继续。**MUST NOT** 存储明文哈希或任何派生物（宪法 VII）。
       - 单测或手工验收覆盖 SC-012（智能标点环境粘贴含 `-` 的密钥）。
-- [ ] **T029** 「查看明文」与「复制」接入 `KeyVaultServing`；复制成功后展示剩余清除时间；
+- [x] **T029** 「查看明文」与「复制」接入 `KeyVaultServing`；复制成功后展示剩余清除时间；
       明文 **MUST NOT 存为 `@Published`**（宪法 VII）。
-- [ ] **T030** 额度超限时的引导界面（说明「免费版最多 3 把」+ 解锁入口）。
-- [ ] **T031** 主密码输入界面（作为门闩的一档）与设置/修改/重置流程界面。
+- [x] **T030** 额度超限时的引导界面（说明「免费版最多 3 把」+ 解锁入口）。
+- [x] **T031** 主密码输入界面（作为门闩的一档）与设置/修改/重置流程界面。
 
 **Checkpoint 3（V1 已具备独立产品价值）**：能录入、掩码展示、按四档中任一方式验证后查看/复制、
 剪贴板 2 分钟后自动清除（含杀死 App 后仍生效）、免费 3 把上限生效。

@@ -8,22 +8,13 @@ import SwiftData
 
 @main
 struct ApiRelayApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        do {
-            if isTesting {
-                return try AppSchema.makeInMemoryContainer()
-            }
-            return try AppSchema.makeProductionContainer()
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    @StateObject private var environment = AppEnvironment.bootstrap()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(environment)
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(environment.modelContainer)
     }
 }

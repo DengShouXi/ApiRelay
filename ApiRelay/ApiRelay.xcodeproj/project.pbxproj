@@ -6,6 +6,16 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		D1D1136A0218B3F0AAAA0009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B62E135130218B3F002E0DE6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B62E135830218B3F002E0DE6;
+			remoteInfo = ApiRelay;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		B62E135930218B3F002E0DE6 /* ApiRelay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ApiRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1D113590218B3F0AAAA0001 /* ApiRelayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ApiRelayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -185,16 +195,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXContainerItemProxy section */
-		D1D1136A0218B3F0AAAA0009 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B62E135130218B3F002E0DE6 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B62E135830218B3F002E0DE6;
-			remoteInfo = ApiRelay;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
 		D1D1136B0218B3F0AAAA000A /* PBXTargetDependency */ = {

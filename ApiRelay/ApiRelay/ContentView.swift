@@ -1,24 +1,26 @@
-//
-//  ContentView.swift
-//  ApiRelay
-//
-//  Phase 2 占位：正式 Vault UI 在 Phase 3。
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject private var environment: AppEnvironment
+
     var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "ApiRelay",
-                systemImage: "key.fill",
-                description: Text("vault.placeholder.description")
-            )
-        }
+        VaultRoot(environment: environment)
+    }
+}
+
+private struct VaultRoot: View {
+    @StateObject private var viewModel: VaultHomeViewModel
+
+    init(environment: AppEnvironment) {
+        _viewModel = StateObject(wrappedValue: VaultHomeViewModel(environment: environment))
+    }
+
+    var body: some View {
+        VaultHomeView(viewModel: viewModel)
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(AppEnvironment.bootstrap())
 }

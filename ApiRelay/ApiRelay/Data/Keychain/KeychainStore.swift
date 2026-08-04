@@ -16,9 +16,12 @@ actor KeychainStore: KeychainStoring {
     static let masterPasswordAccount = UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
 
     private let accessGroup: String?
+    /// 单元测试宿主常缺 iCloud Keychain entitlement；为 true 时全部 Service 不写 synchronizable。
+    private let disableSynchronizableForTesting: Bool
 
-    init(accessGroup: String? = nil) {
+    init(accessGroup: String? = nil, disableSynchronizableForTesting: Bool = false) {
         self.accessGroup = accessGroup
+        self.disableSynchronizableForTesting = disableSynchronizableForTesting
     }
 
     // MARK: - Service 配置
@@ -40,6 +43,7 @@ actor KeychainStore: KeychainStoring {
     }
 
     private func isSynchronizable(for service: KeychainService) -> Bool {
+        if disableSynchronizableForTesting { return false }
         switch service {
         case .keys, .admin: return true
         case .masterpw:     return false

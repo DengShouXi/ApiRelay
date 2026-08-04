@@ -86,6 +86,28 @@ actor APIKeyRecordRepository {
         try modelContext.save()
     }
 
+    /// 弱重复：同账号、相同末 4 位掩码、相同 secretLength（FR-057）。
+    func findWeakDuplicate(accountId: UUID, last4: String, length: Int) throws -> UUID? {
+        let all = try modelContext.fetch(FetchDescriptor<APIKeyRecord>())
+        return all.first {
+            $0.accountId == accountId
+                && $0.lifecycle != KeyLifecycle.softDeleted.rawValue
+                && $0.maskedHint == last4
+                && $0.secretLength == length
+        }?.id
+    }
+
+    func clearDeletionMarks(id: UUID) throws {
+        guard let model = try fetchModel(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        model.lifecycle = KeyLifecycle.active.rawValue
+        model.deletedAt = nil
+        model.purgeAfter = nil
+        model.updatedAt = Date()
+        try modelContext.save()
+    }
+
     private func fetchModel(id: UUID) throws -> APIKeyRecord? {
         var descriptor = FetchDescriptor<APIKeyRecord>(
             predicate: #Predicate { $0.id == id }
