@@ -43,6 +43,7 @@ v0 . 大阶段 . 小迭代
 | `v0.1.5` | Phase 5 entitlements: StoreKit 2 service, DEBUG override, restore, paywall, StoreKit config (`com.apirelay.iap.unlimited_keys`, family shareable) | 小迭代 5 — 付费解锁 |
 | `v0.1.6` | Phase 6 settings: PreferencesService (FR-060 split), SecureBackup AES-GCM with purpose/scope, eraseAllUserData, Settings UI | 小迭代 6 — 设置与加密备份 |
 | `v0.1.7` | Phase 7 Catalyst: default 900×700 / min 800×600, Commands ⌘, / ⌘N, context menus, biometricOnly auto-disable | 小迭代 7 — Catalyst |
+| `v0.2` | Stage-2 workline created from accepted v0.1 tip. No v0.2.1 yet — open after V2 Phase 1. | 大阶段 2 已从 v0.1 尖端创建。尚未建 v0.2.1（等 V2 Phase 1 完成再用 P01-save）。 |
 | `v0.1.8` | Phase 8 security review automation + V1 engineering closeout. **current**. T062 main merge/tag awaiting explicit auth. T014b still deferred until Developer Program. | 小迭代 8 — 安全审查收尾（**当前**）。T062 待授权；T014b 仍延期 |
 
 ---
