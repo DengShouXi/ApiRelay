@@ -49,6 +49,9 @@ venv/
 # Vendored Spec Kit upstream tree (project uses ApiRelay/.specify/ already)
 ApiRelay/spec-kit-0.15.2/
 
+# Local throwaway experiments (never upload)
+ApiRelay/DebugScratch/
+
 # CocoaPods
 #
 # We recommend against adding the Pods directory to your .gitignore. However
