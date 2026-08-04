@@ -179,23 +179,23 @@ enum GroupingMode: String, Sendable {
 /// 实现 MUST：`appearance` / `defaultGrouping` / 窗口尺寸 → `DevicePreferences`；
 /// 其余安全相关字段 → `UserPreferences`（FR-060）。
 struct PreferencesPatch: Sendable {
-    var appLockEnabled: Bool?
-    var autoLockSeconds: Int?
-    var revealPolicy: RevealPolicy?
-    var clipboardClearSeconds: Int?
-    var clipboardLocalOnly: Bool?
-    var hideInAppSwitcher: Bool?
-    var refreshIntervalMinutes: Int?
-    var displayCurrency: String?
-    var usdToDisplayRate: Decimal?
-    var notifyLowBalance: Bool?
-    var notifyKeyRevoked: Bool?
-    var notifyWeeklyDigest: Bool?
-    var lowBalanceThreshold: Decimal?
-    var appearance: AppearancePreference?
-    var defaultGrouping: GroupingMode?
-    var lastWindowWidth: Double?
-    var lastWindowHeight: Double?
+    var appLockEnabled: Bool? = nil
+    var autoLockSeconds: Int? = nil
+    var revealPolicy: RevealPolicy? = nil
+    var clipboardClearSeconds: Int? = nil
+    var clipboardLocalOnly: Bool? = nil
+    var hideInAppSwitcher: Bool? = nil
+    var refreshIntervalMinutes: Int? = nil
+    var displayCurrency: String? = nil
+    var usdToDisplayRate: Decimal? = nil
+    var notifyLowBalance: Bool? = nil
+    var notifyKeyRevoked: Bool? = nil
+    var notifyWeeklyDigest: Bool? = nil
+    var lowBalanceThreshold: Decimal? = nil
+    var appearance: AppearancePreference? = nil
+    var defaultGrouping: GroupingMode? = nil
+    var lastWindowWidth: Double? = nil
+    var lastWindowHeight: Double? = nil
 }
 
 // MARK: - 门闩与剪贴板
@@ -203,6 +203,7 @@ struct PreferencesPatch: Sendable {
 enum RevealPolicy: String, Sendable {
     case biometricOrPasscode   // LAPolicy.deviceOwnerAuthentication（默认）
     case biometricOnly         // LAPolicy.deviceOwnerAuthenticationWithBiometrics
+    case masterPassword        // 应用层主密码（FR-003 / FR-038）
     case none                  // 不验证
 }
 

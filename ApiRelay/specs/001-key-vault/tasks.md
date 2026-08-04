@@ -75,18 +75,18 @@
 
 ### Keychain
 
-- [ ] **T010** `Data/Keychain/KeychainStore.swift`：实现 `KeychainStoring`，声明为 **`actor`**
+- [x] **T010** `Data/Keychain/KeychainStore.swift`：实现 `KeychainStoring`，声明为 **`actor`**
       （工程默认 MainActor 隔离，不显式声明会拖到主线程）。
       Service 分三类：`keys`（WhenUnlocked + synchronizable）、`admin`（AfterFirstUnlock +
       synchronizable，V1 不用但一次性定义）、`masterpw`（WhenUnlockedThisDeviceOnly + **不同步**）。
       **⚠️ MUST NOT 设置 `kSecAttrAccessControl`——它与 `kSecAttrSynchronizable` 互斥并返回
       `errSecParam`。这是本项目最容易被违反的一条约束。**
-- [ ] **T011** [P] `ApiRelayTests/KeychainStoreTests.swift`：覆盖 save/read/delete/listAccounts；
+- [x] **T011** [P] `ApiRelayTests/KeychainStoreTests.swift`：覆盖 save/read/delete/listAccounts；
       **专项断言：同时设置 ACL 与 synchronizable 会失败**——把这条互斥关系固化为测试，防止回归。
 
 ### SwiftData
 
-- [ ] **T012** `Data/SwiftData/Models/`：按 data-model §3 定义**全部十个实体**——
+- [x] **T012** `Data/SwiftData/Models/`：按 data-model §3 定义**全部十个实体**——
       `UpstreamAccount`、`APIKeyRecord`、`ConsumerTool`、**`KeyAssignment`（多对多中间表）**、
       `UsageSnapshot`、`BalanceSnapshot`、`PricingRule`、`UserPreferences`、
       **`DevicePreferences`（local，不同步）**、`EntitlementSnapshot`
@@ -96,15 +96,15 @@
       **全部同步属性 MUST optional 或带默认值**（CloudKit 约束）。
       **⚠️ `APIKeyRecord` MUST NOT 有 `consumerToolId` 字段**——指派是多对多，走 `KeyAssignment`。
       **⚠️ `appearance` / `defaultGrouping` MUST NOT 放进 `UserPreferences`**——它们属于 `DevicePreferences`。
-- [ ] **T013** `Data/SwiftData/Schema.swift`：`synced`（CloudKit private DB，容器
+- [x] **T013** `Data/SwiftData/Schema.swift`：`synced`（CloudKit private DB，容器
       `iCloud.com.apirelay.ApiRelay`）+ `local`（`EntitlementSnapshot` + **`DevicePreferences`**，
       `cloudKitDatabase: .none`）双 `ModelConfiguration`，加 `SchemaMigrationPlan` 骨架（v1）。
-- [ ] **T014** [P] `Data/SwiftData/Repositories/`：V1 所需的 Repository
+- [x] **T014** [P] `Data/SwiftData/Repositories/`：V1 所需的 Repository
       （`UpstreamAccount`、`APIKeyRecord`、`ConsumerTool`、`KeyAssignment`、`UserPreferences`、
       **`DevicePreferences`**、`EntitlementSnapshot`）。`KeyAssignment` 的读取 MUST 按
       `(keyId, consumerToolId)` 去重（CloudKit 无唯一约束，同步竞态会产生重复行）。
       **MUST NOT 向上层泄露 `ModelContext`**（宪法 I）。
-- [ ] **T014a** [P] `Business/Vault/PresetCatalog.swift`：两类预置清单作为**内置常量**——
+- [x] **T014a** [P] `Business/Vault/PresetCatalog.swift`：两类预置清单作为**内置常量**——
       上游平台（OpenAI、Claude、Google、OpenRouter、DeepSeek、阿里百炼、火山引擎、硅基流动）
       与使用方工具（CL-003 定稿）。
       **MUST NOT 持久化为用户数据**；应用更新扩充清单时 MUST NOT 覆盖或删除用户自建项（FR-007a）。

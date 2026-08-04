@@ -108,6 +108,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				D1D1136B0218B3F0AAAA000A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				D1D1135B30218B3F0AAAA0008 /* ApiRelayTests */,
@@ -184,6 +185,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		D1D1136A0218B3F0AAAA0009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B62E135130218B3F002E0DE6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B62E135830218B3F002E0DE6;
+			remoteInfo = ApiRelay;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		D1D1136B0218B3F0AAAA000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B62E135830218B3F002E0DE6 /* ApiRelay */;
+			targetProxy = D1D1136A0218B3F0AAAA0009 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		B62E136830218B40002E0DE6 /* Debug */ = {
@@ -397,6 +416,7 @@
 		D1D113680218B3F0AAAA0006 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8NDLKZ4SSF;
@@ -413,6 +433,9 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
+				"TEST_HOST[sdk=iphoneos*]" = "$(BUILT_PRODUCTS_DIR)/ApiRelay.app/ApiRelay";
+				"TEST_HOST[sdk=iphonesimulator*]" = "$(BUILT_PRODUCTS_DIR)/ApiRelay.app/ApiRelay";
+				"TEST_HOST[sdk=macosx*]" = "$(BUILT_PRODUCTS_DIR)/ApiRelay.app/Contents/MacOS/ApiRelay";
 				XROS_DEPLOYMENT_TARGET = 26.5;
 			};
 			name = Debug;
@@ -420,6 +443,7 @@
 		D1D113690218B3F0AAAA0007 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8NDLKZ4SSF;
@@ -436,6 +460,9 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
+				"TEST_HOST[sdk=iphoneos*]" = "$(BUILT_PRODUCTS_DIR)/ApiRelay.app/ApiRelay";
+				"TEST_HOST[sdk=iphonesimulator*]" = "$(BUILT_PRODUCTS_DIR)/ApiRelay.app/ApiRelay";
+				"TEST_HOST[sdk=macosx*]" = "$(BUILT_PRODUCTS_DIR)/ApiRelay.app/Contents/MacOS/ApiRelay";
 				XROS_DEPLOYMENT_TARGET = 26.5;
 			};
 			name = Release;
