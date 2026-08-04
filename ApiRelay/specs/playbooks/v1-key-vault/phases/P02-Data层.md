@@ -29,3 +29,7 @@
 - **未完成 T014b MUST NOT 进入 Phase 3。**
 
 汇报：Checkpoint 2 是否通过（含 Production schema 证据说明）。
+
+---
+
+Checkpoint 通过后：先贴 [`../05-annotate-branch.md`](../05-annotate-branch.md)，再贴 [`../15-phase-push.md`](../15-phase-push.md) 上传本 Phase 里程碑分支。

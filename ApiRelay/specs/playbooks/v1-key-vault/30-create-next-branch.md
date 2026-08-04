@@ -1,27 +1,22 @@
-# V1 完成后 — 创建下一版本分支提示词
-
-V1 已合并进 `main`（或你已确认 main 含 V1）后，把下面整段复制给 Cursor。
+# V1 完成后 — 创建 V2 起点分支提示词
 
 ---
 
-请按 ROADMAP 约定，为 **V2** 创建功能分支。
+请创建产品第 2 大阶段的起点分支并准备推送。
 
-## 目标
+## 目标名
 
-- 从最新 **`main`** 创建并推送分支：`002-usage-insights`
-- 不要在这个分支上开始写业务代码（除非我接着贴 V2 的 Phase 提示词）
+`v0.2.1`（未上架 · 大阶段 2 · 第 1 个小检查点）
 
 ## 步骤
 
-1. `git fetch origin`；确认 `main` 已包含 V1（或说明差距）。
-2. `git checkout main` && `git pull`（若有远程）。
-3. `git checkout -b 002-usage-insights`
-4. （可选）在 `ApiRelay/specs/002-usage-insights/` 放一个简短 `README.md`，写明「增量规格待 `/speckit-specify` / plan / tasks」——**不要**改 `001-key-vault` 的已定稿决策编号。
-5. `git push -u origin 002-usage-insights`（推送前先问我确认）。
+1. 确认 V1 侧最新里程碑（如 `v0.1.8`）已验收并已在远程。  
+2. 从该提交检出：`git checkout -b v0.2.1`（不要从过期的 `v0.0.x` 切出漏掉 V1 实现）。  
+3. 先贴/执行 `05-annotate-branch.md` 的要求，为 `v0.2.1` 写英+中备注到 `BRANCHES.md`。  
+4. 经我确认后 commit（若有占位文件）并 `git push -u origin v0.2.1`。  
+5. 提示打开 `40-checkout-next-branch.md`，以及 `../v2-usage-insights/00-README.md`。
 
 ## 不要做
 
-- 不要从旧的 `001-key-vault` 直接分支（避免漏掉 merge 进 main 的修复）
-- 不要删除 `001-key-vault` 分支（除非我要求）
-
-完成后提示我打开 `40-checkout-next-branch.md`。
+- 不要删除 `v0.1.*`  
+- 不要在本步骤实现 V2 业务（除非我接着贴 V2 Phase 提示词）  

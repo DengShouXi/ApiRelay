@@ -1,5 +1,3 @@
-# V3 — 上传（push）提示词
+# V3 — 大阶段收尾上传提示词
 
----
-
-请上传 **`003-relay-service`**：先展示变更，经我确认后 commit / push；可选 PR 合并 main 与打 tag。禁止 force push。
+核对远程 `v0.3.*` 与 `BRANCHES.md`。ROADMAP 无 V4；收尾见 `30-create-next-branch.md`（回稳定线/打 tag，不建 v0.4）。

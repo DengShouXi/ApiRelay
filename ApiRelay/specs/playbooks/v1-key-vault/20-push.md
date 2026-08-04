@@ -1,23 +1,15 @@
-# V1 — 上传（push）提示词
+# V1 — 大阶段收尾上传提示词
 
-V1 验收通过后，把下面整段复制给 Cursor。**仅在你明确要求提交/推送时执行 git 写操作。**
+V1 全量 `10-verify` 通过后使用。日常每个 Phase 请用 [`15-phase-push.md`](./15-phase-push.md)。
 
 ---
 
-请帮我把 **V1（分支 `001-key-vault`）** 上传到远程。
+请核对 **产品第 1 大阶段（密钥库）** 在远程已完整可见。
 
-## 步骤（按序，遇到需确认处先问我）
+## 步骤
 
-1. `git status` / `git diff` / `git log -5`：说明将要包含的变更范围；**不要**提交密钥、`.env`、证书、含明文的调试文件。
-2. 若有未提交改动：先按我的确认创建 commit（conventional 风格，说明 V1 完成点）；**未经我同意不要 commit。**
-3. 确认当前分支是 `001-key-vault`，且已跟踪远程（必要时 `git push -u origin HEAD`）。
-4. 推送成功后报告：远程 URL、分支名、最新 commit hash。
-5. **可选（需我明确说「合并并打 tag」）**：开 PR 合并进 `main`，合并后打 tag（如 `v1.0.0-key-vault`）。V2 分支必须从**已含 V1 的 main**切出。
-
-## 不要做
-
-- 不要 force push
-- 不要改 git config
-- 不要开始 V2 实现
-
-完成后提示我打开 `30-create-next-branch.md`（若 main 已含 V1）或先完成合并再打开。
+1. 列出本地/远程 `v0.1.1` … `v0.1.8`（或已推到的最高位），对照 `tasks.md` Checkpoint。  
+2. 确认 `BRANCHES.md` 台账与真实分支一致（英+中）。  
+3. 若有未推提交：按我的确认 push；禁止 force push。  
+4. 报告默认分支是什么；若仍是已废弃的 `main`，说明如何改成当前工作分支（需我确认再改 GitHub 默认分支）。  
+5. **不要**自动开做 V2；提示打开 `30-create-next-branch.md`（下一里程碑应为 `v0.2.1`）。

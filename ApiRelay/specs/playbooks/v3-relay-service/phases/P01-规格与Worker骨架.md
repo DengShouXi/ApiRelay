@@ -13,3 +13,7 @@
 - 第二档 IAP 产品 ID 已预留：`com.apirelay.iap.relay`
 
 汇报：目录结构与技术决策摘要。
+
+---
+
+Checkpoint 通过后：[`../05-annotate-branch.md`](../05-annotate-branch.md) → [`../15-phase-push.md`](../15-phase-push.md)。
