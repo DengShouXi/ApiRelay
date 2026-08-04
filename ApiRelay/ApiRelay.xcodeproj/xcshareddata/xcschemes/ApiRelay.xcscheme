@@ -75,6 +75,9 @@
             ReferencedContainer = "container:ApiRelay.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <StoreKitConfigurationFileReference
+         identifier = "../../ApiRelay/Configuration/ApiRelay.storekit">
+      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
