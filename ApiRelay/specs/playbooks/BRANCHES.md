@@ -34,12 +34,16 @@ v0 . 大阶段 . 小迭代
 | 分支 | English | 简体中文 |
 |------|---------|----------|
 | `v0.0.1` | Earliest engineering baseline | 最初工程基线 |
-| `v0.0.2` / `v0.0` | Specs/planning freeze @ ~20:47 | 规格/规划冻住 |
-| `v0.0.3` | （尚未创建）Next planning iteration when needed | 下一规划小迭代：写完再用 P03-save 上传 |
+| `v0.0.2` / `v0.0` | Specs/planning freeze | 规格/规划冻住 |
 | `v0.1` | Stage-1 workline tip | 大阶段 1 尖端 |
-| `v0.1.1` | Phase 1 iteration — engineering scaffold | 小迭代 1 — 工程配置 |
-| `v0.1.2` | Phase 2 Data layer @ tip of prior iteration. Actor KeychainStore, ten SwiftData models, repositories, PresetCatalog. No vault UI. | 小迭代 2 — Data 层。KeychainStore、十实体、Repository、PresetCatalog。无保管 UI。 |
-| `v0.1.3` | Phase 3 vault — **current work**. RevealGate (4 policies), MasterPassword PBKDF2, SecureClipboard, KeyVaultService (quota/soft-delete/reveal/copy), Vault UI. Local store + non-sync Keychain until Developer Program / T014b. | 小迭代 3 — 保管与取出（**当前**）。四档门闩、主密码、剪贴板、KeyVaultService、Vault UI。在开通开发者账号/T014b 前用本机存储且 Keychain 暂不同步。 |
+| `v0.1.1` | Phase 1 engineering scaffold | 小迭代 1 — 工程配置 |
+| `v0.1.2` | Phase 2 Data layer (Keychain actor, 10 models, repos, PresetCatalog). T014b deferred. | 小迭代 2 — Data 层；T014b 延期 |
+| `v0.1.3` | Phase 3 vault: RevealGate, MasterPassword, clipboard, KeyVaultService, Vault UI | 小迭代 3 — 保管与取出 |
+| `v0.1.4` | Phase 4 grouping: shared KeyGrouping, consumer tools CRUD/seed, dual perspective UI, custom platform | 小迭代 4 — 指派与双视角 |
+| `v0.1.5` | Phase 5 entitlements: StoreKit 2 service, DEBUG override, restore, paywall, StoreKit config (`com.apirelay.iap.unlimited_keys`, family shareable) | 小迭代 5 — 付费解锁 |
+| `v0.1.6` | Phase 6 settings: PreferencesService (FR-060 split), SecureBackup AES-GCM with purpose/scope, eraseAllUserData, Settings UI | 小迭代 6 — 设置与加密备份 |
+| `v0.1.7` | Phase 7 Catalyst: default 900×700 / min 800×600, Commands ⌘, / ⌘N, context menus, biometricOnly auto-disable | 小迭代 7 — Catalyst |
+| `v0.1.8` | Phase 8 security review automation + V1 engineering closeout. **current**. T062 main merge/tag awaiting explicit auth. T014b still deferred until Developer Program. | 小迭代 8 — 安全审查收尾（**当前**）。T062 待授权；T014b 仍延期 |
 
 ---
 

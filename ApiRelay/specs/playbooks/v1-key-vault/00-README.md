@@ -1,7 +1,7 @@
 # V1 — 密钥保险库 Playbook
 
 **大阶段分支**：`v0.1`  
-**当前小迭代**：`v0.1.3`（Phase 3）  
+**当前小迭代**：`v0.1.8`（Phase 8）  
 台账：[BRANCHES.md](../BRANCHES.md) · 测试：[ApiRelayTests/README.md](../../../ApiRelayTests/README.md)
 
 记法：`v0.大阶段.小迭代`，全是分支。

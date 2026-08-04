@@ -12,11 +12,14 @@ final class AppEnvironment: ObservableObject {
     let gate: RevealGate
     let clipboard: SecureClipboard
     let vault: KeyVaultService
+    let consumerTools: ConsumerToolService
+    let entitlements: EntitlementService
+    let preferences: PreferencesService
+    let backups: SecureBackupService
+    let dataLifecycle: DataLifecycleService
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
-        // 无付费开发者账号 / 未开 iCloud Keychain 时，synchronizable 会返回 -34018。
-        // 开通账号并配好 entitlement 后改为 disableSynchronizableForTesting: false。
         let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
         self.keychain = keychain
         let master = MasterPasswordService(keychain: keychain)
@@ -31,15 +34,28 @@ final class AppEnvironment: ObservableObject {
             clipboard: clipboard,
             modelContainer: modelContainer
         )
+        self.consumerTools = ConsumerToolService(modelContainer: modelContainer)
+        let entitlements = EntitlementService(modelContainer: modelContainer)
+        self.entitlements = entitlements
+        Task { await entitlements.startListening() }
+        self.preferences = PreferencesService(modelContainer: modelContainer)
+        self.backups = SecureBackupService(
+            gate: gate,
+            keychain: keychain,
+            modelContainer: modelContainer
+        )
+        self.dataLifecycle = DataLifecycleService(
+            gate: gate,
+            keychain: keychain,
+            modelContainer: modelContainer
+        )
     }
 
     static func bootstrap() -> AppEnvironment {
-        let container: ModelContainer
         do {
-            container = try AppSchema.makeProductionContainer()
+            return AppEnvironment(modelContainer: try AppSchema.makeProductionContainer())
         } catch {
             fatalError("ModelContainer bootstrap failed: \(error)")
         }
-        return AppEnvironment(modelContainer: container)
     }
 }

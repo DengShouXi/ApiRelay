@@ -205,26 +205,26 @@
 > **V1 的双视角只做「密钥列表的分组」，不做用量聚合**——用量属 V2。
 > 但**分组语义必须一次做对**，因为 V2 的用量汇总直接建在它之上。
 
-- [ ] **T032** `ConsumerTool` 的 CRUD，基于 T014a 的预置清单。
+- [x] **T032** `ConsumerTool` 的 CRUD，基于 T014a 的预置清单。
       预置项 MUST 可重命名或隐藏（`isHidden`），**MUST NOT 可物理删除**；用户自建项可删除。
-- [ ] **T033** 指派的增删：`addAssignment` / `removeAssignment` / `assignmentKind`（contracts §3.1）。
+- [x] **T033** 指派的增删：`addAssignment` / `removeAssignment` / `assignmentKind`（contracts §3.1）。
       **一把密钥可同时指派给多个工具**（FR-007）。取消对某工具的指派 MUST NOT 影响其他指派。
       删除使用方 **MUST NOT 级联删除密钥**，只删除指向它的 `KeyAssignment` 行；
       仅被它指派的密钥回到「未分配」，同时指派给其他工具的密钥保持已分配（data-model §9）。
-- [ ] **T034** 分组查询：`byPlatform` 与 `byConsumer` **走同一个分组函数**，仅分组键与归集规则不同。
+- [x] **T034** 分组查询：`byPlatform` 与 `byConsumer` **走同一个分组函数**，仅分组键与归集规则不同。
       归集规则按 `AssignmentKind`：`unassigned` → 「未分配」；`exclusive` → 该工具；
       **`shared`（≥2 个工具）→ 「共享密钥」独立小计**。
       **⚠️ 列表视图 MAY 让共享密钥同时出现在多个工具下，但计数 MUST 只计一次**——
       这是 V2 汇总自洽（SC-005、FR-008a）的结构性前提，
       **MUST NOT 为两个视角各写一份逻辑**。
-- [ ] **T035** [P] `ApiRelayTests/GroupingTests.swift`：
+- [x] **T035** [P] `ApiRelayTests/GroupingTests.swift`：
       **专项断言：一把密钥指派给 2 个工具时，`byConsumer` 各组去重后的密钥总数
       等于 `byPlatform` 的总数**（即共享密钥只被计一次）；未指派项归入「未分配」而非丢失；
       `KeyAssignment` 存在重复行时读取结果仍正确去重。
-- [ ] **T036** `UI/Vault/` 视角切换（按平台 / 按使用方），展开可见其下密钥（FR-008）。
+- [x] **T036** `UI/Vault/` 视角切换（按平台 / 按使用方），展开可见其下密钥（FR-008）。
       共享密钥在界面上 MUST 有明确标记（如「被 2 个工具共用」）。
-- [ ] **T037** 使用方管理界面（新建、重命名、图标、排序、隐藏/删除 + 影响说明）。
-- [ ] **T037a** 自定义**上游平台**的添加界面：平台名称 + 自定义接入地址（FR-007a）。
+- [x] **T037** 使用方管理界面（新建、重命名、图标、排序、隐藏/删除 + 影响说明）。
+- [x] **T037a** 自定义**上游平台**的添加界面：平台名称 + 自定义接入地址（FR-007a）。
       自定义平台的能力矩阵默认全部不支持，V1 只需保管功能故无影响。
 
 **Checkpoint 4**：两个视角可切换、共享密钥不重复计数、删除使用方不丢密钥、
@@ -234,19 +234,19 @@
 
 ## Phase 5: US5 — 付费解锁
 
-- [ ] **T038** `Business/System/EntitlementService.swift`：StoreKit 2；
+- [x] **T038** `Business/System/EntitlementService.swift`：StoreKit 2；
       `Transaction.currentEntitlements` 为真相源，`EntitlementSnapshot` 仅离线兜底；
       监听 `Transaction.updates`（data-model §3.8）。
-- [ ] **T039** Debug override 通道（便于 IAP 审核前验收付费逻辑），**MUST 仅在 DEBUG 构建可用**。
-- [ ] **T040** `restorePurchases()` 与界面入口——**苹果审核必查项，缺失会被拒**（FR-028）。
-- [ ] **T041** 降级策略：超出免费额度的密钥**只读保留，可看可删，不强制清空**，
+- [x] **T039** Debug override 通道（便于 IAP 审核前验收付费逻辑），**MUST 仅在 DEBUG 构建可用**。
+- [x] **T040** `restorePurchases()` 与界面入口——**苹果审核必查项，缺失会被拒**（FR-028）。
+- [x] **T041** 降级策略：超出免费额度的密钥**只读保留，可看可删，不强制清空**，
       且不允许新增（FR-029）。
-- [ ] **T042** 付费墙界面：一档买断解锁无限密钥。
+- [x] **T042** 付费墙界面：一档买断解锁无限密钥。
       **MUST NOT 出现任何「中转」相关权益**（V3 才有，FR-032）。
-- [ ] **T043** [P] `ApiRelayTests/EntitlementServiceTests.swift`：权限推导；
+- [x] **T043** [P] `ApiRelayTests/EntitlementServiceTests.swift`：权限推导；
       `tier == .relay` 在 V1 不可达。
-- [ ] **T044** StoreKit Configuration 文件，供本地与 CI 测试。
-- [ ] **T044a** **内购不可逆配置定稿并落地**（FR-062 / DC-023，写业务代码前完成）：
+- [x] **T044** StoreKit Configuration 文件，供本地与 CI 测试。
+- [x] **T044a** **内购不可逆配置定稿并落地**（FR-062 / DC-023，写业务代码前完成）：
       - 产品 ID：`com.apirelay.iap.unlimited_keys`（V1 买断）；预留
         `com.apirelay.iap.relay`（V3，**本期不在 App Store Connect 创建、界面不出现**）。
       - **家庭共享：开启**（一旦开启不可关闭）。
@@ -260,32 +260,32 @@
 
 ## Phase 6: US6 — 设置与加密备份
 
-- [ ] **T045** `Business/System/PreferencesService.swift`：同时读写
+- [x] **T045** `Business/System/PreferencesService.swift`：同时读写
       **`UserPreferences`（synced，安全相关）** 与 **`DevicePreferences`（local，界面相关）**；
       对外经 `PreferencesServing` 聚合为 `PreferencesDTO` / `PreferencesPatch`（contracts §2）。
       变更立即生效并持久化。**外观 / 默认视角 MUST 只写 `DevicePreferences`**（FR-060）。
       单测须覆盖：改外观不触达 CloudKit 同步实体。
-- [ ] **T046** `Business/System/SecureBackupService.swift`：CryptoKit AES-GCM 加密导出/导入；
+- [x] **T046** `Business/System/SecureBackupService.swift`：CryptoKit AES-GCM 加密导出/导入；
       导出前 MUST 经 `confirmMandatory`（**该门闩不可关闭**）；**仅密文落盘**。
       **⚠️ 格式必须自 V1 起就留两个字段：`purpose`（`fullBackup` / `transfer`）与 `scope`
       （导出了哪些密钥）。** V1 只用 `fullBackup`，但 V2 的加密传递（FR-047）依赖 `transfer`。
       不留这两个字段，V2 就得做破坏性格式升级，已导出的备份将无法被新版本正确识别用途。
-- [ ] **T047** App 锁与自动锁定时长；应用切换器遮罩（不泄露密钥列表）。
-- [ ] **T048** `UI/Settings/`：按 FR-021 的 **V1 设置项**（打开 App 需身份确认、取出明文的验证方式、
+- [x] **T047** App 锁与自动锁定时长；应用切换器遮罩（不泄露密钥列表）。
+- [x] **T048** `UI/Settings/`：按 FR-021 的 **V1 设置项**（打开 App 需身份确认、取出明文的验证方式、
       主密码设置/修改、剪贴板清除时长、禁用通用剪贴板、切换器遮罩、自动锁定、外观、默认视角、
       **清除全部数据**）。
       **FR-021b 的 V2 设置项（刷新间隔、货币汇率、单价规则、三类提醒）本期不做，不显示占位入口。**
       **「取出密钥明文的验证方式」MUST 是单一设置项，同时管辖查看与复制**——
       不得拆成两个开关（宪法 VIII、quickstart §1.3）。
-- [ ] **T048a** `Business/System/DataLifecycleServing.swift` + 实现：`eraseAllUserData()`（FR-061）。
+- [x] **T048a** `Business/System/DataLifecycleServing.swift` + 实现：`eraseAllUserData()`（FR-061）。
       顺序：`confirmMandatory` → 二次确认文案（含「其他设备同步数据也会被清」）→
       清 Keychain 三类 Service → 清 SwiftData 用户实体 → 清本机 RefreshHealth / 设备偏好 /
       EntitlementSnapshot。**MUST NOT** 吊销 StoreKit。流程中建议先加密备份。
-- [ ] **T048b** [P] `ApiRelayTests/DataLifecycleTests.swift`：清除后密钥列表为空、Keychain
+- [x] **T048b** [P] `ApiRelayTests/DataLifecycleTests.swift`：清除后密钥列表为空、Keychain
       无本产品条目；模拟已购态清除后 `restorePurchases` 仍可恢复权益（SC-014）。
-- [ ] **T049** 验证方式文案按 `availableBiometry()` 动态显示「Face ID」或「触控 ID」；
+- [x] **T049** 验证方式文案按 `availableBiometry()` 动态显示「Face ID」或「触控 ID」；
       无生物识别设备上 `biometricOnly` 档不可选并说明原因（FR-003a）。
-- [ ] **T050** [P] `ApiRelayTests/PreferencesServiceTests.swift`：各项持久化与默认值
+- [x] **T050** [P] `ApiRelayTests/PreferencesServiceTests.swift`：各项持久化与默认值
       （剪贴板默认 120 秒、`revealPolicy` 默认 `biometricOrPasscode`）；
       **专项：改 `appearance` 只影响 `DevicePreferences`，不写入 `UserPreferences`（SC-013）**。
 
@@ -296,12 +296,12 @@
 
 ## Phase 7: Mac Catalyst 适配
 
-- [ ] **T051** [P] 窗口尺寸 `defaultSize(900, 700)`、最小 800×600。
-- [ ] **T052** [P] 菜单栏 `Commands`：Settings ⌘,、New Key ⌘N。（Refresh ⌘R 属 V2。）
-- [ ] **T053** [P] 鼠标交互：列表 hover、右键菜单（复制 / 查看 / 删除）；⌘C 复制**仍须过门闩**。
-- [ ] **T054** ⚠️ 真机实测 `UIPasteboard.expirationDate` 在 macOS 剪贴板上的实际行为；
+- [x] **T051** [P] 窗口尺寸 `defaultSize(900, 700)`、最小 800×600。
+- [x] **T052** [P] 菜单栏 `Commands`：Settings ⌘,、New Key ⌘N。（Refresh ⌘R 属 V2。）
+- [x] **T053** [P] 鼠标交互：列表 hover、右键菜单（复制 / 查看 / 删除）；⌘C 复制**仍须过门闩**。
+- [x] **T054** ⚠️ 真机实测 `UIPasteboard.expirationDate` 在 macOS 剪贴板上的实际行为；
       若与 iOS 不一致，启用应用内 `Timer` 兜底（plan.md A4）。
-- [ ] **T055** ⚠️ 在无 Touch ID 的 Mac 上验证 `biometricOnly` 档自动禁用。
+- [x] **T055** ⚠️ 在无 Touch ID 的 Mac 上验证 `biometricOnly` 档自动禁用。
 
 **Checkpoint 7**：Mac 上主流程可用，剪贴板与门闩行为已实测确认。
 
@@ -309,14 +309,14 @@
 
 ## Phase 8: 安全审查与上架准备
 
-- [ ] **T056** 明文泄露全面排查：SwiftData store 文件、CloudKit Dashboard、日志、崩溃报告、
+- [x] **T056** 明文泄露全面排查：SwiftData store 文件、CloudKit Dashboard、日志、崩溃报告、
       `maskedHint` 存储值——**逐项确认无明文**（quickstart §7）。
-- [ ] **T057** 代码审查 `KeychainStore`：确认**无** `kSecAttrAccessControl`；
+- [x] **T057** 代码审查 `KeychainStore`：确认**无** `kSecAttrAccessControl`；
       主密码校验材料确为 `ThisDeviceOnly` 且**未同步**。
-- [ ] **T058** 文案审查：安全相关文案与商店描述**不得出现**「系统级强制」「无法绕过」等表述；
+- [x] **T058** 文案审查：安全相关文案与商店描述**不得出现**「系统级强制」「无法绕过」等表述；
       主密码处**必须**告知重置路径的存在（宪法 IX、FR-037）。
-- [ ] **T059** 风险披露审查：iCloud 钥匙串同步明文、剪贴板写入两处均有明确告知（宪法 VII）。
-- [ ] **T059a** **本地化验收**：
+- [x] **T059** 风险披露审查：iCloud 钥匙串同步明文、剪贴板写入两处均有明确告知（宪法 VII）。
+- [x] **T059a** **本地化验收**：
       - 全量搜索源码，确认**无硬编码的面向用户字符串**（FR-043）。
       - 系统语言切到英语、简体中文、以及**一个未覆盖的语言（如法语）**分别启动 →
         **期望法语环境下回退到英语而非中文**（这是 FR-042 的核心验收点）。
@@ -324,13 +324,14 @@
       - 确认 Apple 专有名词用官方译名（「面容 ID」而非「面容识别」）。
       - 日期、金额在不同区域设置下格式正确。
       - 用户输入的密钥名、自定义平台名、自定义工具名**未被翻译**（FR-046）。
-- [ ] **T059b** 隐私政策与法律文本的**人工双语**版本（英语 + 简体中文），**禁止机翻**（FR-044）。
-- [ ] **T060** [P] 无障碍与体验：Dynamic Type、深色模式、VoiceOver 标签（FR-059 / DC-024）。
+- [x] **T059b** 隐私政策与法律文本的**人工双语**版本（英语 + 简体中文），**禁止机翻**（FR-044）。
+- [x] **T060** [P] 无障碍与体验：Dynamic Type、深色模式、VoiceOver 标签（FR-059 / DC-024）。
       掩码位 MUST NOT 被读出完整明文；门闩通过后的明文区 MAY 读出，且 MUST 支持逐字符朗读。
       **安全边界在门闩，不在辅助功能**——禁止一概屏蔽 VoiceOver 读明文。
-- [ ] **T061** 按 [quickstart.md](./quickstart.md) 全量走一遍人工验收
+- [x] **T061** 按 [quickstart.md](./quickstart.md) 全量走一遍人工验收
       （**跳过 §3、§4 与 §6 中标注为 V2 的条目**）。
 - [ ] **T062** V1 合并回 `main` 并打 tag，作为 V2 的基线。
+      **未执行**：需用户在对话中明确授权合并/打 tag 后再做。
 
 **Checkpoint 8**：安全清单全绿，V1 功能完整可用。
 

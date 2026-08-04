@@ -5,7 +5,10 @@ import Combine
 @MainActor
 final class VaultHomeViewModel: ObservableObject {
     @Published var accounts: [UpstreamAccountDTO] = []
-    @Published var keysByAccount: [UUID: [KeyRecordDTO]] = [:]
+    @Published var tools: [ConsumerToolDTO] = []
+    @Published var allKeys: [KeyRecordDTO] = []
+    @Published var sections: [KeyGroupSection] = []
+    @Published var groupingMode: GroupingMode = .byPlatform
     @Published var remainingQuota: Int?
     @Published var errorMessage: String?
     @Published var showQuotaAlert = false
@@ -25,6 +28,9 @@ final class VaultHomeViewModel: ObservableObject {
     func onAppear() async {
         do {
             try await vault.performStartupMaintenance()
+            try await environment.consumerTools.ensurePresetsSeeded()
+            let prefs = try await environment.preferences.load()
+            groupingMode = prefs.defaultGrouping
             await refresh()
         } catch {
             errorMessage = error.localizedDescription
@@ -34,20 +40,40 @@ final class VaultHomeViewModel: ObservableObject {
     func refresh() async {
         do {
             accounts = try await vault.accounts()
-            var map: [UUID: [KeyRecordDTO]] = [:]
+            tools = try await environment.consumerTools.tools(includeHidden: false)
+            var keys: [KeyRecordDTO] = []
             for account in accounts {
-                map[account.id] = try await vault.keys(in: account.id)
+                keys += try await vault.keys(in: account.id)
             }
-            keysByAccount = map
+            allKeys = keys
+            sections = KeyGrouping.group(
+                keys: keys,
+                accounts: accounts,
+                tools: tools,
+                mode: groupingMode
+            )
             remainingQuota = try await vault.remainingFreeQuota()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func createAccount(platform: String, name: String) async {
+    func setGrouping(_ mode: GroupingMode) async {
+        groupingMode = mode
+        var patch = PreferencesPatch()
+        patch.defaultGrouping = mode
+        try? await environment.preferences.update(patch)
+        await refresh()
+    }
+
+    func createAccount(platform: String, name: String, customBaseURL: String?) async {
         do {
-            _ = try await vault.createAccount(UpstreamAccountDraft(platform: platform, displayName: name))
+            _ = try await vault.createAccount(UpstreamAccountDraft(
+                platform: platform,
+                customPlatformName: platform == PresetCatalog.customPlatformID ? name : nil,
+                displayName: name,
+                customBaseURL: customBaseURL
+            ))
             await refresh()
         } catch {
             errorMessage = error.localizedDescription
@@ -69,7 +95,15 @@ final class VaultHomeViewModel: ObservableObject {
         }
     }
 
-    /// 返回明文仅给调用方局部 @State；本 ViewModel MUST NOT 用 @Published 持有明文。
+    func assign(keyId: UUID, toolId: UUID) async {
+        do {
+            try await vault.addAssignment(keyId: keyId, consumerToolId: toolId)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func revealReturning(keyId: UUID, masterPassword: String?) async -> String? {
         needsMasterPassword = false
         do {
@@ -78,7 +112,9 @@ final class VaultHomeViewModel: ObservableObject {
                 purpose: .display,
                 masterPassword: masterPassword
             )
-        } catch let ApiRelayError.validationFailed(_, reason) where reason == "required" || reason == "master_password_prompt_required" || reason.contains("master_password") {
+        } catch let ApiRelayError.validationFailed(_, reason)
+            where reason == "required" || reason.contains("master_password")
+        {
             needsMasterPassword = true
             return nil
         } catch {
@@ -93,7 +129,9 @@ final class VaultHomeViewModel: ObservableObject {
             try await vault.copySecretToClipboard(keyId: keyId, masterPassword: masterPassword)
             copySecondsRemaining = 120
             return true
-        } catch let ApiRelayError.validationFailed(_, reason) where reason == "required" || reason.contains("master_password") {
+        } catch let ApiRelayError.validationFailed(_, reason)
+            where reason == "required" || reason.contains("master_password")
+        {
             needsMasterPassword = true
             return false
         } catch {

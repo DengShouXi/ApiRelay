@@ -1,0 +1,45 @@
+{
+  "identifier" : "com.apirelay.storekit",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "28.00",
+      "familyShareable" : true,
+      "internalID" : "6500000001",
+      "localizations" : [
+        {
+          "description" : "Unlock unlimited API keys",
+          "displayName" : "Unlimited Keys",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "解锁无限密钥",
+          "displayName" : "无限密钥",
+          "locale" : "zh_CN"
+        }
+      ],
+      "productID" : "com.apirelay.iap.unlimited_keys",
+      "referenceName" : "Unlimited Keys",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6500000000",
+    "_developerTeamID" : "8NDLKZ4SSF",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

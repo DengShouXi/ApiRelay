@@ -50,10 +50,10 @@ struct ConsumerToolDraft: Sendable {
 }
 
 struct ConsumerToolPatch: Sendable {
-    var name: String?
-    var iconSymbol: String?
-    var isHidden: Bool?
-    var sortOrder: Int?
+    var name: String? = nil
+    var iconSymbol: String? = nil
+    var isHidden: Bool? = nil
+    var sortOrder: Int? = nil
 }
 
 // MARK: - Key record persistence helpers
