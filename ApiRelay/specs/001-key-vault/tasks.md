@@ -1,6 +1,6 @@
 # Tasks: V1 — 密钥保险库
 
-**Branch**: `001-key-vault` | **Date**: 2026-08-04
+**Branch**: `v1`（文档目录 `specs/001-key-vault/`） | **Date**: 2026-08-04
 **Input**: [ROADMAP.md](../ROADMAP.md) · [plan.md](./plan.md) · [spec.md](./spec.md) · [data-model.md](./data-model.md) · [contracts/](./contracts/)
 
 ## 本文只拆解 V1
@@ -25,7 +25,7 @@
 
 ## Phase 1: 工程配置（阻塞全部后续工作）
 
-- [x] **T001** 功能分支 `001-key-vault` 已创建并切换。
+- [x] **T001** 功能分支线 `v1` / `v1.N`（旧名 `v0.1` / `v0.1.N`）已用于 Stage1；规格目录仍为 `specs/001-key-vault/`。
 - [x] **T002** 构建配置：`SUPPORTS_MACCATALYST = YES`；部署目标对齐 **iOS 18.0 / macOS 15.0**（DC-019）；
       Swift 语言模式切到 **Swift 6**；`ENABLE_USER_SELECTED_FILES = readwrite`
       （否则沙盒阻断加密备份写盘）。
@@ -336,14 +336,15 @@
       **安全边界在门闩，不在辅助功能**——禁止一概屏蔽 VoiceOver 读明文。
 - [x] **T061** 按 [quickstart.md](./quickstart.md) 全量走一遍人工验收
       （**跳过 §3、§4 与 §6 中标注为 V2 的条目**）。
-- [ ] **T062** V1 合并回 `main` 并打 tag，作为 V2 的基线。
-      **未执行**：需用户在对话中明确授权合并/打 tag 后再做。
+- [ ] **T062** Stage1 验收后：合并进 `main`，钉 `MARKETING_VERSION = 1.0.0`，打 tag `release/1.0.0`，再提交 App Store（需用户明确授权）。
+      **未执行**：需用户在对话中明确授权合并/打 tag / 上架后再做。
 
-**Checkpoint 8**：安全清单全绿，V1 功能完整可用。
+**Checkpoint 8**：安全清单全绿，V1 功能完整可用；商店侧材料可随 **1.0.0** 提交准备。
 
-> **V1 不单独上架**（DC-013）。以下**商店侧材料**推迟到 V2 完成后统一执行：
+> **DC-013 已废止**。Stage1 **单独上架为 App Store 1.0.0**（与 DC-009 一致）。
+> 以下**商店侧材料**在 Stage1 验收时准备（不再推迟到 V2）：
 > App Store 元数据与商店描述、隐私问卷、商店截图、提交审核。
-> 但 **`PrivacyInfo.xcprivacy` 与加密出口声明是工程文件**（FR-045、FR-058），MUST 在 V1
+> **`PrivacyInfo.xcprivacy` 与加密出口声明是工程文件**（FR-045、FR-058），MUST 在 V1
 > 的 T005 完成，MUST NOT 推迟。
 > **V1 的付费逻辑（Phase 5）也不因此省略**——它决定数据模型与权益判断，后补会引起返工。
 

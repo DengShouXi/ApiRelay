@@ -1,0 +1,41 @@
+---
+description: Stage→App Store N.0.0；分支 plan.N / v1.N；废止 DC-013 捆发
+alwaysApply: true
+---
+
+# 版本、分支与上架
+
+权威细则见 `ApiRelay/specs/playbooks/BRANCHES.md` 与 `ApiRelay/specs/ROADMAP.md`。
+
+## 商店版本（产品阶段完成才升主版本）
+
+| 产品阶段 | App Store `MARKETING_VERSION` | Git tag（仅上架时） |
+|----------|-------------------------------|---------------------|
+| Stage 1 密钥库验收通过 | **1.0.0** | `release/1.0.0` |
+| Stage 2 用量/关系图验收通过 | **2.0.0** | `release/2.0.0` |
+| Stage 3 中转验收通过 | **3.0.0** | `release/3.0.0` |
+
+- 阶段内热修：`N.0.1`、`N.0.2`…  
+- **MUST NOT** 再采用已废止的 DC-013（「V1 不单独上架、与 V2 捆发」）。  
+- 上架节奏由产品负责人决定；无强制「尽快首发」要求。小迭代照常 push；**只有阶段验收通过才打 `release/*` tag 并提交商店**。
+
+## Git 分支命名
+
+```text
+plan.N     规划小迭代（旧名 v0.0.N）
+plan       规划 tip（旧名 v0.0）
+v1 / v1.N  Stage 1 大阶段 tip / 小迭代（旧名 v0.1 / v0.1.N）
+v2 / v2.N  Stage 2
+v3 / v3.N  Stage 3
+main       稳定可发布（阶段上架后合并）
+```
+
+- 小迭代里程碑用 **分支**，不用 tag。  
+- **MUST NOT** 再新建 `v0.0.N` / `v0.1.N` / `v0.2.N` / `v0.3.N` 作为现行操作名。  
+- 规格目录 `specs/001-key-vault/` 等是**文档路径**，不是 Git 分支名。  
+- 历史远程分支 `v0.*` 可保留；台账用旧→新对照，不强制 rename。
+
+## Agent 操作
+
+写完小阶段 → 打开对应 `P0N-save.md` → 更新 `BRANCHES.md` → commit → `git push -u origin <新名分支>`。  
+合并回大阶段 tip（`plan` / `v1` / `v2` / `v3`）按各 save 文件推荐步骤执行。

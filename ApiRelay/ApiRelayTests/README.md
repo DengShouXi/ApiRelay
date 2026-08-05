@@ -9,26 +9,29 @@
 
 ## 对应表
 
-### V0 规划（`v0.0.N`）
+### V0 规划（`plan.N`）
 
 | 分支 | 目录 |
 |------|------|
-| `v0.0.1` | `V0/Phase01_Baseline/` |
-| `v0.0.2` | `V0/Phase02_SpecsFreeze/` |
-| `v0.0.3` | `V0/Phase03_PlanningExtra/` |
+| `plan.1` | `V0/Phase01_Baseline/` |
+| `plan.2` | `V0/Phase02_SpecsFreeze/` |
+| `plan.3` | `V0/Phase03_PlanningExtra/` |
 
-### V1 密钥库（`v0.1.N`）
+### V1 密钥库（`v1.N`）
 
 | 分支 | 目录 |
 |------|------|
-| `v0.1.1` | `V1/Phase01_Setup/` |
-| `v0.1.2` | `V1/Phase02_Data/` |
-| `v0.1.3` | `V1/Phase03_Vault/` |
-| `v0.1.4` | `V1/Phase04_Grouping/` |
-| `v0.1.5` | `V1/Phase05_Entitlement/` |
-| `v0.1.6` | `V1/Phase06_Settings/` |
-| `v0.1.7` | `V1/Phase07_Catalyst/` |
-| `v0.1.8` | `V1/Phase08_Security/` |
+| `v1.1` | `V1/Phase01_Setup/` |
+| `v1.2` | `V1/Phase02_Data/` |
+| `v1.3` | `V1/Phase03_Vault/` |
+| `v1.4` | `V1/Phase04_Grouping/` |
+| `v1.5` | `V1/Phase05_Entitlement/` |
+| `v1.6` | `V1/Phase06_Settings/` |
+| `v1.7` | `V1/Phase07_Catalyst/` |
+| `v1.8` | `V1/Phase08_Security/` |
+| `v1.9` | （可用性加固；测试可落在既有 Phase 或后续专目录） |
+
+**上架**：Stage1→`1.0.0` / Stage2→`2.0.0` / Stage3→`3.0.0`（见 `BRANCHES.md`）。旧分支名 `v0.1.N` ≡ `v1.N`。
 
 V2 / V3：`V2/Phase0N_*`、`V3/Phase0N_*`（预建，做到再写）。
 

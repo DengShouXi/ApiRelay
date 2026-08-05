@@ -1,7 +1,7 @@
 # Phase 0 技术调研
 
 **Feature**: 密钥保管、分发与用量统计（阶段一）
-**Branch**: `001-key-vault`
+**Branch**: `v1`（文档目录 `specs/001-key-vault/`）
 **Date**: 2026-08-04
 **Spec**: [spec.md](./spec.md) | **Constitution**: v2.0.0
 

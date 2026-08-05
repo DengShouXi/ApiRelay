@@ -1,3 +1,3 @@
-# 留在 `v0.3`
+# 留在 `v3`
 
-`git checkout v0.3`，或 `git checkout v0.3.N` 回看某一小迭代。
+`git checkout v3`，或 `git checkout v3.N` 回看某一小迭代。

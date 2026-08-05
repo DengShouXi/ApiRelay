@@ -1,7 +1,7 @@
 # 数据模型定义
 
 **Feature**: 密钥保管、分发与用量统计（阶段一）
-**Branch**: `001-key-vault`
+**Branch**: `v1`（文档目录 `specs/001-key-vault/`）
 **Date**: 2026-08-04
 **依据**: [spec.md](./spec.md) · [research.md](./research.md) · Constitution v2.2.0
 

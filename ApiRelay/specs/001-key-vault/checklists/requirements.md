@@ -82,7 +82,7 @@
 | **两类平台都可自定义添加**（DC-012） | 新增术语表；上游平台扩至 8 家预置 | 术语表、FR-007a |
 | **关系图**（DC-008） | 新增 US8，形态定为三列桑基图 | US8、FR-039～041 |
 | **应用主密码**（DC-007） | 门闩由三档变四档 | FR-036～038、research §1.2 |
-| **上架时机**（DC-013） | V1 不单独上架，与 V2 一并提交 | ROADMAP、tasks Phase 8 |
+| **上架时机**（DC-013） | **已废止**；现行：每阶段独立上架 Stage N→`N.0.0`（DC-009） | ROADMAP、tasks Phase 8、BRANCHES.md |
 
 **多对多引入的新约束（V2 实现时最易踩）**：上游平台只按密钥提供用量，无法拆分同一把密钥在
 不同工具间的消耗。因此共享密钥的用量 MUST 单列「共享密钥」小计，**禁止摊分、禁止重复计数**
@@ -144,3 +144,11 @@ V1 若遗漏，V2 的加密传递将被迫做破坏性格式升级，且已导�
 | 文案漂移 | plan Summary/Tab、quickstart 四档与 SC-012/013、spec 产品概述阶段边界 |
 
 **结论**: analyze 报告中的 CRITICAL / HIGH 项已回填至规格制品。**尚未开始代码实现**；可重跑 `/speckit-analyze` 确认后再 `/speckit-implement`。
+
+**第九次修订（2026-08-05，版本/上架/分支命名对齐）**：
+
+| 变更 | 影响 | 落点 |
+|------|------|------|
+| **DC-013 废止** | Stage N 独立上架为 App Store **N.0.0**；与 DC-009 一致 | ROADMAP、spec、tasks Phase 8、quickstart §9、V1/V2 P08 |
+| **分支命名** | `plan.N` / `v1.N` / `v2.N` / `v3.N`；旧 `v0.Y.N` 仅历史对照 | BRANCHES.md、全量 playbooks save、ApiRelayTests README |
+| **发布 tag** | 仅上架打 `release/N.0.0`；小迭代仍用分支 | BRANCHES、constitution v2.3.0、`.cursor/rules/versioning-release.mdc` |

@@ -34,7 +34,7 @@ Checkpoint 通过后：
 
 1. 打开同目录小迭代上传提示词：[`P07-save.md`](./P07-save.md)  
 2. 复制其中「请为」起的整段给 Cursor  
-   → 写 `BRANCHES.md`（英→中），推送到小迭代分支 **`v0.1.7`**
+   → 写 `BRANCHES.md`（英→中），推送到小迭代分支 **`v1.7`**
 
 测试只放：`ApiRelay/ApiRelayTests/V1/Phase07_Catalyst/`  
 临时调试：`ApiRelay/DebugScratch/`（不上传）

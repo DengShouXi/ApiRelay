@@ -1,6 +1,6 @@
 # Implementation Plan: ApiRelay（架构总纲 + V1 实现计划）
 
-**Branch**: `001-key-vault` | **Date**: 2026-08-04 | **Spec**: [spec.md](./spec.md)
+**Branch**: `v1` | **Date**: 2026-08-04 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/001-key-vault/spec.md`
 
@@ -98,7 +98,7 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 | **本地化**（v2.1.0 新增） | **开发语言为英语** + `zh-Hans` 附加；String Catalog + 语义化 key；Apple 官方译名；法律文本人工双语 | ⚠️ 工程配置待对齐（T005a） |
 | 稳定性与兼容 | iOS 18.0 / macOS 15.0；Swift 6；async/await；`DiagnosticsReporting` hook | ⚠️ 工程配置待对齐（现为 17.6 / 14.6，见 T002） |
 | 安全要求 | HTTPS、gitignore 敏感文件 | ✅ Pass |
-| 开发纪律 | 分支 `001-key-vault`、按模块提交、提交前 `xcodebuild build` 通过 | ✅ Pass |
+| 开发纪律 | 分支 `v1` / `v1.N`、按模块提交、提交前 `xcodebuild build` 通过 | ✅ Pass |
 
 ### ⚠️ VII / VIII 的偏差说明（非豁免，是能力上限）
 
@@ -431,7 +431,7 @@ sequenceDiagram
 | 部署版本 | iOS 17.6 / macOS 14.6 | 对齐 **18.0 / 15.0**（DC-019） |
 | Bundle ID | `com.dsx.ApiRelay` | 改为 `com.apirelay.ApiRelay`（DC-018 / T002a） |
 | Swift 语言模式 | 5.0 | 改为 **Swift 6**（DC-019 / T002） |
-| `PrivacyInfo.xcprivacy` | 不存在 | V1 必须创建（FR-058），不随 DC-013 推迟 |
+| `PrivacyInfo.xcprivacy` | 不存在 | V1 必须创建（FR-058）；商店材料随 Stage1→1.0.0（DC-013 已废止） |
 | **development language** | ✅ 已核实为 `en`（`developmentRegion = en`，`knownRegions = (en, Base)`） | 只需**追加** `zh-Hans` 本地化，无需迁移。FR-042 的主要风险已排除 |
 | String Catalog | 不存在 | 创建 `Localizable.xcstrings`，语义化 key |
 | `ITSAppUsesNonExemptEncryption` | 未声明 | 必须声明（用了 AES-GCM 与 PBKDF2），否则提交被阻断 |

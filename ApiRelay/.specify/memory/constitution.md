@@ -283,7 +283,9 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
   `<type>(<scope>): <description>`（如 `feat(vault): add clipboard auto-clear`）。
 - 单次提交 MUST 仅改动对应模块，不得跨模块大范围无关修改。
 - 每次提交前 MUST 确认项目编译通过（`xcodebuild` 或 Xcode Build）。
-- 功能分支 MUST 从 `main` 拉出，合并前 MUST 确保 `main` 最新无冲突。
+- 功能分支按 [playbooks/BRANCHES.md](../../specs/playbooks/BRANCHES.md) 命名（`plan.N` / `v1.N` / `v2.N` / `v3.N`）。
+  Stage 上架后 MUST 合并进 `main`，并仅在上架时打 tag `release/N.0.0`。
+  新小迭代 SHOULD 从对应大阶段 tip（`plan` / `v1` / `v2` / `v3`）或已更新的 `main` 拉出；合并前 MUST 确保目标 tip 最新无冲突。
 
 ## Governance
 
@@ -317,9 +319,16 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
 **Rationale**: 这些不是「以后再优化」的选项，而是只有一次机会的选择。把它们集中登记，是为了避免
 它们被当成普通工程配置在实现阶段随手决定。
 
-**Version**: 2.2.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-04
+**Version**: 2.3.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-05
 
 <!--
+v2.3.0（MINOR，开发纪律与发布拓扑对齐）：
+  - Development Discipline：功能分支命名与 `main` / `release/N.0.0` 对齐
+    playbooks（Stage N → App Store N.0.0；废止 DC-013 捆发）。
+  - 无安全/架构原则删除或重定义，故为 MINOR。
+  - Sync Impact：ROADMAP、spec DC-013、playbooks/BRANCHES、`.cursor/rules/versioning-release.mdc`
+    已同步；模板无强制改动。
+
 v2.2.0（MINOR，新增章节与补充条款）：
   - Platform Experience Standards 下新增「无障碍 (Accessibility)」小节，
     并修正「MUST NOT 让 VoiceOver 读出明文」这一会排除视障用户的错误规则。
