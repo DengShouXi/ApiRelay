@@ -108,21 +108,20 @@
       上游平台（OpenAI、Claude、Google、OpenRouter、DeepSeek、阿里百炼、火山引擎、硅基流动）
       与使用方工具（CL-003 定稿）。
       **MUST NOT 持久化为用户数据**；应用更新扩充清单时 MUST NOT 覆盖或删除用户自建项（FR-007a）。
-- [ ] **T014b** **CloudKit Production schema 部署**（FR-063 / DC-027，**硬门槛**）：
+- [x] **T014b** **CloudKit Production schema 部署**（FR-063 / DC-027，**硬门槛**）：
       在 CloudKit Dashboard 将 Development schema **Deploy Schema to Production**；
       按 data-model §7.1 逐项核对 Production 侧全部 record types 与预留字段
       （尤其 `APIKeyRecord.healthState` / `lastCheckedAt` / `lastCheckNote`）。
       **仅 Development 可见不算通过。** 将核对结果记入 PR / 提交说明。
-      **工程开关（2026-08-05）已打开**：`makeProductionContainer` → CloudKit（失败回退本机）；
-      `KeychainStore` 正式启用 synchronizable + access group。
-      **你仍须人工完成**：
-      1. Developer Portal：App ID `com.apirelay.ApiRelay` 勾选 iCloud(CloudKit)+App Group；
-         容器 `iCloud.com.apirelay.ApiRelay`、组 `group.com.apirelay.shared`。
-      2. Xcode Signing 选付费 Team → **真机/本机 Run 一次**（非单测）生成 Development schema。
-      3. [CloudKit Console](https://icloud.developer.apple.com/) → Deploy Schema Changes。
-      4. 切到 **Production** 按 §7.1 核对 8 个 synced record types（含用量周期时区口径字段，FR-019a）后把本条勾成 `[x]`。
-      **现状（2026-08-05）**：业务 Phase 已在下方 Checkpoint **2a** 下推进；本条（**2b**）仍是
-      上架 / TestFlight 同步前的阻塞项，与 T062 同属发布闸门——**不得**因 Phase 3+ 已勾选而误勾本条。
+      **核对结果（2026-08-05）** — 容器 `iCloud.com.apirelay.ApiRelay` Production：
+      - 8 个 synced record types 均在：`CD_APIKeyRecord` / `CD_UpstreamAccount` /
+        `CD_ConsumerTool` / `CD_KeyAssignment` / `CD_UserPreferences` /
+        `CD_UsageSnapshot` / `CD_BalanceSnapshot` / `CD_PricingRule`。
+      - `CD_APIKeyRecord`（25 fields）含 §7.1 预留：`healthState`、`lastCheckedAt`、
+        `lastCheckNote`、`secretLength`、`origin`、`deletedAt`、`purgeAfter`，
+        以及 `lastVerifiedAt` / `notes` / `providerKeyRef` 等。
+      - Checkpoint **2b** 通过；可声明正式包跨设备同步（CloudKit Production）。
+      - 收尾：Scheme 去掉 `APIRELAY_CLOUDKIT_SCHEMA_BOOTSTRAP`（仅一次性逼 schema）。
 
 **Checkpoint 2a（工程可继续）**：Keychain / SwiftData / `xcodebuild test` 绿；DEBUG 默认可本机库；
 CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开发（本地验证）。**

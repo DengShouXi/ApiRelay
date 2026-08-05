@@ -1,7 +1,7 @@
 # V1 — 密钥保险库 Playbook
 
 **大阶段分支**：`v1`  
-**当前小迭代**：`v1.9`（可用性加固；下一 `v1.10`）  
+**当前小迭代**：`v1.10`（UI 重设计；上一 `v1.9` 已含 T014b）  
 **上架目标**：Stage1 验收后 App Store **1.0.0**（tag `release/1.0.0`）  
 台账：[BRANCHES.md](../BRANCHES.md) · 测试：[ApiRelayTests/README.md](../../../ApiRelayTests/README.md)
 

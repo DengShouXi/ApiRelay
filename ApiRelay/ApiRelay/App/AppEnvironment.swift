@@ -59,7 +59,11 @@ final class AppEnvironment: ObservableObject {
 
     static func bootstrap() -> AppEnvironment {
         do {
-            return AppEnvironment(modelContainer: try AppSchema.makeProductionContainer())
+            let container = try AppSchema.makeProductionContainer()
+            #if DEBUG
+            CloudKitSchemaBootstrap.runIfNeeded(container: container)
+            #endif
+            return AppEnvironment(modelContainer: container)
         } catch {
             fatalError("ModelContainer bootstrap failed: \(error)")
         }

@@ -440,7 +440,7 @@ sequenceDiagram
 | ApiRelayTests | ✅ | T003 |
 | `ENABLE_USER_SELECTED_FILES` / MainActor 隔离 + Keychain `actor` | ✅ | 已落地 |
 | 内购产品 ID / 家庭共享定稿（工程侧） | ✅ | T044a；Connect 侧创建随上架 |
-| CloudKit Production Deploy（T014b） | ⬜ | **Checkpoint 2b**；1.0.0 / 同步审核包前阻塞 |
+| CloudKit Production Deploy（T014b） | ✅ | **Checkpoint 2b** 通过（2026-08-05）；8 表 + §7.1 预留字段已在 Production |
 | 商店元数据 / 隐私问卷 / 截图 / 提交清单 | ⬜ | **T063–T066** |
 | `main` + tag `release/1.0.0` + 提交审核 | ⬜ | **T062**（需授权；前置 2b + T063–T066） |
 | BGTaskScheduler 标识 | V2 | 本期不做 |

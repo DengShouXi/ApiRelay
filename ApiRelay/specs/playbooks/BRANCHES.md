@@ -70,7 +70,8 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 | `v1.6` | Phase 6 settings: PreferencesService, SecureBackup, eraseAllUserData, Settings UI | 小迭代 6 — 设置与加密备份 |
 | `v1.7` | Phase 7 Catalyst window size, Commands, context menus | 小迭代 7 — Catalyst |
 | `v1.8` | Phase 8 security review + Stage1 engineering closeout. Store materials prepared for **1.0.0** when shipping. T014b may await Developer Program. | 小迭代 8 — 安全审查；商店材料随 Stage1→1.0.0 |
-| `v1.9` | UX hardening: multi-key add, recycle bin (30d), dual view, Chinese errors, Debug local SwiftData default. **current**. Checkout `v1.9`（远程别名仍可能指向 `origin/v0.1.9`）。Next: `v1.10`. | 小迭代 9 — 可用性加固。**当前**。下一：`v1.10` |
+| `v1.9` | UX hardening + **T014b Checkpoint 2b**：CloudKit Production 8 表与 §7.1 预留字段已 Deploy；DEBUG `CloudKitSchemaBootstrap` 一次性逼 schema。Checkout `v1.9`。 | 小迭代 9 — 可用性加固 + CloudKit Production 闸门通过 |
+| `v1.10` | UI redesign: Vault IA + home / dual view / entry / settings visuals. **current**. Next: TBD. | 小迭代 10 — UI 重设计（信息架构 + 主界面）。**当前** |
 
 ---
 
