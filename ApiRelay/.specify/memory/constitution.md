@@ -1,44 +1,30 @@
 <!--
-Sync Impact Report（最新：v2.1.0 → v2.2.0）
+Sync Impact Report（最新：v2.2.0 → v2.3.0）
 ==========================================
-Version change: 2.1.0 → 2.2.0 (MINOR: 新增章节与补充条款，无原则被删除或重新定义)
+Version change: 2.2.0 → 2.3.0 (MINOR: 开发纪律与发布拓扑对齐，无安全/架构原则删除或重定义)
 
-Modified principles:
-  - VII. 密钥安全 — 新增「明文派生物」条款
-      * 明文的哈希、指纹、校验和等派生物 MUST NOT 进入同步存储或导出物。
-        理由：派生物进入 CloudKit 等同于把可离线比对的材料交出去；密钥去重等需求
-        应改用不足以缩小搜索空间的信息（平台 + 末 4 位 + 长度）。
-  - VIII. 身份确认门闩 — 门闩例外扩展
-      * 明确「为判定凭证有效性而向上游发起的探测（探活）」MUST NOT 触发门闩，
-        与既有的「自动刷新读取管理类凭证不触发门闩」同一类例外。
-        理由：探活不向用户暴露明文，而批量探活若逐次弹出生物识别将使功能不可用。
-  - IX. 数据真实性 — 新增「未知与否定必须区分」条款
-      * 「未检测 / 无法判定」MUST NOT 被呈现为否定结论。
-        理由：给从未检测的密钥加失效标记，或把限流、网络失败呈现为「已失效」，
-        都是在用产品无法确证的结论误导用户的成本决策。
-
-Added sections:
-  - Platform Experience Standards → 无障碍 (Accessibility)
-      * Dynamic Type / VoiceOver 的强制要求，并修正一处方向性错误：
-        原先「MUST NOT 让 VoiceOver 读出明文」会使视障用户完全无法使用本产品。
-        正确规则是掩码位不得读出完整明文，而通过门闩后的明文展示区 MAY 读出且须逐字符朗读。
-  - Governance → 不可逆决策 (Irreversible Decisions)
-      * 集中登记「一旦生效就无法回退」的决策类别，要求这些决策在写第一行业务代码前定稿。
-
-Modified requirements:
-  - Stability & Compatibility Requirements
-      * 最低系统版本由 iOS 17.0 / macOS 14.0 提升为 iOS 18.0 / macOS 15.0。
-      * 新增 Swift 语言模式条款：MUST 使用 Swift 6 语言模式。
+Modified principles / requirements:
+  - Development Discipline
+      * 功能分支按 playbooks/BRANCHES（plan.N / v1.N / v2.N / v3.N）命名；
+        Stage 上架后合并 main，仅上架时打 tag release/N.0.0。
 
 Templates / downstream sync:
-  - plan.md Constitution Check 需增加「无障碍」与「Swift 语言模式」两行。
-  - spec.md 新增 DC-017～DC-025 与 FR-051～FR-062 与本次修订对应。
-  - data-model.md §7 需登记 CloudKit 生产 schema 的不可逆变更清单。
+  - ROADMAP、spec DC-013（废止）、playbooks/BRANCHES、`.cursor/rules/versioning-release.mdc`
+  - tasks T062–T066、Checkpoint 2a/2b（analyze Top6 回填）
 
 Follow-up TODOs: none
 
 历史记录
 ========
+Version change: 2.1.0 → 2.2.0 (MINOR: 新增章节与补充条款)
+
+Modified principles:
+  - VII. 密钥安全 — 新增「明文派生物」条款
+  - VIII. 身份确认门闩 — 探活不触发门闩
+  - IX. 数据真实性 — 未知与否定必须区分
+Added sections: 无障碍；不可逆决策
+Modified requirements: iOS 18 / macOS 15；Swift 6
+
 Version change: 1.0.0 → 2.0.0 (MAJOR: 原则重新定义)
 
 Modified principles:

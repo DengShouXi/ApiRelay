@@ -56,7 +56,7 @@
       **V1 不创建 `Business/Provider/`、`Business/Insights/`、`Data/Network/`。**
 - [x] **T007** [P] `Shared/ApiRelayError.swift`：按 contracts §1 定义全部 case。
       V2/V3 相关的 case 一次性定义好（避免日后改动共享类型），V1 只是用不到。
-      注：Swift 6 MainActor 隔离导致 `Equatable` 暂未添加，标记 TODO Phase 2。
+      注：Swift 6 MainActor 隔离下 `Equatable` 暂缓——**已知限制**，非未完成待办。
 - [x] **T008** [P] `Shared/DiagnosticsReporting.swift`：诊断上报 hook 点。
       **MUST 内置明文过滤，禁止任何凭证进入上报内容。**
 - [x] **T009** [P] `Shared/DTOs/`：按 contracts §2 定义全部 DTO 与枚举（含 `KeyHealthDTO` /
@@ -120,11 +120,15 @@
          容器 `iCloud.com.apirelay.ApiRelay`、组 `group.com.apirelay.shared`。
       2. Xcode Signing 选付费 Team → **真机/本机 Run 一次**（非单测）生成 Development schema。
       3. [CloudKit Console](https://icloud.developer.apple.com/) → Deploy Schema Changes。
-      4. 切到 **Production** 按 §7.1 核对 8 个 synced record types 后把本条勾成 `[x]`。
+      4. 切到 **Production** 按 §7.1 核对 8 个 synced record types（含用量周期时区口径字段，FR-019a）后把本条勾成 `[x]`。
+      **现状（2026-08-05）**：业务 Phase 已在下方 Checkpoint **2a** 下推进；本条（**2b**）仍是
+      上架 / TestFlight 同步前的阻塞项，与 T062 同属发布闸门——**不得**因 Phase 3+ 已勾选而误勾本条。
 
-**Checkpoint 2**：Keychain 读写在真机通过（含 iCloud 钥匙串开启态）；SwiftData 容器可初始化；
-**CloudKit Dashboard → Production 侧**可见 §7.1 全部 record types（T014b）；
-`xcodebuild test` 全绿。**未完成 T014b MUST NOT 进入 Phase 3。**
+**Checkpoint 2a（工程可继续）**：Keychain / SwiftData / `xcodebuild test` 绿；DEBUG 默认可本机库；
+CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开发（本地验证）。**
+
+**Checkpoint 2b（1.0.0 / TestFlight 同步硬门槛）**：T014b Production 核对完成。
+未完成 2b：MUST NOT 声称「可跨设备同步的正式包」；MUST NOT 提交依赖 iCloud 同步的审核包。
 
 ---
 
@@ -336,14 +340,23 @@
       **安全边界在门闩，不在辅助功能**——禁止一概屏蔽 VoiceOver 读明文。
 - [x] **T061** 按 [quickstart.md](./quickstart.md) 全量走一遍人工验收
       （**跳过 §3、§4 与 §6 中标注为 V2 的条目**）。
-- [ ] **T062** Stage1 验收后：合并进 `main`，钉 `MARKETING_VERSION = 1.0.0`，打 tag `release/1.0.0`，再提交 App Store（需用户明确授权）。
+- [ ] **T063** App Store Connect **元数据与商店描述**（英语 + 简体中文）：卖点仅限保管/分发/权益；
+      **MUST NOT** 提及中转、用量看板、探活等未交付能力（SC-010、DC-009）。
+- [ ] **T064** App **隐私问卷**与产品内可访问隐私说明对齐：如实声明密钥经 iCloud 钥匙串在
+      用户本人设备间同步等（FR-024、FR-033、SC-010）；与 T059b 法律文本一致、禁止机翻矛盾。
+- [ ] **T065** 商店**截图**（无真实密钥；文案不得出现「系统级强制」「无法绕过」）（SC-010、宪法 IX）。
+- [ ] **T066** 提交前清单核对：`MARKETING_VERSION = 1.0.0`；IAP 元数据与
+      `com.apirelay.iap.unlimited_keys` 一致；「恢复购买」可达（FR-028）；
+      加密出口声明与 `PrivacyInfo.xcprivacy` 已在工程内（FR-045、FR-058 / T005）。
+- [ ] **T062** Stage1 发布动作（需用户明确授权）：合并进 `main`，打 tag `release/1.0.0`，
+      上传构建并提交审核。
+      **前置**：Checkpoint **2b**（T014b）+ T063–T066 全绿。
       **未执行**：需用户在对话中明确授权合并/打 tag / 上架后再做。
 
-**Checkpoint 8**：安全清单全绿，V1 功能完整可用；商店侧材料可随 **1.0.0** 提交准备。
+**Checkpoint 8**：安全清单全绿；T063–T066 就绪；方可授权执行 T062（**1.0.0**）。
 
 > **DC-013 已废止**。Stage1 **单独上架为 App Store 1.0.0**（与 DC-009 一致）。
-> 以下**商店侧材料**在 Stage1 验收时准备（不再推迟到 V2）：
-> App Store 元数据与商店描述、隐私问卷、商店截图、提交审核。
+> 商店侧材料见 **T063–T066**（不再只靠本引用段）。
 > **`PrivacyInfo.xcprivacy` 与加密出口声明是工程文件**（FR-045、FR-058），MUST 在 V1
 > 的 T005 完成，MUST NOT 推迟。
 > **V1 的付费逻辑（Phase 5）也不因此省略**——它决定数据模型与权益判断，后补会引起返工。

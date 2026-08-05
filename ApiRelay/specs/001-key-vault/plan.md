@@ -19,14 +19,20 @@
 
 ## Summary
 
-本文档描述**全产品架构**与 **V1 实现约束**。产品最终形态是**密钥保险库 + 分发助手 + 用量看板**，
-不含中转或调用服务。四件事构成全产品闭环（**用量属 V2，V1 不实现、不展示入口**）：
+本文档描述**全产品架构**与 **V1 实现约束**。
 
-1. **保管**（V1）：各平台的 API 密钥明文存 Keychain，经 iCloud 钥匙串在用户自己的 Apple 设备间同步。
-2. **分发**（V1）：用户把某把密钥指派给某个使用方工具（VS Code、OpenCode…），经**剪贴板**取出明文。
+**产品最终形态**：密钥保险库 + 分发助手 + 用量看板 +（**V3**）用户自建中转。
+上架节奏（DC-009）：Stage1→**1.0.0** / Stage2→**2.0.0** / Stage3→**3.0.0**。
+本文 V1 范围**不含**中转实现与入口；也不含用量/探活的实现与入口。
+
+五件事构成全产品闭环：
+
+1. **保管**（V1→1.0.0）：各平台的 API 密钥明文存 Keychain，经 iCloud 钥匙串在用户自己的 Apple 设备间同步。
+2. **分发**（V1→1.0.0）：用户把某把密钥指派给某个使用方工具（VS Code、OpenCode…），经**剪贴板**取出明文。
    **产品的职责边界终止于系统剪贴板**——不与任何外部工具集成，不代写配置文件。
-3. **统计**（V2）：拉取上游平台的用量与余额，按「平台维度」与「使用方维度」两个视角呈现同一份数据。
-4. **权益**（V1）：免费版共 3 把密钥；一档买断解锁无限密钥。
+3. **权益**（V1→1.0.0）：免费版共 3 把密钥；一档买断解锁无限密钥。
+4. **统计与关系图等**（V2→2.0.0）：拉取上游平台的用量与余额；双视角呈现；探活等。
+5. **中转**（V3→3.0.0）：用户自建 Cloudflare Worker；下游配置稳定 + 自主逐笔统计。
 
 技术路线：**Swift 6 / SwiftUI / 零第三方 SDK / Mac Catalyst 一期覆盖 Mac**（DC-019、DC-020）。
 架构为**三层纵向解耦 + 四模块横向隔离**（保管分发、平台适配、用量统计、系统能力）。
@@ -95,10 +101,10 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 | IX. 数据真实性 | 未知一律 nil 且显式标注，禁止以 0 代替；平台数字与本产品估算分字段存储 | ✅ Pass |
 | 平台体验标准 | SwiftUI 系统组件、Dynamic Type、Dark Mode | ✅ Pass |
 | **无障碍**（v2.2.0 新增） | Dynamic Type；VoiceOver 标签；掩码位不读完整明文；门闩后明文区可逐字符朗读（FR-059） | ✅ Pass（T060） |
-| **本地化**（v2.1.0 新增） | **开发语言为英语** + `zh-Hans` 附加；String Catalog + 语义化 key；Apple 官方译名；法律文本人工双语 | ⚠️ 工程配置待对齐（T005a） |
-| 稳定性与兼容 | iOS 18.0 / macOS 15.0；Swift 6；async/await；`DiagnosticsReporting` hook | ⚠️ 工程配置待对齐（现为 17.6 / 14.6，见 T002） |
+| **本地化**（v2.1.0 新增） | **开发语言为英语** + `zh-Hans` 附加；String Catalog + 语义化 key；Apple 官方译名；法律文本人工双语 | ✅ Pass（T005a / T059a / T059b） |
+| 稳定性与兼容 | iOS 18.0 / macOS 15.0；Swift 6；async/await；`DiagnosticsReporting` hook | ✅ Pass（T002） |
 | 安全要求 | HTTPS、gitignore 敏感文件 | ✅ Pass |
-| 开发纪律 | 分支 `v1` / `v1.N`、按模块提交、提交前 `xcodebuild build` 通过 | ✅ Pass |
+| 开发纪律 | 分支 `v1` / `v1.N`、上架合并 `main` + tag `release/N.0.0`；按模块提交；提交前 `xcodebuild build` 通过 | ✅ Pass |
 
 ### ⚠️ VII / VIII 的偏差说明（非豁免，是能力上限）
 
@@ -112,8 +118,9 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 
 这不是设计违规，无需 Complexity Tracking 豁免；是取舍已被产品负责人明示裁决（DC-006）后的记录。
 
-**Post-Design Re-check**: 设计层面全部通过。剩余 ⚠️ 中，VII/VIII 为上述已披露的能力上限；
-稳定性一项为**工程配置待办**（非设计违规），已在 tasks.md 覆盖。
+**Post-Design Re-check（2026-08-05）**：设计层面全部通过。剩余 ⚠️ 仅 VII/VIII 能力上限说明。
+工程配置项（本地化 / 部署版本等）已由 tasks 完成。上架前仍阻塞：**T014b（Checkpoint 2b）**、
+**T063–T066**、**T062**（需授权）。
 
 ## Project Structure
 
@@ -359,7 +366,7 @@ sequenceDiagram
 | Mac 专项适配（仅 UI 层） | 实现要点 |
 |--------------------------|----------|
 | 窗口尺寸 | `defaultSize(900, 700)`；最小 800×600 |
-| 菜单栏 | `Commands`：Settings ⌘,、New Key ⌘N、Refresh ⌘R、Quit |
+| 菜单栏 | `Commands`：Settings ⌘,、New Key ⌘N、Quit；**Refresh ⌘R 属 V2**（T052） |
 | 鼠标交互 | 列表 hover 高亮；右键菜单（复制、查看、删除） |
 | 快捷键 | ⌘C 复制选中密钥（仍过门闩）、⌘W 关闭 sheet |
 | 生物识别文案 | Mac 多为 Touch ID，文案须由 `availableBiometry()` 动态决定 |
@@ -421,27 +428,24 @@ sequenceDiagram
 | 家庭共享（Family Sharing） | **开启** | 一旦开启不可关闭；一次性买断适合家庭共享 |
 | StoreKit Configuration 本地 ID | 与上表产品 ID 一字不差 | T044 / T044a |
 
-#### 工程现状与待办
+#### 工程现状与待办（2026-08-05 刷新）
 
-| 项 | 现状 | 处理 |
+| 项 | 状态 | 备注 |
 |----|------|------|
-| iCloud Container | `icloud-container-identifiers` 为空数组 | 补齐为 `iCloud.com.apirelay.ApiRelay` |
-| Keychain / App Groups | entitlements 未配置 access groups | 补齐 |
-| Mac Catalyst | `SUPPORTS_MACCATALYST = NO` | 开启 |
-| 部署版本 | iOS 17.6 / macOS 14.6 | 对齐 **18.0 / 15.0**（DC-019） |
-| Bundle ID | `com.dsx.ApiRelay` | 改为 `com.apirelay.ApiRelay`（DC-018 / T002a） |
-| Swift 语言模式 | 5.0 | 改为 **Swift 6**（DC-019 / T002） |
-| `PrivacyInfo.xcprivacy` | 不存在 | V1 必须创建（FR-058）；商店材料随 Stage1→1.0.0（DC-013 已废止） |
-| **development language** | ✅ 已核实为 `en`（`developmentRegion = en`，`knownRegions = (en, Base)`） | 只需**追加** `zh-Hans` 本地化，无需迁移。FR-042 的主要风险已排除 |
-| String Catalog | 不存在 | 创建 `Localizable.xcstrings`，语义化 key |
-| `ITSAppUsesNonExemptEncryption` | 未声明 | 必须声明（用了 AES-GCM 与 PBKDF2），否则提交被阻断 |
-| Unit Test Target | 不存在 `ApiRelayTests` | 创建 |
-| `ENABLE_USER_SELECTED_FILES` | 需为 `readwrite` | 否则沙盒阻断加密备份写盘 |
-| BGTaskScheduler 标识 | 未登记 | Info.plist 加 `BGTaskSchedulerPermittedIdentifiers`（**V2**） |
-| MainActor 默认隔离 | `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` | Keychain / Adapter 显式 `actor` |
-| 内购产品 / 家庭共享 | 未在 App Store Connect 创建 | T044a 按上表定稿创建 |
+| iCloud Container / App Group / Keychain group | ✅ | `iCloud.com.apirelay.ApiRelay`、`group.com.apirelay.shared` |
+| Mac Catalyst / iOS 18 / macOS 15 / Swift 6 | ✅ | T002 |
+| Bundle ID `com.apirelay.ApiRelay` | ✅ | T002a |
+| `PrivacyInfo.xcprivacy` + 加密出口声明 | ✅ | T005；FR-045 / FR-058 |
+| development language `en` + `zh-Hans` / String Catalog | ✅ | T005a |
+| ApiRelayTests | ✅ | T003 |
+| `ENABLE_USER_SELECTED_FILES` / MainActor 隔离 + Keychain `actor` | ✅ | 已落地 |
+| 内购产品 ID / 家庭共享定稿（工程侧） | ✅ | T044a；Connect 侧创建随上架 |
+| CloudKit Production Deploy（T014b） | ⬜ | **Checkpoint 2b**；1.0.0 / 同步审核包前阻塞 |
+| 商店元数据 / 隐私问卷 / 截图 / 提交清单 | ⬜ | **T063–T066** |
+| `main` + tag `release/1.0.0` + 提交审核 | ⬜ | **T062**（需授权；前置 2b + T063–T066） |
+| BGTaskScheduler 标识 | V2 | 本期不做 |
 
-还需在 Apple Developer Portal 创建对应 iCloud Container（`iCloud.com.apirelay.ApiRelay`）与 App Group。
+Developer Portal 侧：若尚未勾选 iCloud(CloudKit)+App Group，须在 T014b 人工步骤中完成。
 
 ### A6. 风险与兜底
 

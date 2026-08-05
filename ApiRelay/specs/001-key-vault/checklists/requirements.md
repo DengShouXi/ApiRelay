@@ -143,7 +143,8 @@ V1 若遗漏，V2 的加密传递将被迫做破坏性格式升级，且已导�
 | FR-056/057、FR-062 无任务 | T028a、T044a；产品 ID / 家庭共享写入 plan A5 |
 | 文案漂移 | plan Summary/Tab、quickstart 四档与 SC-012/013、spec 产品概述阶段边界 |
 
-**结论**: analyze 报告中的 CRITICAL / HIGH 项已回填至规格制品。**尚未开始代码实现**；可重跑 `/speckit-analyze` 确认后再 `/speckit-implement`。
+**结论（截至第十次修订）**: analyze Top6 已回填。Stage1 代码大体就绪；上架前仍开：
+**T014b（2b）**、**T063–T066**、**T062**。可再跑 `/speckit-analyze` 复核。
 
 **第九次修订（2026-08-05，版本/上架/分支命名对齐）**：
 
@@ -152,3 +153,14 @@ V1 若遗漏，V2 的加密传递将被迫做破坏性格式升级，且已导�
 | **DC-013 废止** | Stage N 独立上架为 App Store **N.0.0**；与 DC-009 一致 | ROADMAP、spec、tasks Phase 8、quickstart §9、V1/V2 P08 |
 | **分支命名** | `plan.N` / `v1.N` / `v2.N` / `v3.N`；旧 `v0.Y.N` 仅历史对照 | BRANCHES.md、全量 playbooks save、ApiRelayTests README |
 | **发布 tag** | 仅上架打 `release/N.0.0`；小迭代仍用分支 | BRANCHES、constitution v2.3.0、`.cursor/rules/versioning-release.mdc` |
+
+**第十次修订（2026-08-05，`/speckit-analyze` Top6 回填）**：
+
+| 变更 | 影响 | 落点 |
+|------|------|------|
+| Checkpoint 2 拆 2a/2b | 功能开发可在 2a 继续；T014b 仍为 1.0.0 同步硬门槛 | tasks.md |
+| 商店材料任务 T063–T066 | Stage1 上架材料可勾选；T062 收紧为发布动作 | tasks.md、quickstart §9、P08 |
+| P07 去掉「V1 不上架」 | 与 DC-013 废止对齐 | P07-Catalyst.md |
+| plan Summary 承认 V3 中转 | 消除「最终形态不含中转」漂移 | plan.md |
+| plan A5 / Constitution Check 刷新 | 现状表与已完成 tasks 一致 | plan.md |
+| SC-003 对齐 FR-005 | 剪贴板清除含进程存活例外 | spec.md |
