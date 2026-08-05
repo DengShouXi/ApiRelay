@@ -3,13 +3,21 @@ import SwiftData
 
 @ModelActor
 actor ConsumerToolRepository {
-    func fetchAll(includeHidden: Bool = false) throws -> [ConsumerToolDTO] {
+    func fetchAll(includeHidden: Bool = false, includeDeleted: Bool = false) throws -> [ConsumerToolDTO] {
         let models = try modelContext.fetch(FetchDescriptor<ConsumerTool>(
             sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)]
         ))
         return models
+            .filter { includeDeleted || $0.deletedAt == nil }
             .filter { includeHidden || !$0.isHidden }
             .map(Self.map)
+    }
+
+    func fetchSoftDeleted() throws -> [ConsumerToolDTO] {
+        let models = try modelContext.fetch(FetchDescriptor<ConsumerTool>(
+            sortBy: [SortDescriptor(\.deletedAt, order: .reverse)]
+        ))
+        return models.filter { $0.deletedAt != nil }.map(Self.map)
     }
 
     func fetch(id: UUID) throws -> ConsumerToolDTO? {
@@ -53,10 +61,32 @@ actor ConsumerToolRepository {
         try modelContext.save()
     }
 
-    /// 预置项不可物理删除（FR-007a）。
-    func delete(id: UUID) throws {
+    /// 移入回收站（默认保留 30 天）。回收站期间保留 KeyAssignment。
+    func softDelete(id: UUID, deletedAt: Date = Date(), retainDays: Int = 30, allowPreset: Bool = false) throws {
+        guard let model = try fetchModel(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        if model.isPreset && !allowPreset {
+            throw ApiRelayError.validationFailed(field: "isPreset", reason: "preset_not_deletable")
+        }
+        model.deletedAt = deletedAt
+        model.purgeAfter = deletedAt.addingTimeInterval(TimeInterval(retainDays * 24 * 3600))
+        try modelContext.save()
+    }
+
+    func clearDeletionMarks(id: UUID) throws {
+        guard let model = try fetchModel(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        model.deletedAt = nil
+        model.purgeAfter = nil
+        try modelContext.save()
+    }
+
+    /// 预置项默认不可物理删除（FR-007a）；`allowPreset` 仅用于清除历史自动种子。
+    func delete(id: UUID, allowPreset: Bool = false) throws {
         guard let model = try fetchModel(id: id) else { return }
-        if model.isPreset {
+        if model.isPreset && !allowPreset {
             throw ApiRelayError.validationFailed(field: "isPreset", reason: "preset_not_deletable")
         }
         modelContext.delete(model)
@@ -79,7 +109,9 @@ actor ConsumerToolRepository {
             isPreset: model.isPreset,
             isHidden: model.isHidden,
             createdAt: model.createdAt,
-            sortOrder: model.sortOrder
+            sortOrder: model.sortOrder,
+            deletedAt: model.deletedAt,
+            purgeAfter: model.purgeAfter
         )
     }
 }

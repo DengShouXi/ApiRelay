@@ -43,7 +43,8 @@ v0 . 大阶段 . 小迭代
 | `v0.1.5` | Phase 5 entitlements: StoreKit 2 service, DEBUG override, restore, paywall, StoreKit config (`com.apirelay.iap.unlimited_keys`, family shareable) | 小迭代 5 — 付费解锁 |
 | `v0.1.6` | Phase 6 settings: PreferencesService (FR-060 split), SecureBackup AES-GCM with purpose/scope, eraseAllUserData, Settings UI | 小迭代 6 — 设置与加密备份 |
 | `v0.1.7` | Phase 7 Catalyst: default 900×700 / min 800×600, Commands ⌘, / ⌘N, context menus, biometricOnly auto-disable | 小迭代 7 — Catalyst |
-| `v0.1.8` | Phase 8 security review automation + V1 engineering closeout. **current**. T062 main merge/tag awaiting explicit auth. T014b still deferred until Developer Program. | 小迭代 8 — 安全审查收尾（**当前**）。T062 待授权；T014b 仍延期 |
+| `v0.1.8` | Phase 8 security review automation + V1 engineering closeout. T062 main merge/tag awaiting explicit auth. T014b still deferred until Developer Program. | 小迭代 8 — 安全审查收尾。T062 待授权；T014b 仍延期 |
+| `v0.1.9` | UX hardening after V1 closeout: multi-key add, account/consumer soft-delete recycle bin (30d), by-platform vs by-consumer flows, Chinese errors, Debug local SwiftData by default (`APIRELAY_CLOUDKIT=1` to sync). **current**. Checkout `v0.1.9`. Next: UI redesign (`v0.1.10`). | 小迭代 9 — V1 收尾后的可用性加固：多密钥、账号/使用方 30 天回收站、双视角、中文错误、Debug 默认本机库。**当前**。下一：`v0.1.10` UI 重设计 |
 
 ---
 

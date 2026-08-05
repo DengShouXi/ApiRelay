@@ -12,6 +12,8 @@ struct UpstreamAccountDTO: Identifiable, Sendable {
     let createdAt: Date
     let updatedAt: Date
     let sortOrder: Int
+    let deletedAt: Date?
+    let purgeAfter: Date?
 }
 
 struct UpstreamAccountDraft: Sendable {
@@ -40,6 +42,8 @@ struct ConsumerToolDTO: Identifiable, Sendable {
     let isHidden: Bool
     let createdAt: Date
     let sortOrder: Int
+    let deletedAt: Date?
+    let purgeAfter: Date?
 }
 
 struct ConsumerToolDraft: Sendable {

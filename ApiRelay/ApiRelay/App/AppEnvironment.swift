@@ -40,7 +40,7 @@ final class AppEnvironment: ObservableObject {
             clipboard: clipboard,
             modelContainer: modelContainer
         )
-        self.consumerTools = ConsumerToolService(modelContainer: modelContainer)
+        self.consumerTools = ConsumerToolService(modelContainer: modelContainer, gate: gate)
         let entitlements = EntitlementService(modelContainer: modelContainer)
         self.entitlements = entitlements
         Task { await entitlements.startListening() }

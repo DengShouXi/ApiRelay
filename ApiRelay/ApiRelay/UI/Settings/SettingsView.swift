@@ -4,10 +4,9 @@ struct SettingsView: View {
     let environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
     @State private var prefs: PreferencesDTO?
-    @State private var masterPassword = ""
-    @State private var backupPassphrase = ""
-    @State private var status = ""
+    @State private var masterPasswordIsSet = false
     @State private var confirmErase = false
+    @State private var eraseStatus = ""
 
     var body: some View {
         NavigationStack {
@@ -65,43 +64,26 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("settings.masterPassword") {
-                    SecureField("vault.masterPassword", text: $masterPassword)
-                    Button("settings.masterPassword.set") {
-                        Task {
-                            try? await environment.masterPassword.setPassword(masterPassword)
-                            masterPassword = ""
-                            status = String(localized: "settings.masterPassword.saved")
+                Section {
+                    NavigationLink {
+                        MasterPasswordSettingsView(environment: environment) {
+                            await refreshMasterPasswordStatus()
                         }
-                    }
-                    Button("settings.masterPassword.reset", role: .destructive) {
-                        Task {
-                            try? await environment.gate.confirmMandatory(
-                                reason: String(localized: "gate.resetMasterPassword")
+                    } label: {
+                        HStack {
+                            Text("settings.masterPassword")
+                            Spacer()
+                            Text(
+                                masterPasswordIsSet
+                                    ? String(localized: "settings.masterPassword.status.set")
+                                    : String(localized: "settings.masterPassword.status.unset")
                             )
-                            try? await environment.masterPassword.reset()
-                            status = String(localized: "settings.masterPassword.resetDone")
+                            .foregroundStyle(.secondary)
                         }
                     }
-                    Text("vault.masterPassword.disclosure")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
 
-                Section("settings.backup") {
-                    SecureField("settings.backup.passphrase", text: $backupPassphrase)
-                    Button("settings.backup.export") {
-                        Task {
-                            do {
-                                _ = try await environment.backups.exportBackup(
-                                    passphrase: backupPassphrase,
-                                    purpose: .fullBackup
-                                )
-                                status = String(localized: "settings.backup.exported")
-                            } catch {
-                                status = error.localizedDescription
-                            }
-                        }
+                    NavigationLink("settings.backup") {
+                        BackupSettingsView(environment: environment)
                     }
                 }
 
@@ -109,24 +91,33 @@ struct SettingsView: View {
                     Button("settings.eraseAll", role: .destructive) {
                         confirmErase = true
                     }
-                }
-
-                if !status.isEmpty {
-                    Text(status).font(.footnote)
+                    if !eraseStatus.isEmpty {
+                        Text(eraseStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .navigationTitle("settings.title")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("gate.cancel") { dismiss() }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("settings.done") { dismiss() }
                 }
             }
-            .task { await reload() }
+            .task {
+                await reload()
+                await refreshMasterPasswordStatus()
+            }
             .confirmationDialog("settings.eraseAll.confirm", isPresented: $confirmErase) {
                 Button("settings.eraseAll", role: .destructive) {
                     Task {
-                        try? await environment.dataLifecycle.eraseAllUserData()
-                        status = String(localized: "settings.eraseAll.done")
+                        do {
+                            try await environment.dataLifecycle.eraseAllUserData()
+                            eraseStatus = String(localized: "settings.eraseAll.done")
+                            await refreshMasterPasswordStatus()
+                        } catch {
+                            eraseStatus = error.localizedDescription
+                        }
                     }
                 }
             } message: {
@@ -173,6 +164,138 @@ struct SettingsView: View {
 
     private func reload() async {
         prefs = try? await environment.preferences.load()
+    }
+
+    private func refreshMasterPasswordStatus() async {
+        masterPasswordIsSet = (try? await environment.masterPassword.isSet()) ?? false
+    }
+}
+
+// MARK: - Master password
+
+private struct MasterPasswordSettingsView: View {
+    let environment: AppEnvironment
+    let onChanged: () async -> Void
+
+    @State private var password = ""
+    @State private var confirm = ""
+    @State private var status = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        Form {
+            Section {
+                SecureField("vault.masterPassword", text: $password)
+                SecureField("settings.masterPassword.confirm", text: $confirm)
+                Button("settings.masterPassword.save") {
+                    Task { await save() }
+                }
+                .disabled(isSaving || password.isEmpty || confirm.isEmpty)
+            } footer: {
+                Text("vault.masterPassword.disclosure")
+            }
+
+            Section {
+                Button("settings.masterPassword.reset", role: .destructive) {
+                    Task { await reset() }
+                }
+            }
+
+            if !status.isEmpty {
+                Section {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("settings.masterPassword")
+        #if os(iOS) || targetEnvironment(macCatalyst)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+    }
+
+    private func save() async {
+        status = ""
+        guard password == confirm else {
+            status = String(localized: "settings.masterPassword.mismatch")
+            return
+        }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await environment.masterPassword.setPassword(password)
+            password = ""
+            confirm = ""
+            status = String(localized: "settings.masterPassword.saved")
+            await onChanged()
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    private func reset() async {
+        status = ""
+        do {
+            try await environment.gate.confirmMandatory(
+                reason: String(localized: "gate.resetMasterPassword")
+            )
+            try await environment.masterPassword.reset()
+            password = ""
+            confirm = ""
+            status = String(localized: "settings.masterPassword.resetDone")
+            await onChanged()
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Backup
+
+private struct BackupSettingsView: View {
+    let environment: AppEnvironment
+    @State private var passphrase = ""
+    @State private var status = ""
+    @State private var isExporting = false
+
+    var body: some View {
+        Form {
+            Section {
+                SecureField("settings.backup.passphrase", text: $passphrase)
+                Button("settings.backup.export") {
+                    Task { await export() }
+                }
+                .disabled(isExporting || passphrase.isEmpty)
+            }
+
+            if !status.isEmpty {
+                Section {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("settings.backup")
+        #if os(iOS) || targetEnvironment(macCatalyst)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+    }
+
+    private func export() async {
+        status = ""
+        isExporting = true
+        defer { isExporting = false }
+        do {
+            _ = try await environment.backups.exportBackup(
+                passphrase: passphrase,
+                purpose: .fullBackup
+            )
+            status = String(localized: "settings.backup.exported")
+        } catch {
+            status = error.localizedDescription
+        }
     }
 }
 

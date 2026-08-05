@@ -51,7 +51,7 @@ actor KeyVaultService: KeyVaultServing {
         for key in related {
             try await softDeleteKeyMetadata(key.id)
         }
-        try await accountsRepo.delete(id: id)
+        try await accountsRepo.softDelete(id: id, retainDays: 30)
     }
 
     func createKey(
@@ -102,14 +102,19 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func recentlyDeletedKeys() async throws -> [KeyRecordDTO] {
-        let records = try await keysRepo.fetch(lifecycles: [.softDeleted])
-        return try await withSecretAvailability(records)
+        // 回收站只展示元数据；禁止在此读 Keychain（同步钥匙串会卡住，导致 sheet 一直空白）。
+        try await keysRepo.fetchSoftDeleted()
     }
 
     func restoreKey(_ id: UUID) async throws {
         try await gate.confirmMandatory(reason: String(localized: "gate.restoreKey"))
         if let remaining = try await remainingFreeQuota(), remaining <= 0 {
             throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
+        }
+        if let key = try await keysRepo.fetch(id: id),
+           let account = try await accountsRepo.fetch(id: key.accountId),
+           account.deletedAt != nil {
+            try await accountsRepo.clearDeletionMarks(id: account.id)
         }
         try await keysRepo.clearDeletionMarks(id: id)
     }
@@ -124,6 +129,46 @@ actor KeyVaultService: KeyVaultServing {
         let now = Date()
         for key in deleted where (key.purgeAfter ?? .distantFuture) < now {
             try await destroyKey(key.id)
+        }
+    }
+
+    func recentlyDeletedAccounts() async throws -> [UpstreamAccountDTO] {
+        try await accountsRepo.fetchSoftDeleted()
+    }
+
+    func restoreAccount(_ id: UUID) async throws {
+        try await gate.confirmMandatory(reason: String(localized: "gate.restoreAccount"))
+        guard let account = try await accountsRepo.fetch(id: id), account.deletedAt != nil else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        let cascadeKeys = try await keysRepo.fetch(accountId: id, lifecycles: [.softDeleted])
+        if let remaining = try await remainingFreeQuota(), cascadeKeys.count > remaining {
+            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
+        }
+        try await accountsRepo.clearDeletionMarks(id: id)
+        for key in cascadeKeys {
+            try await keysRepo.clearDeletionMarks(id: key.id)
+        }
+    }
+
+    func permanentlyDeleteAccount(_ id: UUID) async throws {
+        try await gate.confirmMandatory(reason: String(localized: "gate.permanentDelete"))
+        let allKeys = try await keysRepo.fetch(accountId: id, lifecycles: nil)
+        for key in allKeys {
+            try await destroyKey(key.id)
+        }
+        try await accountsRepo.delete(id: id)
+    }
+
+    func purgeExpiredDeletedAccounts() async throws {
+        let deleted = try await accountsRepo.fetchSoftDeleted()
+        let now = Date()
+        for account in deleted where (account.purgeAfter ?? .distantFuture) < now {
+            let allKeys = try await keysRepo.fetch(accountId: account.id, lifecycles: nil)
+            for key in allKeys {
+                try await destroyKey(key.id)
+            }
+            try await accountsRepo.delete(id: account.id)
         }
     }
 
@@ -155,7 +200,7 @@ actor KeyVaultService: KeyVaultServing {
         try await runGate(masterPassword: masterPassword)
         let secret = try await keychain.read(service: .keys, account: keyId)
         let prefs = try await userPrefsRepo.loadOrCreate()
-        await clipboard.write(
+        try await clipboard.write(
             secret,
             expiresAfter: TimeInterval(prefs.clipboardClearSeconds),
             localOnly: prefs.clipboardLocalOnly
@@ -180,6 +225,7 @@ actor KeyVaultService: KeyVaultServing {
 
     func performStartupMaintenance() async throws {
         try await purgeExpiredDeletedKeys()
+        try await purgeExpiredDeletedAccounts()
     }
 
     private func runGate(masterPassword: String?) async throws {
@@ -211,12 +257,7 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     private func softDeleteKeyMetadata(_ id: UUID) async throws {
-        let now = Date()
-        try await keysRepo.update(id: id, patch: KeyPatch(
-            lifecycle: .softDeleted,
-            deletedAt: now,
-            purgeAfter: now.addingTimeInterval(30 * 24 * 3600)
-        ))
+        try await keysRepo.softDelete(id: id, retainDays: 30)
     }
 
     private func destroyKey(_ id: UUID) async throws {

@@ -63,9 +63,17 @@ final class KeyVaultServiceTests: XCTestCase {
         let still = try await keychain.read(service: .keys, account: keyId)
         XCTAssertEqual(still, "sk-keep-me-xxxx")
 
+        let trash = try await vault.recentlyDeletedKeys()
+        XCTAssertEqual(trash.map(\.id), [keyId])
+        XCTAssertEqual(trash.first?.lifecycle, .softDeleted)
+        XCTAssertNotNil(trash.first?.deletedAt)
+        XCTAssertNotNil(trash.first?.purgeAfter)
+
         try await vault.restoreKey(keyId)
         let revealed = try await vault.revealSecret(keyId: keyId, purpose: .display, masterPassword: nil)
         XCTAssertEqual(revealed, "sk-keep-me-xxxx")
+        let afterRestore = try await vault.recentlyDeletedKeys()
+        XCTAssertTrue(afterRestore.isEmpty)
     }
 
     func testPermanentDeleteRemovesKeychain() async throws {

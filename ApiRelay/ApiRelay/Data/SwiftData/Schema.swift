@@ -41,12 +41,21 @@ enum AppSchema: Sendable {
     }
 
     /// 生产容器：优先 CloudKit private DB；Portal/签名未就绪或单元测试时回退本机。
+    ///
+    /// Debug 默认本机（避免未 Deploy Production schema 时持续刷 Server Rejected）。
+    /// 需要联调同步时设环境变量 `APIRELAY_CLOUDKIT=1`。
     @MainActor
     static func makeProductionContainer() throws -> ModelContainer {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         if isTesting {
             return try makeInMemoryContainer()
         }
+        #if DEBUG
+        let forceCloudKit = ProcessInfo.processInfo.environment["APIRELAY_CLOUDKIT"] == "1"
+        if !forceCloudKit {
+            return try makeLocalDiskContainer()
+        }
+        #endif
         do {
             return try makeCloudKitContainer()
         } catch {

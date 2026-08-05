@@ -80,6 +80,30 @@ actor APIKeyRecordRepository {
         try modelContext.save()
     }
 
+    /// 移入回收站：显式写 lifecycle / deletedAt / purgeAfter（默认 30 天）。
+    func softDelete(id: UUID, deletedAt: Date = Date(), retainDays: Int = 30) throws {
+        guard let model = try fetchModel(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        model.lifecycle = KeyLifecycle.softDeleted.rawValue
+        model.deletedAt = deletedAt
+        model.purgeAfter = deletedAt.addingTimeInterval(TimeInterval(retainDays * 24 * 3600))
+        model.updatedAt = Date()
+        try modelContext.save()
+    }
+
+    /// 回收站列表（按删除时间新→旧）。
+    func fetchSoftDeleted() throws -> [KeyRecordDTO] {
+        let soft = KeyLifecycle.softDeleted.rawValue
+        let models = try modelContext.fetch(FetchDescriptor<APIKeyRecord>(
+            sortBy: [SortDescriptor(\.deletedAt, order: .reverse)]
+        ))
+        return try models.compactMap { model in
+            guard model.lifecycle == soft else { return nil }
+            return try map(model)
+        }
+    }
+
     func delete(id: UUID) throws {
         guard let model = try fetchModel(id: id) else { return }
         modelContext.delete(model)

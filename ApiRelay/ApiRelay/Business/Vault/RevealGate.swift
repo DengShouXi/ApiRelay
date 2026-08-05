@@ -78,7 +78,11 @@ actor RevealGate: RevealGateServing {
             case .userCancel, .appCancel, .systemCancel:
                 throw ApiRelayError.authenticationCancelled
             case .biometryNotAvailable, .biometryNotEnrolled, .biometryLockout:
-                throw ApiRelayError.biometryUnavailable
+                // deviceOwnerAuthentication 本应回落本机密码；仅 biometricOnly 才报 biometryUnavailable。
+                if policy == .deviceOwnerAuthenticationWithBiometrics {
+                    throw ApiRelayError.biometryUnavailable
+                }
+                throw ApiRelayError.authenticationFailed
             default:
                 throw ApiRelayError.authenticationFailed
             }

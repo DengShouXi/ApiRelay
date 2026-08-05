@@ -1,7 +1,8 @@
 import Foundation
 
-/// 上游平台与使用方工具的内置预置清单（FR-007a / CL-003）。
-/// MUST NOT 持久化为用户数据；应用更新扩充清单时 MUST NOT 覆盖或删除用户自建项。
+/// 上游平台与使用方工具的内置清单。
+/// 上游平台：预置选项 + 自定义。
+/// 使用方工具：`consumerTools` **仅作添加表单的名称建议**，启动时不再写入数据库。
 enum PresetCatalog: Sendable {
     struct Platform: Sendable, Identifiable, Hashable {
         let id: String

@@ -4,6 +4,33 @@ import SwiftData
 
 @MainActor
 final class GroupingTests: XCTestCase {
+    func testPlatformModeIncludesAccountWithoutKeys() {
+        let accountId = UUID()
+        let accounts = [UpstreamAccountDTO(
+            id: accountId, platform: "openai", customPlatformName: nil,
+            displayName: "Empty Acc", customBaseURL: nil, hasManagementCredential: false,
+            createdAt: Date(), updatedAt: Date(), sortOrder: 0,
+            deletedAt: nil, purgeAfter: nil
+        )]
+        let sections = KeyGrouping.group(keys: [], accounts: accounts, tools: [], mode: .byPlatform)
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.kind, .platform(accountId: accountId, title: "Empty Acc"))
+        XCTAssertTrue(sections.first?.keys.isEmpty == true)
+    }
+
+    func testConsumerModeIncludesToolWithoutKeys() {
+        let toolId = UUID()
+        let tools = [ConsumerToolDTO(
+            id: toolId, name: "Empty Tool", iconSymbol: nil,
+            isPreset: false, isHidden: false, createdAt: Date(), sortOrder: 0,
+            deletedAt: nil, purgeAfter: nil
+        )]
+        let sections = KeyGrouping.group(keys: [], accounts: [], tools: tools, mode: .byConsumer)
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.kind, .consumer(toolId: toolId, title: "Empty Tool"))
+        XCTAssertTrue(sections.first?.keys.isEmpty == true)
+    }
+
     func testSharedKeyCountedOnceAcrossModes() {
         let account = UUID()
         let toolA = UUID()
@@ -16,24 +43,22 @@ final class GroupingTests: XCTestCase {
         let accounts = [UpstreamAccountDTO(
             id: account, platform: "openai", customPlatformName: nil,
             displayName: "OpenAI", customBaseURL: nil, hasManagementCredential: false,
-            createdAt: Date(), updatedAt: Date(), sortOrder: 0
+            createdAt: Date(), updatedAt: Date(), sortOrder: 0,
+            deletedAt: nil, purgeAfter: nil
         )]
         let tools = [
-            ConsumerToolDTO(id: toolA, name: "VS Code", iconSymbol: nil, isPreset: true, isHidden: false, createdAt: Date(), sortOrder: 0),
-            ConsumerToolDTO(id: toolB, name: "Cursor", iconSymbol: nil, isPreset: true, isHidden: false, createdAt: Date(), sortOrder: 1),
+            ConsumerToolDTO(id: toolA, name: "VS Code", iconSymbol: nil, isPreset: true, isHidden: false, createdAt: Date(), sortOrder: 0, deletedAt: nil, purgeAfter: nil),
+            ConsumerToolDTO(id: toolB, name: "Cursor", iconSymbol: nil, isPreset: true, isHidden: false, createdAt: Date(), sortOrder: 1, deletedAt: nil, purgeAfter: nil),
         ]
 
         let byPlatform = KeyGrouping.group(keys: keys, accounts: accounts, tools: tools, mode: .byPlatform)
         let byConsumer = KeyGrouping.group(keys: keys, accounts: accounts, tools: tools, mode: .byConsumer)
 
         XCTAssertEqual(KeyGrouping.uniqueKeyCount(in: byPlatform), 3)
-        XCTAssertEqual(KeyGrouping.uniqueKeyCount(in: byConsumer), 3)
-        XCTAssertEqual(
-            KeyGrouping.uniqueKeyCount(in: byConsumer),
-            KeyGrouping.uniqueKeyCount(in: byPlatform)
-        )
+        // 按使用方不再单独列出「未分配」；未指派密钥只出现在「添加已有密钥」候选里。
+        XCTAssertEqual(KeyGrouping.uniqueKeyCount(in: byConsumer), 2)
         XCTAssertTrue(byConsumer.contains { $0.kind == .shared })
-        XCTAssertTrue(byConsumer.contains { $0.kind == .unassigned })
+        XCTAssertFalse(byConsumer.contains { $0.kind == .unassigned })
     }
 
     func testAssignmentDedupDoesNotInflateKind() async throws {

@@ -16,6 +16,11 @@ protocol KeyVaultServing: Actor {
     func permanentlyDeleteKey(_ id: UUID) async throws
     func purgeExpiredDeletedKeys() async throws
 
+    func recentlyDeletedAccounts() async throws -> [UpstreamAccountDTO]
+    func restoreAccount(_ id: UUID) async throws
+    func permanentlyDeleteAccount(_ id: UUID) async throws
+    func purgeExpiredDeletedAccounts() async throws
+
     func addAssignment(keyId: UUID, consumerToolId: UUID) async throws
     func removeAssignment(keyId: UUID, consumerToolId: UUID) async throws
     func assignmentKind(keyId: UUID) async throws -> AssignmentKind

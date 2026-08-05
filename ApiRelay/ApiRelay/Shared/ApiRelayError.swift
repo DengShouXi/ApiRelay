@@ -44,3 +44,43 @@ enum ApiRelayError: Error {
     /// 备份版本不支持
     case backupVersionUnsupported(found: Int, supported: Int)
 }
+
+extension ApiRelayError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .authenticationFailed:
+            return String(localized: "error.authenticationFailed")
+        case .authenticationCancelled:
+            return String(localized: "error.authenticationCancelled")
+        case .biometryUnavailable:
+            return String(localized: "error.biometryUnavailable")
+        case .keychainFailure(let status):
+            return String(localized: "error.keychainFailure \(status)")
+        case .secretMissingOnDevice:
+            return String(localized: "error.secretMissingOnDevice")
+        case .quotaExceededFreeTier:
+            return String(localized: "error.quotaExceeded")
+        case .validationFailed(let field, let reason):
+            return String(localized: "error.validationFailed \(field) \(reason)")
+        case .capabilityUnsupported(let platform, _):
+            return String(localized: "error.capabilityUnsupported \(platform)")
+        case .managementCredentialMissing:
+            return String(localized: "error.managementCredentialMissing")
+        case .upstreamRejected(let status, let message):
+            if let message, !message.isEmpty {
+                return String(localized: "error.upstreamRejectedDetail \(status) \(message)")
+            }
+            return String(localized: "error.upstreamRejected \(status)")
+        case .upstreamResponseUnparsable(let detail):
+            return String(localized: "error.upstreamUnparsable \(detail)")
+        case .networkUnavailable:
+            return String(localized: "error.networkUnavailable")
+        case .createdUpstreamButLocalSaveFailed(_, let platform):
+            return String(localized: "error.createdUpstreamButLocalSaveFailed \(platform)")
+        case .backupPassphraseIncorrect:
+            return String(localized: "error.backupPassphraseIncorrect")
+        case .backupVersionUnsupported(let found, let supported):
+            return String(localized: "error.backupVersionUnsupported \(found) \(supported)")
+        }
+    }
+}

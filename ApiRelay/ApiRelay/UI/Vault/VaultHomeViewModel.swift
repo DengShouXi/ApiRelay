@@ -11,6 +11,7 @@ final class VaultHomeViewModel: ObservableObject {
     @Published var groupingMode: GroupingMode = .byPlatform
     @Published var remainingQuota: Int?
     @Published var errorMessage: String?
+    @Published var toastMessage: String?
     @Published var showQuotaAlert = false
     @Published var needsMasterPassword = false
     @Published var copySecondsRemaining: Int?
@@ -66,24 +67,35 @@ final class VaultHomeViewModel: ObservableObject {
         await refresh()
     }
 
-    func createAccount(platform: String, name: String, customBaseURL: String?) async {
+    @discardableResult
+    func createAccount(platform: String, name: String, customBaseURL: String?) async -> UpstreamAccountDTO? {
         do {
-            _ = try await vault.createAccount(UpstreamAccountDraft(
+            let id = try await vault.createAccount(UpstreamAccountDraft(
                 platform: platform,
                 customPlatformName: platform == PresetCatalog.customPlatformID ? name : nil,
                 displayName: name,
                 customBaseURL: customBaseURL
             ))
             await refresh()
+            return accounts.first { $0.id == id }
         } catch {
             errorMessage = error.localizedDescription
+            return nil
         }
     }
 
     func createKey(accountId: UUID, name: String, secret: String, ackDuplicate: Bool) async {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedName: String
+        if trimmedName.isEmpty {
+            let count = allKeys.filter { $0.accountId == accountId }.count
+            resolvedName = String(localized: "vault.key.defaultName \(count + 1)")
+        } else {
+            resolvedName = trimmedName
+        }
         do {
             _ = try await vault.createKey(
-                KeyDraft(accountId: accountId, displayName: name),
+                KeyDraft(accountId: accountId, displayName: resolvedName),
                 secret: secret,
                 acknowledgePossibleDuplicate: ackDuplicate
             )
@@ -102,6 +114,20 @@ final class VaultHomeViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func unassign(keyId: UUID, toolId: UUID) async {
+        do {
+            try await vault.removeAssignment(keyId: keyId, consumerToolId: toolId)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// 尚未指派到该使用端的密钥（仍可挂到其他使用端，一钥多端）。
+    func keysAssignable(to toolId: UUID) -> [KeyRecordDTO] {
+        allKeys.filter { !$0.consumerToolIds.contains(toolId) }
     }
 
     func revealReturning(keyId: UUID, masterPassword: String?) async -> String? {
@@ -128,14 +154,17 @@ final class VaultHomeViewModel: ObservableObject {
         do {
             try await vault.copySecretToClipboard(keyId: keyId, masterPassword: masterPassword)
             copySecondsRemaining = 120
+            toastMessage = String(localized: "vault.copied.toast")
             return true
         } catch let ApiRelayError.validationFailed(_, reason)
             where reason == "required" || reason.contains("master_password")
         {
             needsMasterPassword = true
             return false
+        } catch ApiRelayError.authenticationCancelled {
+            return false
         } catch {
-            errorMessage = error.localizedDescription
+            toastMessage = String(localized: "vault.copy.failed")
             return false
         }
     }
@@ -148,6 +177,117 @@ final class VaultHomeViewModel: ObservableObject {
         do {
             try await vault.deleteKey(id)
             await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadRecentlyDeleted() async -> [KeyRecordDTO] {
+        do {
+            return try await vault.recentlyDeletedKeys()
+        } catch {
+            errorMessage = error.localizedDescription
+            return []
+        }
+    }
+
+    func loadRecentlyDeletedBundle() async throws -> (
+        keys: [KeyRecordDTO],
+        accounts: [UpstreamAccountDTO],
+        tools: [ConsumerToolDTO]
+    ) {
+        let keys = try await vault.recentlyDeletedKeys()
+        let accounts = try await vault.recentlyDeletedAccounts()
+        let tools = try await environment.consumerTools.recentlyDeletedTools()
+        return (keys, accounts, tools)
+    }
+
+    func restoreKey(_ id: UUID) async {
+        do {
+            try await vault.restoreKey(id)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func permanentlyDeleteKey(_ id: UUID) async {
+        do {
+            try await vault.permanentlyDeleteKey(id)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func deleteAccount(_ id: UUID) async {
+        do {
+            try await vault.deleteAccount(id)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func restoreAccount(_ id: UUID) async {
+        do {
+            try await vault.restoreAccount(id)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func permanentlyDeleteAccount(_ id: UUID) async {
+        do {
+            try await vault.permanentlyDeleteAccount(id)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    @discardableResult
+    func createTool(name: String) async -> ConsumerToolDTO? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolved: String
+        if trimmed.isEmpty {
+            let count = tools.filter { !$0.isPreset }.count
+            resolved = String(localized: "vault.consumer.defaultName \(count + 1)")
+        } else {
+            resolved = trimmed
+        }
+        do {
+            let id = try await environment.consumerTools.createTool(
+                ConsumerToolDraft(name: resolved)
+            )
+            await refresh()
+            return tools.first { $0.id == id }
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func deleteTool(_ id: UUID) async {
+        do {
+            try await environment.consumerTools.deleteTool(id: id)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func restoreTool(_ id: UUID) async {
+        do {
+            try await environment.consumerTools.restoreTool(id: id)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func permanentlyDeleteTool(_ id: UUID) async {
+        do {
+            try await environment.consumerTools.permanentlyDeleteTool(id: id)
         } catch {
             errorMessage = error.localizedDescription
         }

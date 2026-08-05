@@ -41,7 +41,11 @@ enum KeyGrouping {
         accounts: [UpstreamAccountDTO]
     ) -> [KeyGroupSection] {
         let titleByAccount = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.displayName) })
+        // Seed every account so 「添加账号」后主列表仍可见（0 密钥也出分区），否则无法点「添加密钥」。
         var buckets: [UUID: [KeyRecordDTO]] = [:]
+        for account in accounts {
+            buckets[account.id] = []
+        }
         for key in keys {
             buckets[key.accountId, default: []].append(key)
         }
@@ -60,7 +64,11 @@ enum KeyGrouping {
         tools: [ConsumerToolDTO]
     ) -> [KeyGroupSection] {
         let toolName = Dictionary(uniqueKeysWithValues: tools.map { ($0.id, $0.name) })
+        // 与按平台一致：每个使用端都出分区（含 0 密钥），否则「添加使用端」后主列表看不见。
         var exclusive: [UUID: [KeyRecordDTO]] = [:]
+        for tool in tools {
+            exclusive[tool.id] = []
+        }
         var shared: [KeyRecordDTO] = []
         var unassigned: [KeyRecordDTO] = []
 
@@ -89,9 +97,8 @@ enum KeyGrouping {
         if !shared.isEmpty {
             sections.append(KeyGroupSection(kind: .shared, keys: shared))
         }
-        if !unassigned.isEmpty {
-            sections.append(KeyGroupSection(kind: .unassigned, keys: unassigned))
-        }
+        // 未分配密钥不单独成区：改在「添加已有密钥」候选旁标注「未分配 / 已分配 N 次」。
+        _ = unassigned
         return sections
     }
 }

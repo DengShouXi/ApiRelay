@@ -4,11 +4,20 @@ import SwiftData
 /// UpstreamAccount 持久化。不向上层泄露 ModelContext。
 @ModelActor
 actor UpstreamAccountRepository {
-    func fetchAll() throws -> [UpstreamAccountDTO] {
+    func fetchAll(includeDeleted: Bool = false) throws -> [UpstreamAccountDTO] {
         let descriptor = FetchDescriptor<UpstreamAccount>(
             sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)]
         )
-        return try modelContext.fetch(descriptor).map(Self.map)
+        return try modelContext.fetch(descriptor)
+            .filter { includeDeleted || $0.deletedAt == nil }
+            .map(Self.map)
+    }
+
+    func fetchSoftDeleted() throws -> [UpstreamAccountDTO] {
+        let models = try modelContext.fetch(FetchDescriptor<UpstreamAccount>(
+            sortBy: [SortDescriptor(\.deletedAt, order: .reverse)]
+        ))
+        return models.filter { $0.deletedAt != nil }.map(Self.map)
     }
 
     func fetch(id: UUID) throws -> UpstreamAccountDTO? {
@@ -61,6 +70,27 @@ actor UpstreamAccountRepository {
         try modelContext.save()
     }
 
+    /// 移入回收站（默认保留 30 天）。
+    func softDelete(id: UUID, deletedAt: Date = Date(), retainDays: Int = 30) throws {
+        guard let model = try fetchModel(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        model.deletedAt = deletedAt
+        model.purgeAfter = deletedAt.addingTimeInterval(TimeInterval(retainDays * 24 * 3600))
+        model.updatedAt = Date()
+        try modelContext.save()
+    }
+
+    func clearDeletionMarks(id: UUID) throws {
+        guard let model = try fetchModel(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        model.deletedAt = nil
+        model.purgeAfter = nil
+        model.updatedAt = Date()
+        try modelContext.save()
+    }
+
     func delete(id: UUID) throws {
         guard let model = try fetchModel(id: id) else { return }
         modelContext.delete(model)
@@ -85,7 +115,9 @@ actor UpstreamAccountRepository {
             hasManagementCredential: model.hasManagementCredential,
             createdAt: model.createdAt,
             updatedAt: model.updatedAt,
-            sortOrder: model.sortOrder
+            sortOrder: model.sortOrder,
+            deletedAt: model.deletedAt,
+            purgeAfter: model.purgeAfter
         )
     }
 }

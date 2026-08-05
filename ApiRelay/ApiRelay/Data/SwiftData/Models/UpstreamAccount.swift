@@ -12,6 +12,10 @@ final class UpstreamAccount {
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var sortOrder: Int = 0
+    /// 移入回收站时间；非 nil 表示软删除。
+    var deletedAt: Date?
+    /// 永久清除截止（默认 deletedAt + 30 天）。
+    var purgeAfter: Date?
 
     init(
         id: UUID = UUID(),
@@ -22,7 +26,9 @@ final class UpstreamAccount {
         hasManagementCredential: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        sortOrder: Int = 0
+        sortOrder: Int = 0,
+        deletedAt: Date? = nil,
+        purgeAfter: Date? = nil
     ) {
         self.id = id
         self.platform = platform
@@ -33,5 +39,7 @@ final class UpstreamAccount {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.sortOrder = sortOrder
+        self.deletedAt = deletedAt
+        self.purgeAfter = purgeAfter
     }
 }
