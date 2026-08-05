@@ -92,7 +92,8 @@ final class GroupingTests: XCTestCase {
             deletedAt: nil,
             purgeAfter: nil,
             spendLimit: nil,
-            secretAvailable: true
+            secretAvailable: true,
+            sortOrder: 0
         )
     }
 }

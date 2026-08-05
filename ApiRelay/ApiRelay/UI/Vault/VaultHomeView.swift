@@ -1,65 +1,511 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+#if os(macOS) && !targetEnvironment(macCatalyst)
+import AppKit
+#endif
+
+/// 一级导航：按平台 / 按使用方 / 回收站 / 设置。
+/// iPhone：底栏 Tab；Mac / Catalyst：左侧边栏。
+enum VaultRootTab: Hashable {
+    case byPlatform
+    case byConsumer
+    case trash
+    case settings
+
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .byPlatform: "vault.grouping.platform"
+        case .byConsumer: "vault.grouping.consumer"
+        case .trash: "vault.recentlyDeleted"
+        case .settings: "settings.title"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .byPlatform: "square.stack.3d.up"
+        case .byConsumer: "laptopcomputer"
+        case .trash: "trash"
+        case .settings: "gearshape"
+        }
+    }
+}
 
 struct VaultHomeView: View {
     @ObservedObject var viewModel: VaultHomeViewModel
+    @State private var selectedTab: VaultRootTab = .byPlatform
+    /// 侧栏 `List(selection:)` 在 iOS/Catalyst 需要 Optional。
+    private var sidebarSelection: Binding<VaultRootTab?> {
+        Binding(
+            get: { selectedTab },
+            set: { if let tab = $0 { selectedTab = tab } }
+        )
+    }
     @State private var showAddAccount = false
     @State private var showAddTool = false
     @State private var showAddKeyFor: UpstreamAccountDTO?
     /// 账号 sheet 关闭后再弹出密钥 sheet，避免 macOS 上双 sheet 抢呈现。
     @State private var pendingAddKeyAccount: UpstreamAccountDTO?
     @State private var showTools = false
-    @State private var showSettings = false
     @State private var showPaywall = false
+    @State private var showAccountPlaceholder = false
     @State private var revealText: String?
     @State private var masterPasswordInput = ""
     @State private var pendingRevealKeyId: UUID?
     @State private var pendingCopyKeyId: UUID?
     @State private var showMasterPrompt = false
-    @State private var showRecentlyDeleted = false
     @State private var assignKeyId: UUID?
-    /// 「按使用方」下展开：在该分区正下方列出全部已有密钥供指派。
-    @State private var expandAssignToolId: UUID?
+    /// 「按使用方」：弹出 sheet 为该使用方挑选已有密钥。
+    @State private var assignToToolId: UUID?
+    /// 分区「⋯」→ 调整该分区下密钥顺序。
+    @State private var reorderKeysTarget: ReorderKeysTarget?
+    /// 折叠的分区（账号 / 使用方 / 共享等）；不在集合内 = 展开。
+    @State private var collapsedSectionIds: Set<String> = []
     @State private var pendingDeleteAccountId: UUID?
     @State private var pendingDeleteToolId: UUID?
+    /// Mac 三栏：中间列表选中的密钥，右侧展示详情。
+    @State private var selectedKeyId: UUID?
+    /// Mac 三栏：回收站中栏选中项，右侧展示恢复 / 永久删除。
+    @State private var selectedTrashItem: TrashSelection?
+    /// 搜索（侧栏右上角放大镜；对齐系统「密码」App）。
+    @State private var searchText = ""
+    @State private var isSearchPresented = false
+
+    /// Mac / Catalyst 用侧栏；iPhone（及 iPad）用底栏。
+    private var usesSidebarNavigation: Bool {
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        true
+        #else
+        false
+        #endif
+    }
+
+    private var keySelection: Binding<UUID?> {
+        $selectedKeyId
+    }
 
     var body: some View {
-        NavigationStack {
-            vaultList
-                .navigationTitle("vault.title")
-                .toolbar { vaultToolbar }
-                .safeAreaInset(edge: .top) { groupingPicker }
-                .task { await viewModel.onAppear() }
-                .modifier(VaultHomeAlertsModifier(
-                    viewModel: viewModel,
-                    showPaywall: $showPaywall,
-                    pendingDeleteAccountId: $pendingDeleteAccountId,
-                    pendingDeleteToolId: $pendingDeleteToolId,
-                    assignKeyId: $assignKeyId,
-                    revealText: $revealText
-                ))
-                .modifier(VaultHomeSheetsModifier(
-                    viewModel: viewModel,
-                    showAddAccount: $showAddAccount,
-                    showAddTool: $showAddTool,
-                    showAddKeyFor: $showAddKeyFor,
-                    pendingAddKeyAccount: $pendingAddKeyAccount,
-                    showRecentlyDeleted: $showRecentlyDeleted,
-                    showTools: $showTools,
-                    showSettings: $showSettings,
-                    showPaywall: $showPaywall,
-                    showMasterPrompt: $showMasterPrompt,
-                    masterPasswordInput: $masterPasswordInput,
-                    pendingRevealKeyId: $pendingRevealKeyId,
-                    pendingCopyKeyId: $pendingCopyKeyId,
-                    revealText: $revealText
-                ))
+        Group {
+            if usesSidebarNavigation {
+                sidebarShell
+            } else {
+                tabShell
+            }
+        }
+        .task {
+            await viewModel.onAppear()
+            selectedTab = tab(for: viewModel.groupingMode)
+        }
+        .onChange(of: selectedTab) { _, tab in
+            selectedKeyId = nil
+            selectedTrashItem = nil
+            Task { await applyTab(tab) }
+        }
+        .onChange(of: viewModel.allKeys.map(\.id)) { _, ids in
+            if let selectedKeyId, !ids.contains(selectedKeyId) {
+                self.selectedKeyId = nil
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+            selectedTab = .settings
+        }
+        .modifier(VaultHomeAlertsModifier(
+            viewModel: viewModel,
+            showPaywall: $showPaywall,
+            pendingDeleteAccountId: $pendingDeleteAccountId,
+            pendingDeleteToolId: $pendingDeleteToolId,
+            assignKeyId: $assignKeyId,
+            revealText: $revealText
+        ))
+        .modifier(VaultHomeSheetsModifier(
+            viewModel: viewModel,
+            showAddAccount: $showAddAccount,
+            showAddTool: $showAddTool,
+            showAddKeyFor: $showAddKeyFor,
+            pendingAddKeyAccount: $pendingAddKeyAccount,
+            assignToToolId: $assignToToolId,
+            reorderKeysTarget: $reorderKeysTarget,
+            showTools: $showTools,
+            showPaywall: $showPaywall,
+            showAccountPlaceholder: $showAccountPlaceholder,
+            showMasterPrompt: $showMasterPrompt,
+            masterPasswordInput: $masterPasswordInput,
+            pendingRevealKeyId: $pendingRevealKeyId,
+            pendingCopyKeyId: $pendingCopyKeyId,
+            revealText: $revealText
+        ))
+    }
+
+    // MARK: - Shells
+
+    /// iPhone / iPad：自定义底栏。系统 TabView 在 iPadOS 18+ 会顶到上方，不可靠。
+    private var tabShell: some View {
+        tabRootContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomTabBar
+            }
+    }
+
+    @ViewBuilder
+    private var tabRootContent: some View {
+        switch selectedTab {
+        case .byPlatform:
+            keysStack(for: .byPlatform)
+        case .byConsumer:
+            keysStack(for: .byConsumer)
+        case .trash:
+            RecentlyDeletedView(
+                vault: viewModel,
+                showsDismissButton: false,
+                onShowAccount: { showAccountPlaceholder = true }
+            )
+        case .settings:
+            SettingsView(
+                environment: viewModel.environment,
+                showsDismissButton: false,
+                onShowAccount: { showAccountPlaceholder = true }
+            )
+        }
+    }
+
+    private var bottomTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach([VaultRootTab.byPlatform, .byConsumer, .trash, .settings], id: \.self) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: tab.systemImage)
+                            .font(.system(size: 20, weight: .semibold))
+                        Text(tab.titleKey)
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(tab.titleKey))
+                .accessibilityAddTraits(selectedTab == tab ? [.isSelected] : [])
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+        .padding(.bottom, 2)
+        .background(.bar)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    /// Mac：密钥 / 回收站 = 左导航 + 中列表 + 右详情；设置 = 左导航 + 内容（无空详情栏）。
+    private var sidebarShell: some View {
+        Group {
+            if usesTwoColumnMacShell {
+                NavigationSplitView {
+                    macSidebar
+                } detail: {
+                    macContentColumn
+                }
+            } else {
+                NavigationSplitView {
+                    macSidebar
+                } content: {
+                    macContentColumn
+                        .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 420)
+                } detail: {
+                    macDetailColumn
+                }
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+        .onChange(of: searchText) { _, _ in
+            // 搜索结果变化时，若当前选中项已被滤掉则清空右侧详情。
+            if let selectedKeyId,
+               !displayedSections.flatMap(\.keys).contains(where: { $0.id == selectedKeyId }) {
+                self.selectedKeyId = nil
+            }
+        }
+    }
+
+    private var usesTwoColumnMacShell: Bool {
+        selectedTab == .settings
+    }
+
+    private var macSidebar: some View {
+        List(selection: sidebarSelection) {
+            Section {
+                ForEach([VaultRootTab.byPlatform, .byConsumer, .trash, .settings], id: \.self) { tab in
+                    Label(tab.titleKey, systemImage: tab.systemImage)
+                        .tag(Optional(tab))
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 240)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Button {
+                showAccountPlaceholder = true
+            } label: {
+                Image(systemName: "person.crop.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .font(.system(size: 34))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("vault.sync.title"))
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     @ViewBuilder
-    private var vaultList: some View {
-        List {
-            if let quota = viewModel.remainingQuota {
+    private var macContentColumn: some View {
+        switch selectedTab {
+        case .byPlatform:
+            macKeysColumn(mode: .byPlatform)
+        case .byConsumer:
+            macKeysColumn(mode: .byConsumer)
+        case .trash:
+            RecentlyDeletedView(
+                vault: viewModel,
+                showsDismissButton: false,
+                selection: $selectedTrashItem
+            )
+        case .settings:
+            SettingsView(
+                environment: viewModel.environment,
+                showsDismissButton: false
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var macDetailColumn: some View {
+        switch selectedTab {
+        case .byPlatform, .byConsumer:
+            if let selectedKeyId {
+                NavigationStack {
+                    KeyDetailView(
+                        keyId: selectedKeyId,
+                        viewModel: viewModel,
+                        allowDelete: selectedTab == .byPlatform,
+                        unassignFromToolId: unassignToolIdIfNeeded(for: selectedKeyId),
+                        splitPaneStyle: true,
+                        onCopy: { id in Task { await beginCopy(id) } },
+                        onReveal: { id in Task { await beginReveal(id) } },
+                        onAssign: { id in beginAssign(id) },
+                        onUnassign: { keyId, toolId in
+                            Task { await viewModel.unassign(keyId: keyId, toolId: toolId) }
+                        },
+                        onDelete: { id in
+                            Task {
+                                await viewModel.deleteKey(id)
+                                self.selectedKeyId = nil
+                            }
+                        }
+                    )
+                }
+            } else {
+                ContentUnavailableView(
+                    "vault.detail.pick.title",
+                    systemImage: "key",
+                    description: Text("vault.detail.pick.detail")
+                )
+            }
+        case .trash:
+            if let selectedTrashItem {
+                NavigationStack {
+                    RecentlyDeletedDetailHost(
+                        selection: selectedTrashItem,
+                        vault: viewModel,
+                        onCleared: { self.selectedTrashItem = nil }
+                    )
+                }
+            } else {
+                ContentUnavailableView(
+                    "vault.trash.pick.title",
+                    systemImage: "trash",
+                    description: Text("vault.trash.pick.detail")
+                )
+            }
+        case .settings:
+            EmptyView()
+        }
+    }
+
+    private func macKeysColumn(mode: GroupingMode) -> some View {
+        NavigationStack {
+            vaultList(selectionEnabled: true)
+                .navigationTitle(mode == .byPlatform ? "vault.grouping.platform" : "vault.grouping.consumer")
+                .modifier(VaultSearchableModifier(
+                    searchText: $searchText,
+                    isSearchPresented: $isSearchPresented
+                ))
+                .toolbar {
+                    // 中栏右上角「+」：加账号 / 加工具（对齐系统「密码」中栏 +）。
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            switch mode {
+                            case .byPlatform: showAddAccount = true
+                            case .byConsumer: showAddTool = true
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel(
+                            mode == .byPlatform
+                                ? Text("vault.account.add")
+                                : Text("vault.consumer.add")
+                        )
+                    }
+                }
+        }
+        .id(mode)
+    }
+
+    private var normalizedSearchQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isSearching: Bool {
+        !normalizedSearchQuery.isEmpty
+    }
+
+    /// 搜索过滤后的分区（密钥名 / 账号 / 平台显示名 / 使用方）。
+    private var displayedSections: [KeyGroupSection] {
+        filteredSections(from: viewModel.sections, query: normalizedSearchQuery)
+    }
+
+    private func filteredSections(from sections: [KeyGroupSection], query: String) -> [KeyGroupSection] {
+        guard !query.isEmpty else { return sections }
+        return sections.compactMap { section in
+            let titleHit = sectionTitle(section).localizedCaseInsensitiveContains(query)
+            let keys = section.keys.filter { keyMatchesSearch($0, query: query) }
+            if titleHit {
+                // 分区标题命中：仍优先只显示匹配密钥；若无匹配密钥则展示整区。
+                return KeyGroupSection(kind: section.kind, keys: keys.isEmpty ? section.keys : keys)
+            }
+            guard !keys.isEmpty else { return nil }
+            return KeyGroupSection(kind: section.kind, keys: keys)
+        }
+    }
+
+    private func keyMatchesSearch(_ key: KeyRecordDTO, query: String) -> Bool {
+        if key.displayName.localizedCaseInsensitiveContains(query) { return true }
+        if let hint = key.maskedHint, hint.localizedCaseInsensitiveContains(query) { return true }
+        if let account = viewModel.accounts.first(where: { $0.id == key.accountId }) {
+            if account.displayName.localizedCaseInsensitiveContains(query) { return true }
+            if account.platform.localizedCaseInsensitiveContains(query) { return true }
+            if let custom = account.customPlatformName,
+               custom.localizedCaseInsensitiveContains(query) {
+                return true
+            }
+            if let preset = PresetCatalog.platform(id: account.platform),
+               preset.displayName.localizedCaseInsensitiveContains(query) {
+                return true
+            }
+        }
+        for toolId in key.consumerToolIds {
+            if let tool = viewModel.tools.first(where: { $0.id == toolId }),
+               tool.name.localizedCaseInsensitiveContains(query) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// 若当前在「按使用方」且选中密钥属于某一工具分区，详情可取消指派。
+    private func unassignToolIdIfNeeded(for keyId: UUID) -> UUID? {
+        guard selectedTab == .byConsumer,
+              let key = viewModel.allKeys.first(where: { $0.id == keyId }),
+              key.consumerToolIds.count == 1 else {
+            return nil
+        }
+        return key.consumerToolIds.first
+    }
+
+    private func keysStack(for mode: GroupingMode) -> some View {
+        NavigationStack {
+            vaultList(selectionEnabled: false)
+                .navigationTitle("vault.title")
+                .modifier(VaultSearchableModifier(
+                    searchText: $searchText,
+                    isSearchPresented: $isSearchPresented
+                ))
+                .toolbar {
+                    // 左账号、右加号（`.navigation` / `.primaryAction` 在 iOS 与 macOS 均可用；
+                    // `.topBarLeading` 仅 iOS，My Mac 编译会失败）。
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            showAccountPlaceholder = true
+                        } label: {
+                            Image(systemName: "person.crop.circle.fill")
+                                .symbolRenderingMode(.hierarchical)
+                                .font(.title3)
+                        }
+                        .accessibilityLabel(Text("vault.sync.title"))
+                    }
+                    // 搜索用标题下 searchable 抽屉；右上角只保留「+」（按平台 / 按使用方共用）。
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            switch viewModel.groupingMode {
+                            case .byPlatform:
+                                showAddAccount = true
+                            case .byConsumer:
+                                showAddTool = true
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel(
+                            viewModel.groupingMode == .byPlatform
+                                ? Text("vault.account.add")
+                                : Text("vault.consumer.add")
+                        )
+                    }
+                }
+        }
+        .id(mode)
+    }
+
+    @ViewBuilder
+    private func vaultList(selectionEnabled: Bool) -> some View {
+        List(selection: selectionEnabled ? keySelection : .constant(nil)) {
+            // 列表内搜索框：Catalyst 上比只依赖系统 searchable 抽屉更可靠。
+            if isSearchPresented || isSearching {
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField(String(localized: "vault.search.prompt"), text: $searchText)
+                            .autocorrectionDisabled()
+                            #if os(iOS) || targetEnvironment(macCatalyst)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                        if isSearching {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Text("vault.search.clear"))
+                        }
+                    }
+                }
+            }
+
+            if let quota = viewModel.remainingQuota, !isSearching {
                 Section {
                     HStack {
                         Text("vault.quota.remaining \(quota)")
@@ -69,66 +515,83 @@ struct VaultHomeView: View {
                         Button("vault.paywall.open") { showPaywall = true }
                             .font(.footnote)
                     }
+                    .accessibilityElement(children: .combine)
                 }
             }
 
-            ForEach(viewModel.sections) { section in
+            if displayedSections.isEmpty {
                 Section {
-                    sectionBody(section)
-                } header: {
-                    sectionHeader(section)
+                    if isSearching {
+                        ContentUnavailableView.search(text: searchText)
+                    } else {
+                        emptyState
+                    }
                 }
-            }
-
-            if viewModel.groupingMode == .byConsumer && viewModel.tools.isEmpty {
-                Section {
-                    Text("vault.consumer.listEmpty")
-                        .foregroundStyle(.secondary)
+            } else {
+                ForEach(displayedSections) { section in
+                    Section {
+                        sectionBody(section, selectionEnabled: selectionEnabled)
+                    } header: {
+                        sectionHeader(section)
+                    }
                 }
             }
         }
     }
 
-    @ToolbarContentBuilder
-    private var vaultToolbar: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            Menu {
-                Button("vault.recentlyDeleted") { showRecentlyDeleted = true }
-                Button("vault.tools.manage") { showTools = true }
-                Button("settings.title") { showSettings = true }
-            } label: {
-                Image(systemName: "ellipsis.circle")
+    @ViewBuilder
+    private var emptyState: some View {
+        switch viewModel.groupingMode {
+        case .byPlatform:
+            VStack(alignment: .leading, spacing: 12) {
+                Text("vault.empty.platform.title")
+                    .font(.headline)
+                Text("vault.empty.platform.detail")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("vault.empty.platform.cta") { showAddAccount = true }
+                    .buttonStyle(.borderedProminent)
             }
-        }
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                switch viewModel.groupingMode {
-                case .byPlatform:
-                    showAddAccount = true
-                case .byConsumer:
-                    showAddTool = true
-                }
-            } label: {
-                switch viewModel.groupingMode {
-                case .byPlatform:
-                    Label("vault.account.add", systemImage: "plus")
-                case .byConsumer:
-                    Label("vault.consumer.add", systemImage: "plus")
-                }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .contain)
+        case .byConsumer:
+            VStack(alignment: .leading, spacing: 12) {
+                Text("vault.empty.consumer.title")
+                    .font(.headline)
+                Text("vault.empty.consumer.detail")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("vault.empty.consumer.cta") { showAddTool = true }
+                    .buttonStyle(.borderedProminent)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .contain)
         }
     }
 
-    private var groupingPicker: some View {
-        Picker("vault.grouping", selection: Binding(
-            get: { viewModel.groupingMode },
-            set: { mode in Task { await viewModel.setGrouping(mode) } }
-        )) {
-            Text("vault.grouping.platform").tag(GroupingMode.byPlatform)
-            Text("vault.grouping.consumer").tag(GroupingMode.byConsumer)
+    private func tab(for mode: GroupingMode) -> VaultRootTab {
+        switch mode {
+        case .byPlatform: return .byPlatform
+        case .byConsumer: return .byConsumer
         }
-        .pickerStyle(.segmented)
-        .padding()
+    }
+
+    private func applyTab(_ tab: VaultRootTab) async {
+        switch tab {
+        case .byPlatform:
+            // 只改当前会话列表视角，绝不写入 defaultGrouping（设置页才持久化）。
+            if viewModel.groupingMode != .byPlatform {
+                await viewModel.setGrouping(.byPlatform, persistAsDefault: false)
+            }
+        case .byConsumer:
+            if viewModel.groupingMode != .byConsumer {
+                await viewModel.setGrouping(.byConsumer, persistAsDefault: false)
+            }
+        case .trash, .settings:
+            break
+        }
     }
 
     private func sectionTitle(_ section: KeyGroupSection) -> String {
@@ -142,24 +605,126 @@ struct VaultHomeView: View {
         }
     }
 
+    private func sectionCollapseId(_ section: KeyGroupSection) -> String {
+        switch section.kind {
+        case .platform(let accountId, _):
+            return "platform-\(accountId.uuidString)"
+        case .consumer(let toolId, _):
+            return "consumer-\(toolId.uuidString)"
+        case .shared:
+            return "shared"
+        case .unassigned:
+            return "unassigned"
+        }
+    }
+
+    private func isSectionCollapsed(_ section: KeyGroupSection) -> Bool {
+        // 搜索时强制展开，避免匹配项被折进折叠分区里「看起来像没搜到」。
+        if isSearching { return false }
+        return collapsedSectionIds.contains(sectionCollapseId(section))
+    }
+
+    private func toggleSectionCollapsed(_ section: KeyGroupSection) {
+        let id = sectionCollapseId(section)
+        if collapsedSectionIds.contains(id) {
+            collapsedSectionIds.remove(id)
+        } else {
+            collapsedSectionIds.insert(id)
+        }
+    }
+
     @ViewBuilder
     private func sectionHeader(_ section: KeyGroupSection) -> some View {
-        HStack {
-            Text(sectionTitle(section))
-            Spacer(minLength: 8)
+        let collapsed = isSectionCollapsed(section)
+        HStack(spacing: 8) {
+            Button {
+                withAnimation(.snappy(duration: 0.2)) {
+                    toggleSectionCollapsed(section)
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12, alignment: .center)
+                    Text(sectionTitle(section))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    if collapsed {
+                        Text("vault.section.keyCount \(section.keys.count)")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(sectionTitle(section)))
+            .accessibilityHint(
+                Text(collapsed ? "vault.a11y.sectionExpand" : "vault.a11y.sectionCollapse")
+            )
+
+            // 「+」在分区标题行（密钥列表正上方），与中栏工具栏「+」分工：
+            // 工具栏 = 加账号/工具；此处 = 在该分区下加密钥 / 指派。
             switch section.kind {
             case .platform(let accountId, _):
-                Button("vault.account.delete", role: .destructive) {
-                    pendingDeleteAccountId = accountId
+                Button {
+                    showAddKeyFor = viewModel.accounts.first { $0.id == accountId }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderless)
-                .font(.caption)
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("vault.key.add"))
+
+                Menu {
+                    if section.keys.count >= 2 {
+                        Button("vault.reorder.keys") {
+                            reorderKeysTarget = ReorderKeysTarget(
+                                title: sectionTitle(section),
+                                keys: section.keys
+                            )
+                        }
+                    }
+                    Button("vault.account.delete", role: .destructive) {
+                        pendingDeleteAccountId = accountId
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel(Text("vault.a11y.sectionMenu"))
             case .consumer(let toolId, _):
-                Button("vault.consumer.delete", role: .destructive) {
-                    pendingDeleteToolId = toolId
+                Button {
+                    beginAssignExistingKey(to: toolId)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderless)
-                .font(.caption)
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("vault.consumer.assignKey"))
+
+                Menu {
+                    if section.keys.count >= 2 {
+                        Button("vault.reorder.keys") {
+                            reorderKeysTarget = ReorderKeysTarget(
+                                title: sectionTitle(section),
+                                keys: section.keys
+                            )
+                        }
+                    }
+                    Button("vault.consumer.delete", role: .destructive) {
+                        pendingDeleteToolId = toolId
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel(Text("vault.a11y.sectionMenu"))
             case .shared, .unassigned:
                 EmptyView()
             }
@@ -168,34 +733,36 @@ struct VaultHomeView: View {
     }
 
     @ViewBuilder
-    private func sectionBody(_ section: KeyGroupSection) -> some View {
-        switch section.kind {
-        case .platform(let accountId, _):
-            ForEach(section.keys) { key in
-                keyRow(key)
-            }
-            Button {
-                showAddKeyFor = viewModel.accounts.first { $0.id == accountId }
-            } label: {
-                Label("vault.key.add", systemImage: "plus.circle")
-            }
-        case .consumer(let toolId, _):
-            ForEach(section.keys) { key in
-                keyRow(key, unassignFromToolId: toolId, allowDelete: false)
-            }
-            consumerSectionFooter(toolId: toolId, hasAssignedKeys: !section.keys.isEmpty)
-        case .shared, .unassigned:
-            ForEach(section.keys) { key in
-                // 「按使用方」下不删密钥，只在按平台维护；未分配仅可指派。
-                keyRow(key, allowDelete: false)
+    private func sectionBody(_ section: KeyGroupSection, selectionEnabled: Bool) -> some View {
+        if isSectionCollapsed(section) {
+            EmptyView()
+        } else {
+            switch section.kind {
+            case .platform:
+                ForEach(section.keys) { key in
+                    keyRow(key, selectionEnabled: selectionEnabled)
+                }
+            case .consumer(let toolId, _):
+                ForEach(section.keys) { key in
+                    keyRow(
+                        key,
+                        unassignFromToolId: toolId,
+                        allowDelete: false,
+                        selectionEnabled: selectionEnabled
+                    )
+                }
+                consumerSectionFooter(toolId: toolId, hasAssignedKeys: !section.keys.isEmpty)
+            case .shared, .unassigned:
+                ForEach(section.keys) { key in
+                    keyRow(key, allowDelete: false, selectionEnabled: selectionEnabled)
+                }
             }
         }
     }
 
     @ViewBuilder
     private func consumerSectionFooter(toolId: UUID, hasAssignedKeys: Bool) -> some View {
-        let expanded = expandAssignToolId == toolId
-        if !hasAssignedKeys, !expanded {
+        if !hasAssignedKeys {
             Text("vault.consumer.empty.hint")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -203,14 +770,7 @@ struct VaultHomeView: View {
         Button {
             beginAssignExistingKey(to: toolId)
         } label: {
-            if expanded {
-                Label("vault.consumer.assignKey.collapse", systemImage: "chevron.up.circle")
-            } else {
-                Label("vault.consumer.assignKey", systemImage: "plus.circle")
-            }
-        }
-        if expanded {
-            assignKeyPicker(for: toolId)
+            Label("vault.consumer.assignKey", systemImage: "plus.circle")
         }
     }
 
@@ -218,39 +778,65 @@ struct VaultHomeView: View {
     private func keyRow(
         _ key: KeyRecordDTO,
         unassignFromToolId: UUID? = nil,
-        allowDelete: Bool = true
+        allowDelete: Bool = true,
+        selectionEnabled: Bool = false
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(key.displayName)
-                assignmentBadge(count: key.consumerToolIds.count)
-            }
-            Text(maskLabel(key))
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-            HStack {
-                Button("vault.reveal") { Task { await beginReveal(key.id) } }
-                    .disabled(!key.secretAvailable)
-                Button("vault.copy") { Task { await beginCopy(key.id) } }
-                    .disabled(!key.secretAvailable)
-                if let toolId = unassignFromToolId {
-                    Button("vault.unassign", role: .destructive) {
-                        Task { await viewModel.unassign(keyId: key.id, toolId: toolId) }
+        Group {
+            if selectionEnabled {
+                // Mac 中栏：点选 → 右侧详情，不再 push 新页。
+                keyRowLabel(key)
+                    .tag(key.id)
+                    .contentShape(Rectangle())
+            } else {
+                HStack(alignment: .center, spacing: 12) {
+                    NavigationLink {
+                        KeyDetailView(
+                            keyId: key.id,
+                            viewModel: viewModel,
+                            allowDelete: allowDelete,
+                            unassignFromToolId: unassignFromToolId,
+                            splitPaneStyle: false,
+                            onCopy: { id in Task { await beginCopy(id) } },
+                            onReveal: { id in Task { await beginReveal(id) } },
+                            onAssign: { id in beginAssign(id) },
+                            onUnassign: { keyId, toolId in
+                                Task { await viewModel.unassign(keyId: keyId, toolId: toolId) }
+                            },
+                            onDelete: { id in
+                                Task { await viewModel.deleteKey(id) }
+                            }
+                        )
+                    } label: {
+                        keyRowLabel(key)
                     }
-                } else {
-                    Button("vault.assign") { beginAssign(key.id) }
-                }
-                if allowDelete {
-                    Spacer()
-                    Button("vault.delete", role: .destructive) {
-                        Task { await viewModel.deleteKey(key.id) }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        Task { await beginCopy(key.id) }
+                    } label: {
+                        Image(systemName: "doc.on.doc")
                     }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(!key.secretAvailable)
+                    .accessibilityLabel(Text("vault.copy"))
                 }
             }
-            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .contain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if allowDelete {
+                Button("vault.delete", role: .destructive) {
+                    Task { await viewModel.deleteKey(key.id) }
+                }
+            }
         }
         .contextMenu {
             Button("vault.copy") { Task { await beginCopy(key.id) } }
+                .disabled(!key.secretAvailable)
+            Button("vault.reveal") { Task { await beginReveal(key.id) } }
+                .disabled(!key.secretAvailable)
             if let toolId = unassignFromToolId {
                 Button("vault.unassign", role: .destructive) {
                     Task { await viewModel.unassign(keyId: key.id, toolId: toolId) }
@@ -266,10 +852,47 @@ struct VaultHomeView: View {
         }
     }
 
+    private func keyRowLabel(_ key: KeyRecordDTO) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "key.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.accentColor)
+                )
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(key.displayName)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    assignmentBadge(count: key.consumerToolIds.count)
+                    Spacer(minLength: 0)
+                }
+                Text(maskLabel(key))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(Text(maskAccessibility(key)))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func maskLabel(_ key: KeyRecordDTO) -> String {
         if !key.secretAvailable { return String(localized: "vault.secret.missing") }
         if let hint = key.maskedHint { return "••••\(hint)" }
         return "••••"
+    }
+
+    private func maskAccessibility(_ key: KeyRecordDTO) -> String {
+        if !key.secretAvailable { return String(localized: "vault.secret.missing") }
+        if let hint = key.maskedHint {
+            return String(localized: "vault.a11y.maskedHint \(hint)")
+        }
+        return String(localized: "vault.a11y.maskedHidden")
     }
 
     private func beginAssign(_ keyId: UUID) {
@@ -280,68 +903,14 @@ struct VaultHomeView: View {
         assignKeyId = keyId
     }
 
-    /// 「按使用方」下：在分区正下方展开密钥列表（不弹空白 sheet）。
+    /// 「按使用方」下：弹出 sheet 选择已有密钥。
     private func beginAssignExistingKey(to toolId: UUID) {
         if viewModel.allKeys.isEmpty {
             viewModel.errorMessage = String(localized: "vault.assign.noKey")
-            expandAssignToolId = nil
+            assignToToolId = nil
             return
         }
-        if expandAssignToolId == toolId {
-            expandAssignToolId = nil
-        } else {
-            expandAssignToolId = toolId
-        }
-    }
-
-    @ViewBuilder
-    private func assignKeyPicker(for toolId: UUID) -> some View {
-        let rows = viewModel.keysAssignable(to: toolId).map {
-            AssignPickRow(toolId: toolId, key: $0)
-        }
-        Text("vault.assign.shared.explain")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        if rows.isEmpty {
-            Text("vault.assign.allAssigned")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        } else {
-            // 独立 id，避免与上方 keyRow 的 ForEach 抢 List 单元格（否则会误弹出「指派给使用方」）。
-            ForEach(rows) { row in
-                assignCandidateRow(key: row.key, toolId: row.toolId)
-            }
-        }
-    }
-
-    private func assignCandidateRow(key: KeyRecordDTO, toolId: UUID) -> some View {
-        let accountName = viewModel.accounts.first { $0.id == key.accountId }?.displayName ?? "—"
-        let assignCount = key.consumerToolIds.count
-        return Button {
-            Task {
-                await viewModel.assign(keyId: key.id, toolId: toolId)
-            }
-        } label: {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(key.displayName)
-                            .foregroundStyle(.primary)
-                        assignmentBadge(count: assignCount)
-                    }
-                    Text(accountName)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 8)
-                Text("vault.assign.here")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.tint)
-            }
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
+        assignToToolId = toolId
     }
 
     private func assignmentBadge(count: Int) -> some View {
@@ -351,14 +920,19 @@ struct VaultHomeView: View {
                     .foregroundStyle(.secondary)
             } else {
                 Text("vault.assign.badge.count \(count)")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.tint)
             }
         }
         .font(.caption2)
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .background((count == 0 ? Color.secondary : Color.orange).opacity(0.15))
+        .background((count == 0 ? Color.secondary : Color.accentColor).opacity(0.12))
         .clipShape(Capsule())
+        .accessibilityLabel(
+            count == 0
+                ? Text("vault.assign.badge.none")
+                : Text("vault.assign.badge.count \(count)")
+        )
     }
 
     private func beginReveal(_ id: UUID) async {
@@ -380,6 +954,30 @@ struct VaultHomeView: View {
 }
 
 // MARK: - Home modifiers
+
+/// `navigationBarDrawer` 仅 iOS / Catalyst 可用；原生 macOS 用默认 placement。
+private struct VaultSearchableModifier: ViewModifier {
+    @Binding var searchText: String
+    @Binding var isSearchPresented: Bool
+    var prompt: LocalizedStringKey = "vault.search.prompt"
+
+    func body(content: Content) -> some View {
+        #if os(iOS) || targetEnvironment(macCatalyst)
+        content.searchable(
+            text: $searchText,
+            isPresented: $isSearchPresented,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: Text(prompt)
+        )
+        #else
+        content.searchable(
+            text: $searchText,
+            isPresented: $isSearchPresented,
+            prompt: Text(prompt)
+        )
+        #endif
+    }
+}
 
 private struct VaultHomeAlertsModifier: ViewModifier {
     @ObservedObject var viewModel: VaultHomeViewModel
@@ -472,15 +1070,27 @@ private struct VaultHomeSheetsModifier: ViewModifier {
     @Binding var showAddTool: Bool
     @Binding var showAddKeyFor: UpstreamAccountDTO?
     @Binding var pendingAddKeyAccount: UpstreamAccountDTO?
-    @Binding var showRecentlyDeleted: Bool
+    @Binding var assignToToolId: UUID?
+    @Binding var reorderKeysTarget: ReorderKeysTarget?
     @Binding var showTools: Bool
-    @Binding var showSettings: Bool
     @Binding var showPaywall: Bool
+    @Binding var showAccountPlaceholder: Bool
     @Binding var showMasterPrompt: Bool
     @Binding var masterPasswordInput: String
     @Binding var pendingRevealKeyId: UUID?
     @Binding var pendingCopyKeyId: UUID?
     @Binding var revealText: String?
+
+    private var assignToToolSheet: Binding<AssignToToolSheetTarget?> {
+        Binding(
+            get: {
+                guard let id = assignToToolId else { return nil }
+                let name = viewModel.tools.first { $0.id == id }?.name ?? ""
+                return AssignToToolSheetTarget(id: id, name: name)
+            },
+            set: { assignToToolId = $0?.id }
+        )
+    }
 
     func body(content: Content) -> some View {
         content
@@ -513,20 +1123,32 @@ private struct VaultHomeSheetsModifier: ViewModifier {
                     )
                 }
             }
-            .sheet(isPresented: $showRecentlyDeleted) {
-                RecentlyDeletedView(vault: viewModel)
-                    #if os(macOS)
-                    .frame(minWidth: 520, minHeight: 440)
-                    #endif
+            .sheet(item: assignToToolSheet) { target in
+                AssignExistingKeySheet(
+                    toolName: target.name,
+                    toolId: target.id,
+                    viewModel: viewModel
+                )
+            }
+            .sheet(item: $reorderKeysTarget) { target in
+                ReorderKeysSheet(
+                    title: target.title,
+                    initialKeys: target.keys,
+                    onSave: { orderedIds in
+                        await viewModel.reorderKeys(orderedIds: orderedIds)
+                    }
+                )
             }
             .sheet(isPresented: $showTools) {
                 ConsumerToolsView(environment: viewModel.environment)
             }
-            .sheet(isPresented: $showSettings) {
-                SettingsView(environment: viewModel.environment)
-            }
             .sheet(isPresented: $showPaywall) {
                 PaywallView(environment: viewModel.environment)
+            }
+            .sheet(isPresented: $showAccountPlaceholder) {
+                AccountPlaceholderSheet {
+                    await viewModel.requestSyncNow()
+                }
             }
             .sheet(isPresented: $showMasterPrompt) {
                 MasterPasswordPrompt(password: $masterPasswordInput) {
@@ -549,10 +1171,210 @@ private struct VaultHomeSheetsModifier: ViewModifier {
 
 // MARK: - Sheets
 
-private struct AssignPickRow: Identifiable {
+private struct AssignToToolSheetTarget: Identifiable {
+    let id: UUID
+    let name: String
+}
+
+private struct ReorderKeysTarget: Identifiable {
+    let id = UUID()
+    let title: String
+    let keys: [KeyRecordDTO]
+}
+
+private struct ReorderKeysSheet: View {
+    let title: String
+    let initialKeys: [KeyRecordDTO]
+    /// 松手后立即持久化（系统重排常见做法）；不负责关闭 sheet。
+    let onSave: ([UUID]) async -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var keys: [KeyRecordDTO] = []
+    @State private var persistTask: Task<Void, Never>?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                #if os(iOS) || targetEnvironment(macCatalyst)
+                List {
+                    Section {
+                        Text("vault.reorder.keys.hint")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Section {
+                        ForEach(keys) { key in
+                            reorderRow(key)
+                        }
+                        .onMove(perform: move)
+                    }
+                }
+                .environment(\.editMode, .constant(.active))
+                .navigationBarTitleDisplayMode(.inline)
+                #else
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("vault.reorder.keys.hint")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                    Divider()
+                    MacReorderableKeyTable(keys: $keys) { orderedIds in
+                        persist(orderedIds)
+                    }
+                }
+                #endif
+            }
+            .navigationTitle(String(localized: "vault.reorder.keys.title \(title)"))
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("settings.done") { dismiss() }
+                }
+            }
+            .onAppear { keys = initialKeys }
+            .onDisappear { persistTask?.cancel() }
+        }
+        #if os(macOS)
+        .frame(minWidth: 400, idealWidth: 440, minHeight: 420, idealHeight: 480)
+        #endif
+    }
+
+    private func reorderRow(_ key: KeyRecordDTO) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "key.fill")
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.accentColor)
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(key.displayName)
+                if let hint = key.maskedHint {
+                    Text("••••\(hint)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func move(from source: IndexSet, to destination: Int) {
+        keys.move(fromOffsets: source, toOffset: destination)
+        persist(keys.map(\.id))
+    }
+
+    private func persist(_ orderedIds: [UUID]) {
+        persistTask?.cancel()
+        persistTask = Task {
+            await onSave(orderedIds)
+        }
+    }
+}
+
+private struct AssignExistingKeySheet: View {
+    let toolName: String
     let toolId: UUID
-    let key: KeyRecordDTO
-    var id: String { "pick-\(toolId.uuidString)-\(key.id.uuidString)" }
+    @ObservedObject var viewModel: VaultHomeViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var filter: AssignPickerFilter = .allowShared
+    @State private var searchText = ""
+
+    private var candidates: [KeyRecordDTO] {
+        let base = viewModel.keysAssignable(to: toolId, filter: filter)
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return base }
+        return base.filter { key in
+            if key.displayName.localizedCaseInsensitiveContains(query) { return true }
+            let account = viewModel.accounts.first { $0.id == key.accountId }?.displayName ?? ""
+            return account.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text(filter == .unassignedOnly
+                         ? "vault.assign.sheet.filter.unassignedOnly.hint"
+                         : "vault.assign.sheet.filter.allowShared.hint")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if candidates.isEmpty {
+                    Section {
+                        Text(emptyMessage)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Section {
+                        ForEach(candidates) { key in
+                            Button {
+                                Task {
+                                    await viewModel.assign(keyId: key.id, toolId: toolId)
+                                    dismiss()
+                                }
+                            } label: {
+                                HStack(alignment: .center, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 8) {
+                                            Text(key.displayName)
+                                                .foregroundStyle(.primary)
+                                            if key.consumerToolIds.count >= 1 {
+                                                Text("vault.assign.badge.count \(key.consumerToolIds.count)")
+                                                    .font(.caption2.weight(.semibold))
+                                                    .foregroundStyle(.tint)
+                                            }
+                                        }
+                                        Text(accountName(for: key))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer(minLength: 8)
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .navigationTitle(String(localized: "vault.assign.sheet.title \(toolName)"))
+            #if os(iOS) || targetEnvironment(macCatalyst)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .searchable(text: $searchText, prompt: Text("vault.assign.sheet.search"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("gate.cancel") { dismiss() }
+                }
+            }
+            .task {
+                if let prefs = try? await viewModel.environment.preferences.load() {
+                    filter = prefs.assignPickerFilter
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 420, idealWidth: 460, minHeight: 480, idealHeight: 520)
+        #endif
+    }
+
+    private var emptyMessage: LocalizedStringKey {
+        if filter == .unassignedOnly {
+            return "vault.assign.sheet.empty.unassignedOnly"
+        }
+        return "vault.assign.sheet.empty.allowShared"
+    }
+
+    private func accountName(for key: KeyRecordDTO) -> String {
+        viewModel.accounts.first { $0.id == key.accountId }?.displayName ?? "—"
+    }
 }
 
 private struct AddAccountSheet: View {
@@ -813,8 +1635,260 @@ private struct MasterPasswordPrompt: View {
     }
 }
 
+private struct AccountPlaceholderSheet: View {
+    let onSyncNow: () async -> SyncNowOutcome
+    @Environment(\.dismiss) private var dismiss
+    @State private var isSyncing = false
+    @State private var syncFeedback: String?
+    @State private var syncFeedbackIsError = false
+
+    /// 系统是否已登录可用 iCloud 的粗略信号（不等于钥匙串开关本身）。
+    private var isICloudAccountPresent: Bool {
+        FileManager.default.ubiquityIdentityToken != nil
+    }
+
+    private var pageBackground: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .systemGroupedBackground)
+        #elseif canImport(AppKit)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color.gray.opacity(0.08)
+        #endif
+    }
+
+    private var cardFill: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .secondarySystemGroupedBackground)
+        #elseif canImport(AppKit)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color.primary.opacity(0.04)
+        #endif
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    statusHero
+                    syncNowCard
+                    howCard
+                    settingsCard
+                }
+                .padding(24)
+                .frame(maxWidth: 480)
+                .frame(maxWidth: .infinity)
+            }
+            .background(pageBackground)
+            .navigationTitle("vault.sync.title")
+            #if os(iOS) || targetEnvironment(macCatalyst)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("settings.done") { dismiss() }
+                }
+            }
+            .disabled(isSyncing)
+        }
+        #if os(macOS)
+        .frame(minWidth: 420, idealWidth: 460, minHeight: 520, idealHeight: 560)
+        #endif
+    }
+
+    private var statusHero: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "icloud.fill")
+                .font(.system(size: 36, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 72, height: 72)
+                .background(
+                    Circle()
+                        .fill(isICloudAccountPresent ? Color.accentColor : Color.secondary)
+                )
+                .accessibilityHidden(true)
+
+            VStack(spacing: 6) {
+                Text("vault.sync.section.account")
+                    .font(.title3.weight(.semibold))
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(isICloudAccountPresent ? Color.green : Color.secondary)
+                        .frame(width: 8, height: 8)
+                    Text(
+                        isICloudAccountPresent
+                            ? String(localized: "vault.sync.icloud.status.signedIn")
+                            : String(localized: "vault.sync.icloud.status.signedOut")
+                    )
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(isICloudAccountPresent ? Color.primary : Color.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    Text(
+                        "\(String(localized: "vault.sync.icloud.status"))，\(isICloudAccountPresent ? String(localized: "vault.sync.icloud.status.signedIn") : String(localized: "vault.sync.icloud.status.signedOut"))"
+                    )
+                )
+            }
+
+            Text("vault.sync.icloud.status.footnote")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private var syncNowCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                Task { await performSyncNow() }
+            } label: {
+                HStack(spacing: 8) {
+                    if isSyncing {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                    }
+                    Text(isSyncing ? "vault.sync.now.inProgress" : "vault.sync.now")
+                        .font(.body.weight(.semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isSyncing || !isICloudAccountPresent)
+
+            if let syncFeedback {
+                Text(syncFeedback)
+                    .font(.caption)
+                    .foregroundStyle(syncFeedbackIsError ? Color.red : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(Text(syncFeedback))
+            } else {
+                Text("vault.sync.now.footnote")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFill)
+        )
+    }
+
+    private var howCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("vault.sync.section.how", systemImage: "lock.icloud")
+                .font(.headline)
+            Text("vault.sync.how.body")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFill)
+        )
+    }
+
+    private var settingsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                openSystemSettingsForAppleAccount()
+            } label: {
+                Label("vault.sync.openSystemSettings", systemImage: "gearshape")
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.bordered)
+
+            Text("vault.sync.openSystemSettings.footnote")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFill)
+        )
+    }
+
+    private func performSyncNow() async {
+        syncFeedback = nil
+        isSyncing = true
+        defer { isSyncing = false }
+        let outcome = await onSyncNow()
+        switch outcome {
+        case .success:
+            syncFeedbackIsError = false
+            syncFeedback = String(localized: "vault.sync.now.success")
+        case .unavailable:
+            syncFeedbackIsError = true
+            syncFeedback = String(localized: "vault.sync.now.unavailable")
+        case .failed(let message):
+            syncFeedbackIsError = true
+            syncFeedback = message
+        }
+    }
+
+    private func openSystemSettingsForAppleAccount() {
+        #if targetEnvironment(macCatalyst)
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preferences.AppleIDPrefPane",
+            "x-apple.systempreferences:com.apple.systempreferences.AppleIDSettings",
+            UIApplication.openSettingsURLString
+        ]
+        for raw in candidates {
+            if let url = URL(string: raw) {
+                UIApplication.shared.open(url)
+                return
+            }
+        }
+        #elseif os(iOS)
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+        #elseif os(macOS)
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preferences.AppleIDPrefPane",
+            "x-apple.systempreferences:com.apple.systempreferences.AppleIDSettings"
+        ]
+        for raw in candidates {
+            if let url = URL(string: raw) {
+                NSWorkspace.shared.open(url)
+                return
+            }
+        }
+        #endif
+    }
+}
+/// Mac 回收站中栏选中项（密钥 / 账号 / 使用方）。
+private enum TrashSelection: Hashable {
+    case key(UUID)
+    case account(UUID)
+    case tool(UUID)
+}
+
 private struct RecentlyDeletedView: View {
     @ObservedObject var vault: VaultHomeViewModel
+    var showsDismissButton: Bool = true
+    /// 左上角账号头像（与密钥列表页同一入口）。
+    var onShowAccount: (() -> Void)? = nil
+    /// 非 nil = Mac 三栏中栏：行可点选，恢复 / 永久删除放到右侧详情。
+    var selection: Binding<TrashSelection?>? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var keys: [KeyRecordDTO] = []
     @State private var accounts: [UpstreamAccountDTO] = []
@@ -822,101 +1896,106 @@ private struct RecentlyDeletedView: View {
     @State private var loadError: String?
     @State private var actionError: String?
     @State private var isLoading = true
+    @State private var searchText = ""
+    /// 必须为 false：true 会立刻进入「搜索激活态」，大标题「回收站」被顶掉、右侧冒出取消 X。
+    /// 搜索栏靠 `navigationBarDrawer(displayMode: .always)` 常驻在标题下方（与密钥页一致）。
+    @State private var isSearchPresented = false
+
+    private var usesSplitSelection: Bool { selection != nil }
+
+    private var searchQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isSearching: Bool { !searchQuery.isEmpty }
 
     private var isEmpty: Bool {
         keys.isEmpty && accounts.isEmpty && tools.isEmpty
     }
 
+    private var filteredKeys: [KeyRecordDTO] {
+        guard isSearching else { return keys }
+        return keys.filter { key in
+            if key.displayName.localizedCaseInsensitiveContains(searchQuery) { return true }
+            if let platform = platformSubtitle(for: key),
+               platform.localizedCaseInsensitiveContains(searchQuery) {
+                return true
+            }
+            return false
+        }
+    }
+
+    private var filteredAccounts: [UpstreamAccountDTO] {
+        guard isSearching else { return accounts }
+        return accounts.filter {
+            $0.displayName.localizedCaseInsensitiveContains(searchQuery)
+                || $0.platform.localizedCaseInsensitiveContains(searchQuery)
+        }
+    }
+
+    private var filteredTools: [ConsumerToolDTO] {
+        guard isSearching else { return tools }
+        return tools.filter { $0.name.localizedCaseInsensitiveContains(searchQuery) }
+    }
+
+    private var isFilterEmpty: Bool {
+        !isEmpty && filteredKeys.isEmpty && filteredAccounts.isEmpty && filteredTools.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
-            // macOS sheet 上 Group+ContentUnavailableView 常表现为整页空白；统一用 List 更稳。
-            List {
-                if isLoading {
-                    HStack {
-                        ProgressView()
-                        Text("vault.recentlyDeleted.loading")
-                            .foregroundStyle(.secondary)
-                    }
-                } else if let loadError {
-                    Section {
-                        Label(loadError, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
-                        Button("vault.recentlyDeleted.retry") {
-                            Task { await reload() }
-                        }
-                    }
-                } else if isEmpty {
-                    Section {
-                        Text("vault.recentlyDeleted.empty")
-                            .font(.headline)
-                        Text("vault.recentlyDeleted.empty.detail")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                        Text("vault.recentlyDeleted.empty.how")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+            Group {
+                if let selection {
+                    List(selection: selection) {
+                        listBody
                     }
                 } else {
-                    Section {
-                        Text("vault.recentlyDeleted.hint")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    if !keys.isEmpty {
-                        Section("vault.recentlyDeleted.section.keys") {
-                            ForEach(keys) { key in
-                                trashRow(
-                                    title: key.displayName,
-                                    deletedAt: key.deletedAt,
-                                    purgeAfter: key.purgeAfter,
-                                    onRestore: { await vault.restoreKey(key.id) },
-                                    onPermanent: { await vault.permanentlyDeleteKey(key.id) }
-                                )
-                            }
-                        }
-                    }
-                    if !accounts.isEmpty {
-                        Section("vault.recentlyDeleted.section.accounts") {
-                            ForEach(accounts) { account in
-                                trashRow(
-                                    title: account.displayName,
-                                    subtitle: account.platform,
-                                    deletedAt: account.deletedAt,
-                                    purgeAfter: account.purgeAfter,
-                                    onRestore: { await vault.restoreAccount(account.id) },
-                                    onPermanent: { await vault.permanentlyDeleteAccount(account.id) }
-                                )
-                            }
-                        }
-                    }
-                    if !tools.isEmpty {
-                        Section("vault.recentlyDeleted.section.tools") {
-                            ForEach(tools) { tool in
-                                trashRow(
-                                    title: tool.name,
-                                    deletedAt: tool.deletedAt,
-                                    purgeAfter: tool.purgeAfter,
-                                    onRestore: { await vault.restoreTool(tool.id) },
-                                    onPermanent: { await vault.permanentlyDeleteTool(tool.id) }
-                                )
-                            }
-                        }
+                    List {
+                        listBody
                     }
                 }
             }
             .navigationTitle("vault.recentlyDeleted")
+            #if os(iOS) || targetEnvironment(macCatalyst)
+            // Tab 内用大标题：先见「回收站」，其下再是搜索抽屉（勿用 inline，否则像只有搜索栏）。
+            .navigationBarTitleDisplayMode(showsDismissButton ? .inline : .large)
+            #endif
             #if os(macOS)
             .navigationSubtitle(isLoading
                 ? String(localized: "vault.recentlyDeleted.loading")
                 : String(localized: "vault.recentlyDeleted.subtitle \(keys.count) \(accounts.count) \(tools.count)")
             )
             #endif
+            .modifier(VaultSearchableModifier(
+                searchText: $searchText,
+                isSearchPresented: $isSearchPresented,
+                prompt: "vault.trash.search.prompt"
+            ))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("vault.recentlyDeleted.done") { dismiss() }
+                if let onShowAccount {
+                    ToolbarItem(placement: .navigation) {
+                        Button(action: onShowAccount) {
+                            Image(systemName: "person.crop.circle.fill")
+                                .symbolRenderingMode(.hierarchical)
+                                .font(.title3)
+                        }
+                        .accessibilityLabel(Text("vault.sync.title"))
+                    }
+                }
+                if showsDismissButton {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("vault.recentlyDeleted.done") { dismiss() }
+                    }
                 }
             }
             .task { await reload() }
+            .onAppear { Task { await reload() } }
+            .onChange(of: searchText) { _, _ in
+                pruneSelectionIfNeeded()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .trashBundleDidChange)) { _ in
+                Task { await reload() }
+            }
             .alert("vault.error.title", isPresented: Binding(
                 get: { actionError != nil },
                 set: { if !$0 { actionError = nil } }
@@ -929,9 +2008,148 @@ private struct RecentlyDeletedView: View {
     }
 
     @ViewBuilder
-    private func trashRow(
+    private var listBody: some View {
+        if isLoading {
+            HStack {
+                ProgressView()
+                Text("vault.recentlyDeleted.loading")
+                    .foregroundStyle(.secondary)
+            }
+        } else if let loadError {
+            Section {
+                Label(loadError, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.secondary)
+                Button("vault.recentlyDeleted.retry") {
+                    Task { await reload() }
+                }
+            }
+        } else if isEmpty {
+            Section {
+                Text("vault.recentlyDeleted.empty")
+                    .font(.headline)
+                Text("vault.recentlyDeleted.empty.detail")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Text("vault.recentlyDeleted.empty.how")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        } else if isFilterEmpty {
+            Section {
+                Text("vault.trash.search.empty")
+                    .font(.headline)
+                Text("vault.trash.search.empty.detail")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            Section {
+                Text("vault.recentlyDeleted.hint")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if !filteredKeys.isEmpty {
+                Section("vault.recentlyDeleted.section.keys") {
+                    ForEach(filteredKeys) { key in
+                        trashItemRow(
+                            selection: .key(key.id),
+                            title: key.displayName,
+                            subtitle: platformSubtitle(for: key),
+                            deletedAt: key.deletedAt,
+                            purgeAfter: key.purgeAfter,
+                            onRestore: { await vault.restoreKey(key.id) },
+                            onPermanent: { await vault.permanentlyDeleteKey(key.id) }
+                        )
+                    }
+                }
+            }
+            if !filteredAccounts.isEmpty {
+                Section("vault.recentlyDeleted.section.accounts") {
+                    ForEach(filteredAccounts) { account in
+                        trashItemRow(
+                            selection: .account(account.id),
+                            title: account.displayName,
+                            subtitle: account.platform,
+                            deletedAt: account.deletedAt,
+                            purgeAfter: account.purgeAfter,
+                            onRestore: { await vault.restoreAccount(account.id) },
+                            onPermanent: { await vault.permanentlyDeleteAccount(account.id) }
+                        )
+                    }
+                }
+            }
+            if !filteredTools.isEmpty {
+                Section("vault.recentlyDeleted.section.tools") {
+                    ForEach(filteredTools) { tool in
+                        trashItemRow(
+                            selection: .tool(tool.id),
+                            title: tool.name,
+                            deletedAt: tool.deletedAt,
+                            purgeAfter: tool.purgeAfter,
+                            onRestore: { await vault.restoreTool(tool.id) },
+                            onPermanent: { await vault.permanentlyDeleteTool(tool.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func trashItemRow(
+        selection tag: TrashSelection,
         title: String,
         subtitle: String? = nil,
+        deletedAt: Date?,
+        purgeAfter: Date?,
+        onRestore: @escaping () async -> Void,
+        onPermanent: @escaping () async -> Void
+    ) -> some View {
+        Group {
+            if usesSplitSelection {
+                trashCompactRow(title: title, subtitle: subtitle, deletedAt: deletedAt)
+                    .tag(tag)
+            } else {
+                trashInlineRow(
+                    title: title,
+                    subtitle: subtitle,
+                    deletedAt: deletedAt,
+                    purgeAfter: purgeAfter,
+                    onRestore: onRestore,
+                    onPermanent: onPermanent
+                )
+            }
+        }
+    }
+
+    private func trashCompactRow(
+        title: String,
+        subtitle: String?,
+        deletedAt: Date?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.body.weight(.medium))
+                .lineLimit(1)
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            if let deletedAt {
+                Text(String(localized: "vault.recentlyDeleted.deletedAt \(deletedAt.formatted(date: .abbreviated, time: .shortened))"))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func trashInlineRow(
+        title: String,
+        subtitle: String?,
         deletedAt: Date?,
         purgeAfter: Date?,
         onRestore: @escaping () async -> Void,
@@ -940,7 +2158,7 @@ private struct RecentlyDeletedView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
-            if let subtitle {
+            if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -968,6 +2186,152 @@ private struct RecentlyDeletedView: View {
         .padding(.vertical, 4)
     }
 
+    private func platformSubtitle(for key: KeyRecordDTO) -> String? {
+        if let account = vault.accounts.first(where: { $0.id == key.accountId }) {
+            return account.platform
+        }
+        return accounts.first(where: { $0.id == key.accountId })?.platform
+    }
+
+    private func reload() async {
+        isLoading = true
+        loadError = nil
+        defer { isLoading = false }
+        do {
+            let bundle = try await vault.loadRecentlyDeletedBundle()
+            keys = bundle.keys
+            accounts = bundle.accounts
+            tools = bundle.tools
+            pruneSelectionIfNeeded()
+        } catch {
+            loadError = error.localizedDescription
+            keys = []
+            accounts = []
+            tools = []
+            selection?.wrappedValue = nil
+        }
+    }
+
+    private func pruneSelectionIfNeeded() {
+        guard let selection, let current = selection.wrappedValue else { return }
+        let stillExists: Bool = {
+            switch current {
+            case .key(let id): return filteredKeys.contains { $0.id == id }
+            case .account(let id): return filteredAccounts.contains { $0.id == id }
+            case .tool(let id): return filteredTools.contains { $0.id == id }
+            }
+        }()
+        if !stillExists {
+            selection.wrappedValue = nil
+        }
+    }
+
+    private func runAction(_ action: () async -> Void) async {
+        vault.errorMessage = nil
+        await action()
+        if let message = vault.errorMessage {
+            actionError = message
+            vault.errorMessage = nil
+        }
+        await reload()
+    }
+}
+
+/// Mac 回收站右侧详情：展示选中项元数据与恢复 / 永久删除。
+private struct RecentlyDeletedDetailHost: View {
+    let selection: TrashSelection
+    @ObservedObject var vault: VaultHomeViewModel
+    var onCleared: () -> Void
+
+    @State private var keys: [KeyRecordDTO] = []
+    @State private var accounts: [UpstreamAccountDTO] = []
+    @State private var tools: [ConsumerToolDTO] = []
+    @State private var isLoading = true
+    @State private var loadError: String?
+    @State private var actionError: String?
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let loadError {
+                ContentUnavailableView {
+                    Label(loadError, systemImage: "exclamationmark.triangle")
+                } actions: {
+                    Button("vault.recentlyDeleted.retry") {
+                        Task { await reload() }
+                    }
+                }
+            } else if let model = resolvedModel {
+                RecentlyDeletedDetailView(
+                    model: model,
+                    onRestore: { await runAction(model.restore) },
+                    onPermanent: { await runAction(model.permanent) }
+                )
+            } else {
+                ContentUnavailableView(
+                    "vault.trash.missing.title",
+                    systemImage: "trash",
+                    description: Text("vault.trash.missing.detail")
+                )
+                .onAppear { onCleared() }
+            }
+        }
+        .task(id: selection) { await reload() }
+        .alert("vault.error.title", isPresented: Binding(
+            get: { actionError != nil },
+            set: { if !$0 { actionError = nil } }
+        )) {
+            Button("gate.cancel", role: .cancel) { actionError = nil }
+        } message: {
+            Text(actionError ?? "")
+        }
+    }
+
+    private var resolvedModel: TrashDetailModel? {
+        switch selection {
+        case .key(let id):
+            guard let key = keys.first(where: { $0.id == id }) else { return nil }
+            let platform = vault.accounts.first(where: { $0.id == key.accountId })?.platform
+                ?? accounts.first(where: { $0.id == key.accountId })?.platform
+            return TrashDetailModel(
+                title: key.displayName,
+                subtitle: platform,
+                kindTitleKey: "vault.recentlyDeleted.section.keys",
+                systemImage: "key.fill",
+                deletedAt: key.deletedAt,
+                purgeAfter: key.purgeAfter,
+                restore: { await vault.restoreKey(key.id) },
+                permanent: { await vault.permanentlyDeleteKey(key.id) }
+            )
+        case .account(let id):
+            guard let account = accounts.first(where: { $0.id == id }) else { return nil }
+            return TrashDetailModel(
+                title: account.displayName,
+                subtitle: account.platform,
+                kindTitleKey: "vault.recentlyDeleted.section.accounts",
+                systemImage: "building.2.fill",
+                deletedAt: account.deletedAt,
+                purgeAfter: account.purgeAfter,
+                restore: { await vault.restoreAccount(account.id) },
+                permanent: { await vault.permanentlyDeleteAccount(account.id) }
+            )
+        case .tool(let id):
+            guard let tool = tools.first(where: { $0.id == id }) else { return nil }
+            return TrashDetailModel(
+                title: tool.name,
+                subtitle: nil,
+                kindTitleKey: "vault.recentlyDeleted.section.tools",
+                systemImage: "laptopcomputer",
+                deletedAt: tool.deletedAt,
+                purgeAfter: tool.purgeAfter,
+                restore: { await vault.restoreTool(tool.id) },
+                permanent: { await vault.permanentlyDeleteTool(tool.id) }
+            )
+        }
+    }
+
     private func reload() async {
         isLoading = true
         loadError = nil
@@ -991,8 +2355,174 @@ private struct RecentlyDeletedView: View {
         if let message = vault.errorMessage {
             actionError = message
             vault.errorMessage = nil
+            return
         }
+        onCleared()
         await reload()
+        // 让中栏列表也刷新：详情侧已清选中；列表靠 onAppear/task 可能未触发，
+        // 通过再拉一次主列表数据由 RecentlyDeletedView.onAppear 不够——发通知太重。
+        // 切 tab 会清；此处依赖列表的 .task 不会重跑。补：列表用 onChange of selectedTrashItem。
+        NotificationCenter.default.post(name: .trashBundleDidChange, object: nil)
+    }
+}
+
+private extension Notification.Name {
+    static let trashBundleDidChange = Notification.Name("ApiRelay.trashBundleDidChange")
+}
+
+private struct TrashDetailModel {
+    let title: String
+    let subtitle: String?
+    let kindTitleKey: LocalizedStringKey
+    let systemImage: String
+    let deletedAt: Date?
+    let purgeAfter: Date?
+    let restore: () async -> Void
+    let permanent: () async -> Void
+}
+
+private struct RecentlyDeletedDetailView: View {
+    let model: TrashDetailModel
+    let onRestore: () async -> Void
+    let onPermanent: () async -> Void
+
+    private var pageBackground: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .systemGroupedBackground)
+        #elseif canImport(AppKit)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color.gray.opacity(0.08)
+        #endif
+    }
+
+    private var cardFill: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .secondarySystemGroupedBackground)
+        #elseif canImport(AppKit)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color.primary.opacity(0.04)
+        #endif
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                infoCard
+                actionsCard
+            }
+            .padding(24)
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
+        }
+        .background(pageBackground)
+        .navigationTitle(model.title)
+        #if os(iOS) || targetEnvironment(macCatalyst)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button("vault.restore") {
+                    Task { await onRestore() }
+                }
+                Button("vault.delete.forever", role: .destructive) {
+                    Task { await onPermanent() }
+                }
+            }
+        }
+    }
+
+    private var infoCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
+                Image(systemName: model.systemImage)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 52, height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.secondary)
+                    )
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(model.title)
+                        .font(.title2.weight(.semibold))
+                        .lineLimit(2)
+                    Text(model.kindTitleKey)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 14)
+
+            if let subtitle = model.subtitle, !subtitle.isEmpty {
+                detailRow("vault.detail.platform", value: subtitle)
+                cardDivider()
+            }
+            if let deletedAt = model.deletedAt {
+                detailRow(
+                    "vault.trash.field.deletedAt",
+                    value: deletedAt.formatted(date: .abbreviated, time: .shortened)
+                )
+                cardDivider()
+            }
+            if let purgeAfter = model.purgeAfter {
+                detailRow(
+                    "vault.trash.field.purgeAt",
+                    value: purgeAfter.formatted(date: .abbreviated, time: .omitted)
+                )
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFill)
+        )
+    }
+
+    private var actionsCard: some View {
+        VStack(spacing: 0) {
+            Button {
+                Task { await onRestore() }
+            } label: {
+                Text("vault.restore")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.plain)
+
+            Divider()
+
+            Button("vault.delete.forever", role: .destructive) {
+                Task { await onPermanent() }
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 12)
+        }
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFill)
+        )
+    }
+
+    private func detailRow(_ title: LocalizedStringKey, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Text(value)
+                .multilineTextAlignment(.trailing)
+        }
+        .font(.body)
+        .padding(.vertical, 10)
+    }
+
+    private func cardDivider() -> some View {
+        Divider()
     }
 }
 

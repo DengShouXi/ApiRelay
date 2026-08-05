@@ -1,0 +1,317 @@
+import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit) && !targetEnvironment(macCatalyst)
+import AppKit
+#endif
+
+/// 密钥详情：参考系统「密码」App 的卡片式信息页（字段为本产品数据）。
+struct KeyDetailView: View {
+    let keyId: UUID
+    @ObservedObject var viewModel: VaultHomeViewModel
+    var allowDelete: Bool = true
+    var unassignFromToolId: UUID? = nil
+    /// Mac 三栏右侧：不要再套一层「密钥详情」大标题推送感。
+    var splitPaneStyle: Bool = false
+
+    let onCopy: (UUID) -> Void
+    let onReveal: (UUID) -> Void
+    let onAssign: (UUID) -> Void
+    let onUnassign: (UUID, UUID) -> Void
+    let onDelete: (UUID) -> Void
+
+    private var key: KeyRecordDTO? {
+        viewModel.allKeys.first { $0.id == keyId }
+    }
+
+    private var account: UpstreamAccountDTO? {
+        guard let key else { return nil }
+        return viewModel.accounts.first { $0.id == key.accountId }
+    }
+
+    private var assignedTools: [ConsumerToolDTO] {
+        guard let key else { return [] }
+        return viewModel.tools.filter { key.consumerToolIds.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    var body: some View {
+        Group {
+            if let key {
+                cardScroll(key)
+            } else {
+                ContentUnavailableView(
+                    "vault.detail.missing.title",
+                    systemImage: "key.slash",
+                    description: Text("vault.detail.missing.detail")
+                )
+            }
+        }
+        .background(pageBackground)
+        .toolbar {
+            if let key {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        onCopy(key.id)
+                    } label: {
+                        Label("vault.copy", systemImage: "doc.on.doc")
+                    }
+                    .disabled(!key.secretAvailable)
+
+                    Button {
+                        onReveal(key.id)
+                    } label: {
+                        Label("vault.reveal", systemImage: "eye")
+                    }
+                    .disabled(!key.secretAvailable)
+
+                    if allowDelete {
+                        Button("vault.delete", role: .destructive) {
+                            onDelete(key.id)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle(splitPaneStyle ? (key?.displayName ?? "") : String(localized: "vault.detail.title"))
+        #if os(iOS) || targetEnvironment(macCatalyst)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+    }
+
+    private var pageBackground: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .systemGroupedBackground)
+        #elseif canImport(AppKit)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color.gray.opacity(0.08)
+        #endif
+    }
+
+    private var cardFill: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .secondarySystemGroupedBackground)
+        #elseif canImport(AppKit)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color.primary.opacity(0.04)
+        #endif
+    }
+
+    private func cardScroll(_ key: KeyRecordDTO) -> some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                infoCard(key)
+                statusCard(key)
+                actionsCard(key)
+            }
+            .padding(24)
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func infoCard(_ key: KeyRecordDTO) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
+                Image(systemName: "key.fill")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 52, height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.accentColor)
+                    )
+                    .accessibilityHidden(true)
+                Text(key.displayName)
+                    .font(.title2.weight(.semibold))
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 14)
+
+            cardRow("vault.detail.name", value: key.displayName)
+            cardDivider()
+            cardRow("vault.detail.secret", value: maskLabel(key), monospaced: true)
+            cardDivider()
+            cardRow("vault.detail.account", value: account?.displayName ?? "—")
+            cardDivider()
+            cardRow("vault.detail.platform", value: platformLabel(for: account))
+            cardDivider()
+            cardRow("vault.detail.assignment", value: assignmentText(for: key))
+            if !assignedTools.isEmpty {
+                cardDivider()
+                cardRow(
+                    "vault.detail.assignedTools",
+                    value: assignedTools.map(\.name).joined(separator: "、")
+                )
+            }
+            cardDivider()
+            cardRow("vault.detail.lifecycle", value: lifecycleText(key.lifecycle))
+            cardDivider()
+            cardRow("vault.detail.origin", value: originText(key.origin))
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFill)
+        )
+    }
+
+    private func statusCard(_ key: KeyRecordDTO) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: statusSymbol(for: key))
+                .font(.title2)
+                .foregroundStyle(statusColor(for: key))
+                .frame(width: 28)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(statusTitle(for: key))
+                    .font(.headline)
+                Text(statusDetail(for: key))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFill)
+        )
+    }
+
+    private func actionsCard(_ key: KeyRecordDTO) -> some View {
+        VStack(spacing: 0) {
+            if let toolId = unassignFromToolId {
+                Button("vault.unassign", role: .destructive) {
+                    onUnassign(key.id, toolId)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+            } else {
+                Button {
+                    onAssign(key.id)
+                } label: {
+                    Label("vault.assign", systemImage: "link")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 12)
+            }
+        }
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(cardFill)
+        )
+    }
+
+    private func cardRow(_ title: LocalizedStringKey, value: String, monospaced: Bool = false) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Text(value)
+                .font(monospaced ? .body.monospaced() : .body)
+                .multilineTextAlignment(.trailing)
+                .textSelection(.enabled)
+        }
+        .padding(.vertical, 10)
+    }
+
+    private func cardDivider() -> some View {
+        Divider().opacity(0.5)
+    }
+
+    private func maskLabel(_ key: KeyRecordDTO) -> String {
+        if !key.secretAvailable { return String(localized: "vault.secret.missing") }
+        if let hint = key.maskedHint { return "••••\(hint)" }
+        return "••••"
+    }
+
+    private func platformLabel(for account: UpstreamAccountDTO?) -> String {
+        guard let account else { return "—" }
+        if let custom = account.customPlatformName, !custom.isEmpty {
+            return custom
+        }
+        return PresetCatalog.platform(id: account.platform)?.displayName ?? account.platform
+    }
+
+    private func assignmentText(for key: KeyRecordDTO) -> String {
+        switch key.consumerToolIds.count {
+        case 0:
+            return String(localized: "vault.assign.badge.none")
+        default:
+            return String(localized: "vault.assign.badge.count \(key.consumerToolIds.count)")
+        }
+    }
+
+    private func lifecycleText(_ lifecycle: KeyLifecycle) -> String {
+        switch lifecycle {
+        case .active:
+            return String(localized: "vault.detail.lifecycle.active")
+        case .revokedUpstream:
+            return String(localized: "vault.detail.lifecycle.revoked")
+        case .softDeleted:
+            return String(localized: "vault.detail.lifecycle.deleted")
+        }
+    }
+
+    private func originText(_ origin: KeyOrigin) -> String {
+        switch origin {
+        case .manualEntry:
+            return String(localized: "vault.detail.origin.manual")
+        case .providerIssued:
+            return String(localized: "vault.detail.origin.provider")
+        case .receivedFromTransfer:
+            return String(localized: "vault.detail.origin.transfer")
+        case .relayIssued:
+            return String(localized: "vault.detail.origin.relay")
+        }
+    }
+
+    private func statusSymbol(for key: KeyRecordDTO) -> String {
+        if !key.secretAvailable { return "exclamationmark.icloud" }
+        if key.consumerToolIds.count >= 2 { return "person.2.fill" }
+        if key.consumerToolIds.isEmpty { return "tray" }
+        return "checkmark.shield.fill"
+    }
+
+    private func statusColor(for key: KeyRecordDTO) -> Color {
+        if !key.secretAvailable { return .secondary }
+        if key.consumerToolIds.count >= 2 { return .accentColor }
+        if key.consumerToolIds.isEmpty { return .secondary }
+        return .green
+    }
+
+    private func statusTitle(for key: KeyRecordDTO) -> String {
+        if !key.secretAvailable {
+            return String(localized: "vault.detail.status.missing.title")
+        }
+        if key.consumerToolIds.count >= 2 {
+            return String(localized: "vault.detail.status.shared.title")
+        }
+        if key.consumerToolIds.isEmpty {
+            return String(localized: "vault.detail.status.unassigned.title")
+        }
+        return String(localized: "vault.detail.status.ready.title")
+    }
+
+    private func statusDetail(for key: KeyRecordDTO) -> String {
+        if !key.secretAvailable {
+            return String(localized: "vault.detail.status.missing.detail")
+        }
+        if key.consumerToolIds.count >= 2 {
+            return String(localized: "vault.detail.status.shared.detail")
+        }
+        if key.consumerToolIds.isEmpty {
+            return String(localized: "vault.detail.status.unassigned.detail")
+        }
+        return String(localized: "vault.detail.status.ready.detail")
+    }
+}

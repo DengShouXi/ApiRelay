@@ -22,6 +22,7 @@ actor UserPreferencesRepository {
             lowBalanceThreshold: model.lowBalanceThreshold,
             appearance: .system,
             defaultGrouping: .byPlatform,
+            assignPickerFilter: .allowShared,
             lastWindowWidth: nil,
             lastWindowHeight: nil
         )

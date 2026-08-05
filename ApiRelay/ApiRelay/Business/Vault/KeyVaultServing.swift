@@ -10,6 +10,8 @@ protocol KeyVaultServing: Actor {
     func createKey(_ draft: KeyDraft, secret: String, acknowledgePossibleDuplicate: Bool) async throws -> UUID
     func updateKey(_ id: UUID, patch: KeyPatch) async throws
     func deleteKey(_ id: UUID) async throws
+    /// 按用户拖拽结果重写分区内密钥顺序（`orderedIds` 为从上到下）。
+    func reorderKeys(orderedIds: [UUID]) async throws
 
     func recentlyDeletedKeys() async throws -> [KeyRecordDTO]
     func restoreKey(_ id: UUID) async throws

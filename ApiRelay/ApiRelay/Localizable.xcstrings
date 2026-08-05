@@ -1,6 +1,22 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@，%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@，%2$@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "••••%@" : {
+
+    },
     "biometry.faceID" : {
       "comment" : "Display name for Face ID biometric type",
       "extractionState" : "stale",
@@ -723,6 +739,22 @@
         }
       }
     },
+    "settings.appearance.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance and default grouping stay on this device and do not sync via iCloud."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外观与默认视角仅保存在本机，不随 iCloud 同步。"
+          }
+        }
+      }
+    },
     "settings.appearance.label" : {
       "comment" : "Setting label for appearance preference",
       "extractionState" : "stale",
@@ -753,6 +785,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "浅色"
+          }
+        }
+      }
+    },
+    "settings.appearance.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps light/dark look on this Mac or iPhone only."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅影响本机浅色/深色外观。"
           }
         }
       }
@@ -807,7 +855,88 @@
         }
       }
     },
+    "settings.appLock.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask for authentication when returning to the app."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新打开 App 时再次确认身份。"
+          }
+        }
+      }
+    },
+    "settings.assignPickerFilter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key Picker Scope"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加密钥时的范围"
+          }
+        }
+      }
+    },
+    "settings.assignPickerFilter.allowShared" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All keys"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部密钥"
+          }
+        }
+      }
+    },
+    "settings.assignPickerFilter.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What the Add Existing Key sheet lists."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「添加已有密钥」弹窗里列出哪些密钥。"
+          }
+        }
+      }
+    },
+    "settings.assignPickerFilter.unassignedOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unassigned only"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅未指派"
+          }
+        }
+      }
+    },
     "settings.autoLock %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -819,6 +948,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自动锁定：%lld 秒"
+          }
+        }
+      }
+    },
+    "settings.autoLock.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-Lock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动锁定"
+          }
+        }
+      }
+    },
+    "settings.autoLock.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock after inactivity. 0 means only when leaving the app."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "闲置多久后锁定；0 表示仅在离开 App 时锁定。"
           }
         }
       }
@@ -871,6 +1032,22 @@
         }
       }
     },
+    "settings.backup.format.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format: AES-GCM encrypted package for this app only. Not CSV/Excel. Column layouts for spreadsheets are not used in Stage 1."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "格式：仅本 App 可用的 AES-GCM 加密包，不是 CSV/Excel。第一阶段不做表格列顺序设计。"
+          }
+        }
+      }
+    },
     "settings.backup.passphrase" : {
       "localizations" : {
         "en" : {
@@ -887,9 +1064,24 @@
         }
       }
     },
+    "settings.backup.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export an encrypted package for safekeeping."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出仅本 App 可导入的加密备份包。"
+          }
+        }
+      }
+    },
     "settings.clipboardClear.label" : {
       "comment" : "Setting label for clipboard auto-clear duration",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -901,6 +1093,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "剪贴板自动清除"
+          }
+        }
+      }
+    },
+    "settings.clipboardClear.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear copied secrets from the clipboard automatically."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制明文后多久自动清空剪贴板。"
           }
         }
       }
@@ -921,7 +1129,24 @@
         }
       }
     },
+    "settings.clipboardLocalOnly.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep copied secrets off Universal Clipboard."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阻止明文经通用剪贴板同步到附近设备。"
+          }
+        }
+      }
+    },
     "settings.clipboardSeconds %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -933,6 +1158,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "剪贴板清除：%lld 秒"
+          }
+        }
+      }
+    },
+    "settings.data" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据"
           }
         }
       }
@@ -953,6 +1195,22 @@
         }
       }
     },
+    "settings.defaultGrouping.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which vault tab opens by default on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机默认打开「按平台」还是「按使用方」。"
+          }
+        }
+      }
+    },
     "settings.done" : {
       "comment" : "Toolbar button to dismiss settings sheet",
       "localizations" : {
@@ -966,6 +1224,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "完成"
+          }
+        }
+      }
+    },
+    "settings.duration.seconds %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sec"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒"
+          }
+        }
+      }
+    },
+    "settings.duration.unit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sec"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秒"
           }
         }
       }
@@ -1018,6 +1308,22 @@
         }
       }
     },
+    "settings.eraseAll.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permanently removes keys, accounts, preferences, and Keychain secrets on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "永久清除本机密钥、账号、偏好与钥匙串中的明文。"
+          }
+        }
+      }
+    },
     "settings.eraseAll.message" : {
       "localizations" : {
         "en" : {
@@ -1030,6 +1336,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "将清除本机密钥、偏好等用户数据；不吊销购买。若已同步，其他设备上的同步数据也可能被清。"
+          }
+        }
+      }
+    },
+    "settings.eraseAll.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permanently remove keys, accounts, and local data."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "永久清除密钥、账号与本机相关数据。"
           }
         }
       }
@@ -1064,6 +1386,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "切换器中遮罩内容"
+          }
+        }
+      }
+    },
+    "settings.hideInAppSwitcher.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide sensitive previews in the app switcher."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在应用切换器中遮盖敏感预览。"
           }
         }
       }
@@ -1168,6 +1506,22 @@
         }
       }
     },
+    "settings.masterPassword.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional extra gate; stored only on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选加强门闩；校验材料仅存本机、不同步。"
+          }
+        }
+      }
+    },
     "settings.masterPassword.save" : {
       "comment" : "Save master password button",
       "localizations" : {
@@ -1252,6 +1606,22 @@
         }
       }
     },
+    "settings.policy.biometricOnly.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biometrics only; device passcode will not unlock."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅生物识别，不能改用设备密码。"
+          }
+        }
+      }
+    },
     "settings.policy.biometricOnly.unavailable" : {
       "localizations" : {
         "en" : {
@@ -1268,6 +1638,22 @@
         }
       }
     },
+    "settings.policy.biometricOnly.unavailable.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device has no Face ID or Touch ID."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机没有可用的面容 ID / 触控 ID。"
+          }
+        }
+      }
+    },
     "settings.policy.biometricOrPasscode" : {
       "localizations" : {
         "en" : {
@@ -1280,6 +1666,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "面容/触控 ID 或设备密码"
+          }
+        }
+      }
+    },
+    "settings.policy.biometricOrPasscode.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Face ID, Touch ID, or the device passcode."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可用面容 ID、触控 ID 或设备密码。"
+          }
+        }
+      }
+    },
+    "settings.policy.biometricOrPasscode.short" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Face ID or Passcode"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "面容或密码"
           }
         }
       }
@@ -1316,6 +1734,22 @@
         }
       }
     },
+    "settings.policy.masterPassword.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the app master password set on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用本机设置的应用主密码。"
+          }
+        }
+      }
+    },
     "settings.policy.none" : {
       "localizations" : {
         "en" : {
@@ -1328,6 +1762,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不验证"
+          }
+        }
+      }
+    },
+    "settings.policy.none.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No prompt when viewing or copying secrets."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看或复制时不再弹出验证。"
           }
         }
       }
@@ -1353,13 +1803,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verification to Reveal Secrets"
+            "value" : "Verification"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "取出明文时的验证方式"
+            "value" : "验证方式"
           }
         }
       }
@@ -1382,7 +1832,216 @@
         }
       }
     },
+    "settings.revealPolicy.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needed before viewing or copying a secret."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看或复制明文前需验证。"
+          }
+        }
+      }
+    },
+    "settings.section.appearance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外观"
+          }
+        }
+      }
+    },
+    "settings.section.assign" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assignment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指派"
+          }
+        }
+      }
+    },
+    "settings.section.assign.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controls which keys appear when you add an existing key under By Consumer. Does not change whether a key can already be shared."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "控制在「按使用方」里添加已有密钥时显示哪些候选。不会改掉密钥本身可否被多个使用方共用的能力。"
+          }
+        }
+      }
+    },
+    "settings.section.backup" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备份与导出"
+          }
+        }
+      }
+    },
+    "settings.section.backup.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creates an encrypted backup file (not Excel). You need the passphrase to restore later."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成加密备份文件（不是 Excel 表格）。恢复时必须使用同一口令。"
+          }
+        }
+      }
+    },
+    "settings.section.clipboardPrivacy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clipboard & Privacy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪贴板与隐私"
+          }
+        }
+      }
+    },
+    "settings.section.clipboardPrivacy.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disabling Universal Clipboard keeps copied secrets on this device. App Switcher masking hides vault content in multitasking previews."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "禁用通用剪贴板后，复制的密钥不会经系统传到附近其他设备。切换器遮罩可避免多任务预览里露出内容。"
+          }
+        }
+      }
+    },
+    "settings.section.danger" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danger Zone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "危险操作"
+          }
+        }
+      }
+    },
+    "settings.section.lockTiming" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock & Timeouts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "锁定与超时"
+          }
+        }
+      }
+    },
+    "settings.section.lockTiming.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-lock applies when the app returns to the foreground after being away. Clipboard timeout clears the copied secret after the chosen duration."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动锁定：离开一段时间再回到 App 时生效。剪贴板清除：复制密钥后按设定时长自动清掉明文。"
+          }
+        }
+      }
+    },
+    "settings.section.password" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password & Verification"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码与验证"
+          }
+        }
+      }
+    },
+    "settings.section.password.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveal and copy share one verification policy. Turning verification off disables both. Master password is optional and device-local."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不弹出门闩。主密码可选，且仅保存在本机。"
+          }
+        }
+      }
+    },
     "settings.security" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1394,6 +2053,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "安全"
+          }
+        }
+      }
+    },
+    "settings.security.footer" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveal and copy share one verification policy. Turning verification off disables both. Master password is optional and device-local."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不弹出门闩。主密码可选，且仅保存在本机。"
           }
         }
       }
@@ -1428,6 +2104,119 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "设置"
+          }
+        }
+      }
+    },
+    "settings.tools.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename, hide, or remove consumer tools."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理使用方工具的显示与删除。"
+          }
+        }
+      }
+    },
+    "vault.a11y.maskedHidden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret masked"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥已掩码"
+          }
+        }
+      }
+    },
+    "vault.a11y.maskedHint %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masked ending %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "掩码末尾 %@"
+          }
+        }
+      }
+    },
+    "vault.a11y.moreMenu" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多"
+          }
+        }
+      }
+    },
+    "vault.a11y.sectionCollapse" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double tap to collapse"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按折叠密钥列表"
+          }
+        }
+      }
+    },
+    "vault.a11y.sectionExpand" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double tap to expand"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按展开密钥列表"
+          }
+        }
+      }
+    },
+    "vault.a11y.sectionMenu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Section actions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分区操作"
           }
         }
       }
@@ -1544,6 +2333,74 @@
         }
       }
     },
+    "vault.account.placeholder.detail" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync follows the Apple Account on this device via iCloud Keychain. This app has no separate sign-in."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步跟随本机苹果账号与 iCloud 钥匙串。本 App 没有独立登录。"
+          }
+        }
+      }
+    },
+    "vault.account.placeholder.local" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机"
+          }
+        }
+      }
+    },
+    "vault.account.placeholder.status" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "状态"
+          }
+        }
+      }
+    },
+    "vault.account.placeholder.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud Sync"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud 同步"
+          }
+        }
+      }
+    },
     "vault.account.platform" : {
       "localizations" : {
         "en" : {
@@ -1593,6 +2450,7 @@
       }
     },
     "vault.assign.allAssigned" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1658,6 +2516,7 @@
       }
     },
     "vault.assign.here" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1757,6 +2616,7 @@
       }
     },
     "vault.assign.shared.explain" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1789,6 +2649,102 @@
         }
       }
     },
+    "vault.assign.sheet.empty.allowShared" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every key is already assigned to this consumer."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有密钥都已指派给此使用方。"
+          }
+        }
+      }
+    },
+    "vault.assign.sheet.empty.unassignedOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No unassigned keys. Create a key under By Platform, or switch the picker to All keys in Settings."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有未指派的密钥。请先在「按平台」录入，或到设置把范围改为「全部密钥」。"
+          }
+        }
+      }
+    },
+    "vault.assign.sheet.filter.allowShared.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing all keys not yet on this consumer, including ones already used elsewhere."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示尚未挂到此使用方的全部密钥，含已在其他使用方使用过的。"
+          }
+        }
+      }
+    },
+    "vault.assign.sheet.filter.unassignedOnly.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing unassigned keys only (one key, one consumer). Change this in Settings → Assignment."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前只显示尚未指派的密钥（一钥一用）。可在「设置 → 指派」更改。"
+          }
+        }
+      }
+    },
+    "vault.assign.sheet.search" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search keys"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索密钥"
+          }
+        }
+      }
+    },
+    "vault.assign.sheet.title %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Key to %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加密钥到 %@"
+          }
+        }
+      }
+    },
     "vault.assign.title" : {
       "localizations" : {
         "en" : {
@@ -1801,6 +2757,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "指派给使用方"
+          }
+        }
+      }
+    },
+    "vault.brand.name" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ApiRelay"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ApiRelay"
           }
         }
       }
@@ -1854,6 +2827,7 @@
       }
     },
     "vault.consumer.assignKey.collapse" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2014,6 +2988,7 @@
       }
     },
     "vault.consumer.listEmpty" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2278,6 +3253,652 @@
         }
       }
     },
+    "vault.detail.account" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upstream Account"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上游账号"
+          }
+        }
+      }
+    },
+    "vault.detail.assignedTools" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assigned To"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用方"
+          }
+        }
+      }
+    },
+    "vault.detail.assignment" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assignment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指派"
+          }
+        }
+      }
+    },
+    "vault.detail.columnIdle.detail" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This section uses the middle column only."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一页内容在中间栏即可完成操作。"
+          }
+        }
+      }
+    },
+    "vault.detail.columnIdle.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Detail Pane"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无需详情"
+          }
+        }
+      }
+    },
+    "vault.detail.lifecycle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lifecycle"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生命周期"
+          }
+        }
+      }
+    },
+    "vault.detail.lifecycle.active" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中"
+          }
+        }
+      }
+    },
+    "vault.detail.lifecycle.deleted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Recently Deleted"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在最近删除中"
+          }
+        }
+      }
+    },
+    "vault.detail.lifecycle.revoked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoked upstream"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上游已作废"
+          }
+        }
+      }
+    },
+    "vault.detail.missing.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It may have been deleted or is not on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可能已删除，或不在本机。"
+          }
+        }
+      }
+    },
+    "vault.detail.missing.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key Not Found"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到该密钥"
+          }
+        }
+      }
+    },
+    "vault.detail.name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        }
+      }
+    },
+    "vault.detail.open" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开详情"
+          }
+        }
+      }
+    },
+    "vault.detail.origin" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Origin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源"
+          }
+        }
+      }
+    },
+    "vault.detail.origin.manual" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entered manually"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手动录入"
+          }
+        }
+      }
+    },
+    "vault.detail.origin.provider" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Issued in app"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用内签发"
+          }
+        }
+      }
+    },
+    "vault.detail.origin.relay" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relay issued"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中转签发"
+          }
+        }
+      }
+    },
+    "vault.detail.origin.transfer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Received via transfer"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加密传递导入"
+          }
+        }
+      }
+    },
+    "vault.detail.pick.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a key in the list to see its details here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在中间列表点选一把密钥，详情会显示在这里。"
+          }
+        }
+      }
+    },
+    "vault.detail.pick.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a Key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择一把密钥"
+          }
+        }
+      }
+    },
+    "vault.detail.platform" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Platform"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平台"
+          }
+        }
+      }
+    },
+    "vault.detail.secret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥"
+          }
+        }
+      }
+    },
+    "vault.detail.section.actions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作"
+          }
+        }
+      }
+    },
+    "vault.detail.section.info" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Information"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信息"
+          }
+        }
+      }
+    },
+    "vault.detail.section.status" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "状态"
+          }
+        }
+      }
+    },
+    "vault.detail.status.missing.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metadata arrived, but the Keychain secret has not synced yet. Wait for iCloud Keychain, or enter the key again on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "元信息已到，钥匙串明文尚未同步。请等待 iCloud 钥匙串，或在本机重新录入。"
+          }
+        }
+      }
+    },
+    "vault.detail.status.missing.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret not on this device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机暂无明文"
+          }
+        }
+      }
+    },
+    "vault.detail.status.ready.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret is available on this device and the key is assigned."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机有明文，且已指派使用方。"
+          }
+        }
+      }
+    },
+    "vault.detail.status.ready.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready to use"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可正常使用"
+          }
+        }
+      }
+    },
+    "vault.detail.status.shared.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This key is assigned to more than one consumer. Usage later will not be split across those tools."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这把密钥指派给多个使用方。后续用量不会摊分到各工具。"
+          }
+        }
+      }
+    },
+    "vault.detail.status.shared.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared across tools"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多工具共用"
+          }
+        }
+      }
+    },
+    "vault.detail.status.unassigned.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assign this key to a consumer tool when you are ready to use it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要使用时，再把它指派给某个使用方工具。"
+          }
+        }
+      }
+    },
+    "vault.detail.status.unassigned.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unassigned"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未指派"
+          }
+        }
+      }
+    },
+    "vault.detail.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key Details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥详情"
+          }
+        }
+      }
+    },
+    "vault.empty.consumer.cta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Consumer"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加使用方"
+          }
+        }
+      }
+    },
+    "vault.empty.consumer.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a consumer tool (for example VS Code on this Mac), then assign keys to it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加使用方工具（例如本机 VS Code），再把密钥指派给它。"
+          }
+        }
+      }
+    },
+    "vault.empty.consumer.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No consumers yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有使用方"
+          }
+        }
+      }
+    },
+    "vault.empty.platform.cta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Account"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加账号"
+          }
+        }
+      }
+    },
+    "vault.empty.platform.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add an upstream account, then store a key under it. Keys always show as masked."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先添加上游账号，再在其下录入密钥。列表只显示掩码。"
+          }
+        }
+      }
+    },
+    "vault.empty.platform.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No upstream accounts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有上游账号"
+          }
+        }
+      }
+    },
     "vault.error.title" : {
       "localizations" : {
         "en" : {
@@ -2327,6 +3948,7 @@
       }
     },
     "vault.grouping" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2890,6 +4512,71 @@
         }
       }
     },
+    "vault.reorder.keys" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reorder Keys"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整密钥顺序"
+          }
+        }
+      }
+    },
+    "vault.reorder.keys.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag a row to reorder. Changes save automatically; tap Done when finished."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动整行调整顺序，松手即保存；调好后点「完成」。"
+          }
+        }
+      }
+    },
+    "vault.reorder.keys.save" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        }
+      }
+    },
+    "vault.reorder.keys.title %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reorder — %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整顺序 — %@"
+          }
+        }
+      }
+    },
     "vault.restore" : {
       "localizations" : {
         "en" : {
@@ -3023,6 +4710,55 @@
         }
       }
     },
+    "vault.search" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索"
+          }
+        }
+      }
+    },
+    "vault.search.clear" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Search"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除搜索"
+          }
+        }
+      }
+    },
+    "vault.search.prompt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Keys"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索密钥"
+          }
+        }
+      }
+    },
     "vault.secret.missing" : {
       "localizations" : {
         "en" : {
@@ -3035,6 +4771,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "本机暂无明文"
+          }
+        }
+      }
+    },
+    "vault.section.keyCount %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld keys"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 把密钥"
           }
         }
       }
@@ -3052,6 +4804,246 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "被 %lld 个工具共用"
+          }
+        }
+      }
+    },
+    "vault.sync.how.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key secrets sync through iCloud Keychain (end-to-end encrypted). Account metadata syncs through iCloud. Turn on iCloud Keychain on every device that should see the same keys."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥明文经「iCloud 钥匙串」同步（系统端到端加密）；账号等元数据经 iCloud 同步。每台要共用密钥的设备都需开启 iCloud 钥匙串。"
+          }
+        }
+      }
+    },
+    "vault.sync.icloud.status" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud on this device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机 iCloud"
+          }
+        }
+      }
+    },
+    "vault.sync.icloud.status.footnote" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app cannot sign you in or switch Apple ID. Sync always follows the Apple Account already signed into this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本 App 不能登录或切换 Apple ID。同步始终跟随本机系统里已登录的苹果账号。"
+          }
+        }
+      }
+    },
+    "vault.sync.icloud.status.signedIn" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已登录"
+          }
+        }
+      }
+    },
+    "vault.sync.icloud.status.signedOut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not detected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未检测到"
+          }
+        }
+      }
+    },
+    "vault.sync.now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync Now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即同步"
+          }
+        }
+      }
+    },
+    "vault.sync.now.footnote" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves pending changes and refreshes this device. Cross-device sync continues in the background."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提交本机待写入变更并刷新列表；与其他设备的同步仍由系统在后台继续完成。"
+          }
+        }
+      }
+    },
+    "vault.sync.now.inProgress" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Syncing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在同步…"
+          }
+        }
+      }
+    },
+    "vault.sync.now.success" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device is up to date. Metadata syncs via iCloud; key secrets sync via iCloud Keychain on their own—the app cannot force that step."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机已刷新。账号等元数据经 iCloud 同步；密钥明文由系统钥匙串自行同步，应用无法强制加速。"
+          }
+        }
+      }
+    },
+    "vault.sync.now.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No iCloud account detected on this device. Sign in with Apple ID in System Settings first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未检测到本机 iCloud 账号。请先在系统设置中登录 Apple ID。"
+          }
+        }
+      }
+    },
+    "vault.sync.openSystemSettings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open System Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开系统设置"
+          }
+        }
+      }
+    },
+    "vault.sync.openSystemSettings.footnote" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone: Settings → [your name] → iCloud → Passwords and Keychain.\nMac: System Settings → Apple ID → iCloud → Passwords and Keychain."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone：设置 → [你的姓名] → iCloud → 密码与钥匙串。\nMac：系统设置 → Apple ID → iCloud → 密码与钥匙串。"
+          }
+        }
+      }
+    },
+    "vault.sync.section.account" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Account"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "苹果账号"
+          }
+        }
+      }
+    },
+    "vault.sync.section.how" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How sync works"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步怎么走"
+          }
+        }
+      }
+    },
+    "vault.sync.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud Sync"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud 同步"
           }
         }
       }
@@ -3184,6 +5176,150 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "预置"
+          }
+        }
+      }
+    },
+    "vault.trash.field.deletedAt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除时间"
+          }
+        }
+      }
+    },
+    "vault.trash.field.purgeAt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purges On"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "永久清除"
+          }
+        }
+      }
+    },
+    "vault.trash.missing.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This item is no longer in the Recycle Bin."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该项已不在回收站中。"
+          }
+        }
+      }
+    },
+    "vault.trash.missing.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Item Unavailable"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目不可用"
+          }
+        }
+      }
+    },
+    "vault.trash.pick.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an item in the list to restore it or delete it forever."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在中间列表点选一项，即可在此恢复或永久删除。"
+          }
+        }
+      }
+    },
+    "vault.trash.pick.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select an Item"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择一项"
+          }
+        }
+      }
+    },
+    "vault.trash.search.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Matches"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无匹配结果"
+          }
+        }
+      }
+    },
+    "vault.trash.search.empty.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try another name or clear the search."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换个关键词试试，或清除搜索。"
+          }
+        }
+      }
+    },
+    "vault.trash.search.prompt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Recycle Bin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索回收站"
           }
         }
       }

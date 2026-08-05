@@ -13,7 +13,7 @@ final class SecurityReviewTests: XCTestCase {
             maskedHint: "abcd", origin: .manualEntry, providerKeyRef: nil,
             lifecycle: .active,
             health: KeyHealthDTO(state: .unknown, lastCheckedAt: nil, lastCheckNote: nil),
-            deletedAt: nil, purgeAfter: nil, spendLimit: nil, secretAvailable: false
+            deletedAt: nil, purgeAfter: nil, spendLimit: nil, secretAvailable: false, sortOrder: 0
         ))
         let labels = Set(mirror.children.compactMap(\.label))
         XCTAssertFalse(labels.contains("secret"))

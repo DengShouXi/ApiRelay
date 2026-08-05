@@ -6,6 +6,7 @@ actor DevicePreferencesRepository {
     func loadOrCreate() throws -> (
         appearance: AppearancePreference,
         defaultGrouping: GroupingMode,
+        assignPickerFilter: AssignPickerFilter,
         lastWindowWidth: Double?,
         lastWindowHeight: Double?
     ) {
@@ -13,6 +14,7 @@ actor DevicePreferencesRepository {
         return (
             AppearancePreference(rawValue: model.appearance) ?? .system,
             GroupingMode(rawValue: model.defaultGrouping) ?? .byPlatform,
+            AssignPickerFilter(rawValue: model.assignPickerFilter) ?? .allowShared,
             model.lastWindowWidth,
             model.lastWindowHeight
         )
@@ -22,6 +24,7 @@ actor DevicePreferencesRepository {
         let model = try ensureSingleton()
         if let value = patch.appearance { model.appearance = value.rawValue }
         if let value = patch.defaultGrouping { model.defaultGrouping = value.rawValue }
+        if let value = patch.assignPickerFilter { model.assignPickerFilter = value.rawValue }
         if let value = patch.lastWindowWidth { model.lastWindowWidth = value }
         if let value = patch.lastWindowHeight { model.lastWindowHeight = value }
         try modelContext.save()

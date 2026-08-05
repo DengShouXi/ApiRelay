@@ -8,7 +8,10 @@ actor APIKeyRecordRepository {
         lifecycles: [KeyLifecycle]? = nil
     ) throws -> [KeyRecordDTO] {
         let models = try modelContext.fetch(FetchDescriptor<APIKeyRecord>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            sortBy: [
+                SortDescriptor(\.sortOrder),
+                SortDescriptor(\.createdAt, order: .reverse)
+            ]
         ))
         let lifecycleFilter = lifecycles.map { Set($0.map(\.rawValue)) }
         return try models.compactMap { model in
@@ -37,6 +40,7 @@ actor APIKeyRecordRepository {
         }
         let id = UUID()
         let now = Date()
+        let sortOrder = draft.sortOrder > 0 ? draft.sortOrder : (try nextSortOrder(in: draft.accountId))
         let model = APIKeyRecord(
             id: id,
             accountId: draft.accountId,
@@ -48,7 +52,8 @@ actor APIKeyRecordRepository {
             notes: draft.notes,
             createdAt: now,
             updatedAt: now,
-            secretLength: draft.secretLength
+            secretLength: draft.secretLength,
+            sortOrder: sortOrder
         )
         modelContext.insert(model)
         try modelContext.save()
@@ -76,8 +81,29 @@ actor APIKeyRecordRepository {
         if let value = patch.lastCheckedAt { model.lastCheckedAt = value }
         if let value = patch.lastCheckNote { model.lastCheckNote = value }
         if let value = patch.secretLength { model.secretLength = value }
+        if let value = patch.sortOrder { model.sortOrder = value }
         model.updatedAt = Date()
         try modelContext.save()
+    }
+
+    /// 按给定顺序重写 `sortOrder`（0…n-1）。用于分区内拖拽排序。
+    func reorder(orderedIds: [UUID]) throws {
+        let now = Date()
+        for (index, id) in orderedIds.enumerated() {
+            guard let model = try fetchModel(id: id) else { continue }
+            model.sortOrder = index
+            model.updatedAt = now
+        }
+        try modelContext.save()
+    }
+
+    private func nextSortOrder(in accountId: UUID) throws -> Int {
+        let models = try modelContext.fetch(FetchDescriptor<APIKeyRecord>())
+        let maxOrder = models
+            .filter { $0.accountId == accountId && $0.lifecycle != KeyLifecycle.softDeleted.rawValue }
+            .map(\.sortOrder)
+            .max()
+        return (maxOrder ?? -1) + 1
     }
 
     /// 移入回收站：显式写 lifecycle / deletedAt / purgeAfter（默认 30 天）。
@@ -165,7 +191,8 @@ actor APIKeyRecordRepository {
             deletedAt: model.deletedAt,
             purgeAfter: model.purgeAfter,
             spendLimit: model.spendLimit,
-            secretAvailable: false
+            secretAvailable: false,
+            sortOrder: model.sortOrder
         )
     }
 }

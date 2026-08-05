@@ -16,6 +16,7 @@ struct KeyRecordDTO: Identifiable, Sendable {
     let purgeAfter: Date?            // 永久清除截止；UI 用以展示剩余天数
     let spendLimit: Decimal?
     let secretAvailable: Bool        // 本机 Keychain 是否有对应明文
+    let sortOrder: Int               // 分区内手动排序；越小越靠前
 }
 
 // MARK: - 密钥健康度
@@ -162,6 +163,7 @@ struct PreferencesDTO: Sendable {
     // local — DevicePreferences（FR-060）；MUST NOT 写入 UserPreferences / CloudKit
     var appearance: AppearancePreference
     var defaultGrouping: GroupingMode
+    var assignPickerFilter: AssignPickerFilter
     var lastWindowWidth: Double?
     var lastWindowHeight: Double?
 }
@@ -175,8 +177,16 @@ enum GroupingMode: String, Sendable {
     case byConsumer
 }
 
+/// 「按使用方 → 添加已有密钥」弹窗的候选范围（本机偏好，不同步）。
+enum AssignPickerFilter: String, Sendable {
+    /// 一钥一用：只列出尚未指派给任何使用方的密钥。
+    case unassignedOnly
+    /// 一钥多用：列出尚未指派给当前使用方的全部密钥（可已被其他使用方使用）。
+    case allowShared
+}
+
 /// 局部更新；未设置的字段保持原值。
-/// 实现 MUST：`appearance` / `defaultGrouping` / 窗口尺寸 → `DevicePreferences`；
+/// 实现 MUST：`appearance` / `defaultGrouping` / `assignPickerFilter` / 窗口尺寸 → `DevicePreferences`；
 /// 其余安全相关字段 → `UserPreferences`（FR-060）。
 struct PreferencesPatch: Sendable {
     var appLockEnabled: Bool? = nil
@@ -194,6 +204,7 @@ struct PreferencesPatch: Sendable {
     var lowBalanceThreshold: Decimal? = nil
     var appearance: AppearancePreference? = nil
     var defaultGrouping: GroupingMode? = nil
+    var assignPickerFilter: AssignPickerFilter? = nil
     var lastWindowWidth: Double? = nil
     var lastWindowHeight: Double? = nil
 }

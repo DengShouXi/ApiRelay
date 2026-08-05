@@ -18,6 +18,9 @@ final class AppEnvironment: ObservableObject {
     let backups: SecureBackupService
     let dataLifecycle: DataLifecycleService
 
+    /// 本机外观（DevicePreferences）；驱动根视图 `preferredColorScheme`。
+    @Published private(set) var appearance: AppearancePreference = .system
+
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -55,6 +58,13 @@ final class AppEnvironment: ObservableObject {
             keychain: keychain,
             modelContainer: modelContainer
         )
+        Task { await self.refreshAppearance() }
+    }
+
+    /// 从 DevicePreferences 重新读取外观并推到 UI（设置页改完后调用）。
+    func refreshAppearance() async {
+        guard let prefs = try? await preferences.load() else { return }
+        appearance = prefs.appearance
     }
 
     static func bootstrap() -> AppEnvironment {

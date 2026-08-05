@@ -71,7 +71,8 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 | `v1.7` | Phase 7 Catalyst window size, Commands, context menus | 小迭代 7 — Catalyst |
 | `v1.8` | Phase 8 security review + Stage1 engineering closeout. Store materials prepared for **1.0.0** when shipping. T014b may await Developer Program. | 小迭代 8 — 安全审查；商店材料随 Stage1→1.0.0 |
 | `v1.9` | UX hardening + **T014b Checkpoint 2b**：CloudKit Production 8 表与 §7.1 预留字段已 Deploy；DEBUG `CloudKitSchemaBootstrap` 一次性逼 schema。Checkout `v1.9`。 | 小迭代 9 — 可用性加固 + CloudKit Production 闸门通过 |
-| `v1.10` | UI redesign: Vault IA + home / dual view / entry / settings visuals. **current**. Next: TBD. | 小迭代 10 — UI 重设计（信息架构 + 主界面）。**当前** |
+| `v1.10` | Phase 10 UI redesign: 4-tab IA (platform / consumer / trash / settings), settings cards, assign sheet, key `sortOrder` + Mac NSTableView reorder (drag polish still imperfect), iCloud sync sheet. Checkout `v1.10`. Next product tip: `v2`. | 小迭代 10 — UI 重设计：底栏四 Tab、设置卡片、指派 sheet、密钥分区排序（Mac 拖拽手感仍有瑕疵）、iCloud 同步说明。取 `v1.10`。下一产品 tip：`v2`。 |
+| `v2` | Stage-2 workline tip (usage insights). Create/checkout after Stage1 `v1.10` freeze. | 大阶段 2 尖端（用量看板）。Stage1 `v1.10` 冻结后创建/切换。 |
 
 ---
 

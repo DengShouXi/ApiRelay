@@ -59,11 +59,16 @@ final class VaultHomeViewModel: ObservableObject {
         }
     }
 
-    func setGrouping(_ mode: GroupingMode) async {
+    /// 切换当前列表视角（按平台 / 按使用方）。
+    /// - Parameter persistAsDefault: 仅设置页改「默认分组视角」时为 true。
+    ///   Tab 切换 MUST 传 false，否则会覆盖用户设好的启动默认值。
+    func setGrouping(_ mode: GroupingMode, persistAsDefault: Bool = false) async {
         groupingMode = mode
-        var patch = PreferencesPatch()
-        patch.defaultGrouping = mode
-        try? await environment.preferences.update(patch)
+        if persistAsDefault {
+            var patch = PreferencesPatch()
+            patch.defaultGrouping = mode
+            try? await environment.preferences.update(patch)
+        }
         await refresh()
     }
 
@@ -125,9 +130,25 @@ final class VaultHomeViewModel: ObservableObject {
         }
     }
 
-    /// 尚未指派到该使用端的密钥（仍可挂到其他使用端，一钥多端）。
-    func keysAssignable(to toolId: UUID) -> [KeyRecordDTO] {
-        allKeys.filter { !$0.consumerToolIds.contains(toolId) }
+    func reorderKeys(orderedIds: [UUID]) async {
+        do {
+            try await vault.reorderKeys(orderedIds: orderedIds)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// 可指派到该使用方的密钥候选（排除已挂在该使用方上的）。
+    /// - Parameter filter: `.unassignedOnly` 只含尚未指派给任何使用方的密钥；`.allowShared` 含全部其余密钥。
+    func keysAssignable(to toolId: UUID, filter: AssignPickerFilter) -> [KeyRecordDTO] {
+        let notOnThisTool = allKeys.filter { !$0.consumerToolIds.contains(toolId) }
+        switch filter {
+        case .unassignedOnly:
+            return notOnThisTool.filter { $0.consumerToolIds.isEmpty }
+        case .allowShared:
+            return notOnThisTool
+        }
     }
 
     func revealReturning(keyId: UUID, masterPassword: String?) async -> String? {
@@ -292,4 +313,28 @@ final class VaultHomeViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+
+    /// 立即同步（尽力而为）：提交本机待写入变更并刷新列表。
+    /// 元数据经 CloudKit 由系统后台继续同步；密钥明文由 iCloud 钥匙串自行同步，App 无法强制加速。
+    func requestSyncNow() async -> SyncNowOutcome {
+        guard FileManager.default.ubiquityIdentityToken != nil else {
+            return .unavailable
+        }
+        do {
+            let context = environment.modelContainer.mainContext
+            if context.hasChanges {
+                try context.save()
+            }
+            await refresh()
+            return .success
+        } catch {
+            return .failed(error.localizedDescription)
+        }
+    }
+}
+
+enum SyncNowOutcome: Equatable {
+    case success
+    case unavailable
+    case failed(String)
 }

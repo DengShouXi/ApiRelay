@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// 本机界面偏好（local，不同步）。appearance / defaultGrouping 只允许出现在此实体。
+/// 本机界面偏好（local，不同步）。appearance / defaultGrouping / assignPickerFilter 只允许出现在此实体。
 @Model
 final class DevicePreferences {
     static let singletonID = UUID(uuidString: "00000000-0000-4000-8000-000000000011")!
@@ -9,6 +9,8 @@ final class DevicePreferences {
     var id: UUID = DevicePreferences.singletonID
     var appearance: String = AppearancePreference.system.rawValue
     var defaultGrouping: String = GroupingMode.byPlatform.rawValue
+    /// 默认一钥多用，与 DC-011 多对多指派一致；用户可改为只看未指派。
+    var assignPickerFilter: String = AssignPickerFilter.allowShared.rawValue
     var lastWindowWidth: Double?
     var lastWindowHeight: Double?
 
@@ -16,12 +18,14 @@ final class DevicePreferences {
         id: UUID = DevicePreferences.singletonID,
         appearance: AppearancePreference = .system,
         defaultGrouping: GroupingMode = .byPlatform,
+        assignPickerFilter: AssignPickerFilter = .allowShared,
         lastWindowWidth: Double? = nil,
         lastWindowHeight: Double? = nil
     ) {
         self.id = id
         self.appearance = appearance.rawValue
         self.defaultGrouping = defaultGrouping.rawValue
+        self.assignPickerFilter = assignPickerFilter.rawValue
         self.lastWindowWidth = lastWindowWidth
         self.lastWindowHeight = lastWindowHeight
     }

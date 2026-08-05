@@ -71,6 +71,7 @@ struct KeyRecordDraft: Sendable {
     var spendLimit: Decimal?
     var notes: String?
     var secretLength: Int?
+    var sortOrder: Int = 0
 }
 
 typealias KeyDraft = KeyRecordDraft
@@ -87,6 +88,7 @@ struct KeyRecordPatch: Sendable {
     var lastCheckedAt: Date? = nil
     var lastCheckNote: String? = nil
     var secretLength: Int? = nil
+    var sortOrder: Int? = nil
 }
 
 typealias KeyPatch = KeyRecordPatch

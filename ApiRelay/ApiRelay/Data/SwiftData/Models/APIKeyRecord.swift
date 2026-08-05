@@ -23,6 +23,8 @@ final class APIKeyRecord {
     var lastCheckedAt: Date?
     var lastCheckNote: String?
     var secretLength: Int?
+    /// 分区内展示顺序（越小越靠前）；同值时再按 createdAt 新→旧。
+    var sortOrder: Int = 0
 
     init(
         id: UUID = UUID(),
@@ -42,7 +44,8 @@ final class APIKeyRecord {
         healthState: KeyHealthState = .unknown,
         lastCheckedAt: Date? = nil,
         lastCheckNote: String? = nil,
-        secretLength: Int? = nil
+        secretLength: Int? = nil,
+        sortOrder: Int = 0
     ) {
         self.id = id
         self.accountId = accountId
@@ -62,5 +65,6 @@ final class APIKeyRecord {
         self.lastCheckedAt = lastCheckedAt
         self.lastCheckNote = lastCheckNote
         self.secretLength = secretLength
+        self.sortOrder = sortOrder
     }
 }

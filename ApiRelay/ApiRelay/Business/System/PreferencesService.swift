@@ -34,6 +34,7 @@ actor PreferencesService: PreferencesServing {
             lowBalanceThreshold: user.lowBalanceThreshold,
             appearance: device.appearance,
             defaultGrouping: device.defaultGrouping,
+            assignPickerFilter: device.assignPickerFilter,
             lastWindowWidth: device.lastWindowWidth,
             lastWindowHeight: device.lastWindowHeight
         )

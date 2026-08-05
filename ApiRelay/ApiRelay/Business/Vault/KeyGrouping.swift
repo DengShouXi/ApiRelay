@@ -54,7 +54,7 @@ enum KeyGrouping {
         }.map { accountId in
             KeyGroupSection(
                 kind: .platform(accountId: accountId, title: titleByAccount[accountId] ?? accountId.uuidString),
-                keys: buckets[accountId] ?? []
+                keys: sortedKeys(buckets[accountId] ?? [])
             )
         }
     }
@@ -91,15 +91,27 @@ enum KeyGrouping {
         for toolId in exclusive.keys.sorted(by: { (toolName[$0] ?? "") < (toolName[$1] ?? "") }) {
             sections.append(KeyGroupSection(
                 kind: .consumer(toolId: toolId, title: toolName[toolId] ?? toolId.uuidString),
-                keys: exclusive[toolId] ?? []
+                keys: sortedKeys(exclusive[toolId] ?? [])
             ))
         }
         if !shared.isEmpty {
-            sections.append(KeyGroupSection(kind: .shared, keys: shared))
+            sections.append(KeyGroupSection(kind: .shared, keys: sortedKeys(shared)))
         }
         // 未分配密钥不单独成区：改在「添加已有密钥」候选旁标注「未分配 / 已分配 N 次」。
         _ = unassigned
         return sections
+    }
+
+    private static func sortedKeys(_ keys: [KeyRecordDTO]) -> [KeyRecordDTO] {
+        // 同 sortOrder 时保持传入顺序（仓库已按 createdAt 新→旧）。
+        keys.enumerated()
+            .sorted { a, b in
+                if a.element.sortOrder != b.element.sortOrder {
+                    return a.element.sortOrder < b.element.sortOrder
+                }
+                return a.offset < b.offset
+            }
+            .map(\.element)
     }
 }
 

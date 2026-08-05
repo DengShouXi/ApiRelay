@@ -96,6 +96,10 @@ actor KeyVaultService: KeyVaultServing {
         try await keysRepo.update(id: id, patch: patch)
     }
 
+    func reorderKeys(orderedIds: [UUID]) async throws {
+        try await keysRepo.reorder(orderedIds: orderedIds)
+    }
+
     func deleteKey(_ id: UUID) async throws {
         try await gate.confirmMandatory(reason: String(localized: "gate.deleteKey"))
         try await softDeleteKeyMetadata(id)
@@ -289,7 +293,8 @@ actor KeyVaultService: KeyVaultServing {
                 deletedAt: record.deletedAt,
                 purgeAfter: record.purgeAfter,
                 spendLimit: record.spendLimit,
-                secretAvailable: available
+                secretAvailable: available,
+                sortOrder: record.sortOrder
             ))
         }
         return result
