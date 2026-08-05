@@ -40,14 +40,22 @@ enum AppSchema: Sendable {
         Schema(localModels)
     }
 
-    /// 生产容器。当前默认本机双配置（T014b / 付费开发者账号开通前）。
-    /// 开通 iCloud 容器并 Deploy Production 后，再切回 `makeCloudKitContainer()`。
+    /// 生产容器：优先 CloudKit private DB；Portal/签名未就绪或单元测试时回退本机。
     @MainActor
     static func makeProductionContainer() throws -> ModelContainer {
-        try makeLocalDiskContainer()
+        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        if isTesting {
+            return try makeInMemoryContainer()
+        }
+        do {
+            return try makeCloudKitContainer()
+        } catch {
+            // 容器未在 Portal 勾选、或首次签名未完成时不阻断启动。
+            return try makeLocalDiskContainer()
+        }
     }
 
-    /// CloudKit private DB + local（需付费账号与 T014b）。
+    /// CloudKit private DB + local（需付费账号；T014b Deploy Production 后 TestFlight 才完整可用）。
     @MainActor
     static func makeCloudKitContainer() throws -> ModelContainer {
         let synced = ModelConfiguration(

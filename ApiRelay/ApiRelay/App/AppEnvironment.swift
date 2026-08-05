@@ -20,7 +20,13 @@ final class AppEnvironment: ObservableObject {
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
-        let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
+        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        // 正式路径：开启 keys/admin 的 iCloud 钥匙串同步；access group 与 entitlements 对齐。
+        // 单测宿主常缺 sync entitlement → 关闭 synchronizable，避免 -34018。
+        let keychain = KeychainStore(
+            accessGroup: isTesting ? nil : KeychainAccessGroup.resolved,
+            disableSynchronizableForTesting: isTesting
+        )
         self.keychain = keychain
         let master = MasterPasswordService(keychain: keychain)
         self.masterPassword = master

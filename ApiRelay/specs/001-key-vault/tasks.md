@@ -113,15 +113,14 @@
       按 data-model §7.1 逐项核对 Production 侧全部 record types 与预留字段
       （尤其 `APIKeyRecord.healthState` / `lastCheckedAt` / `lastCheckNote`）。
       **仅 Development 可见不算通过。** 将核对结果记入 PR / 提交说明。
-      **延期（2026-08-04）**：Developer Program 审批中。账号通过后按下列顺序补做（编号保留）：
-      1. Developer Portal：确认 App ID `com.apirelay.ApiRelay` 启用 iCloud(CloudKit)+App Group，
-         容器 `iCloud.com.apirelay.ApiRelay`、组 `group.com.apirelay.shared` 已创建并勾选。
-      2. Xcode：Team 选付费账号；改 `AppSchema.makeProductionContainer()` → `makeCloudKitContainer()`；
-         改 `AppEnvironment` 里 `KeychainStore(..., disableSynchronizableForTesting: false)`，
-         并传入 Keychain access group（`$(AppIdentifierPrefix)group.com.apirelay.shared` 展开值）。
-      3. 真机/本机 **Run 一次**（非单测），让 Development 生成十实体 schema。
-      4. [CloudKit Console](https://icloud.developer.apple.com/) → 选容器 → **Deploy Schema Changes**。
-      5. 切到 **Production** 按 §7.1 核对 8 个 synced record types；勾选本任务。
+      **工程开关（2026-08-05）已打开**：`makeProductionContainer` → CloudKit（失败回退本机）；
+      `KeychainStore` 正式启用 synchronizable + access group。
+      **你仍须人工完成**：
+      1. Developer Portal：App ID `com.apirelay.ApiRelay` 勾选 iCloud(CloudKit)+App Group；
+         容器 `iCloud.com.apirelay.ApiRelay`、组 `group.com.apirelay.shared`。
+      2. Xcode Signing 选付费 Team → **真机/本机 Run 一次**（非单测）生成 Development schema。
+      3. [CloudKit Console](https://icloud.developer.apple.com/) → Deploy Schema Changes。
+      4. 切到 **Production** 按 §7.1 核对 8 个 synced record types 后把本条勾成 `[x]`。
 
 **Checkpoint 2**：Keychain 读写在真机通过（含 iCloud 钥匙串开启态）；SwiftData 容器可初始化；
 **CloudKit Dashboard → Production 侧**可见 §7.1 全部 record types（T014b）；
