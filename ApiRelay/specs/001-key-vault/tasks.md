@@ -108,18 +108,19 @@
       上游平台（OpenAI、Claude、Google、OpenRouter、DeepSeek、阿里百炼、火山引擎、硅基流动）
       与使用方工具（CL-003 定稿）。
       **MUST NOT 持久化为用户数据**；应用更新扩充清单时 MUST NOT 覆盖或删除用户自建项（FR-007a）。
-- [x] **T014b** **CloudKit Production schema 部署**（FR-063 / DC-027，**硬门槛**）：
+- [x] **T014b** **CloudKit Production schema 部署**（FR-063 / DC-027，**Checkpoint 2b 硬门槛**）：
       在 CloudKit Dashboard 将 Development schema **Deploy Schema to Production**；
       按 data-model §7.1 逐项核对 Production 侧全部 record types 与预留字段
-      （尤其 `APIKeyRecord.healthState` / `lastCheckedAt` / `lastCheckNote`）。
+      （`APIKeyRecord.healthState*`；**`UsageSnapshot.periodTimeZone` / `dataSource`**（FR-019a / FR-031））。
       **仅 Development 可见不算通过。** 将核对结果记入 PR / 提交说明。
-      **核对结果（2026-08-05）** — 容器 `iCloud.com.apirelay.ApiRelay` Production：
+      **核对结果（2026-08-05；2026-08-11 补记 FR-019a/031）** — 容器 `iCloud.com.apirelay.ApiRelay` Production：
       - 8 个 synced record types 均在：`CD_APIKeyRecord` / `CD_UpstreamAccount` /
         `CD_ConsumerTool` / `CD_KeyAssignment` / `CD_UserPreferences` /
         `CD_UsageSnapshot` / `CD_BalanceSnapshot` / `CD_PricingRule`。
       - `CD_APIKeyRecord`（25 fields）含 §7.1 预留：`healthState`、`lastCheckedAt`、
         `lastCheckNote`、`secretLength`、`origin`、`deletedAt`、`purgeAfter`，
         以及 `lastVerifiedAt` / `notes` / `providerKeyRef` 等。
+      - `CD_UsageSnapshot` 含 §7.1 预留：`periodTimeZone`（FR-019a）、`dataSource`（FR-031）。
       - Checkpoint **2b** 通过；可声明正式包跨设备同步（CloudKit Production）。
       - 收尾：Scheme 去掉 `APIRELAY_CLOUDKIT_SCHEMA_BOOTSTRAP`（仅一次性逼 schema）。
 
@@ -198,6 +199,10 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       - 同一上游账号下已存在**末 4 位与 `secretLength` 都相同**的密钥时，提示可能重复并指出是哪一条，
         用户确认后才继续。**MUST NOT** 存储明文哈希或任何派生物（宪法 VII）。
       - 单测或手工验收覆盖 SC-012（智能标点环境粘贴含 `-` 的密钥）。
+- [x] **T028b** **新增并指定使用方 ≤3 步**（FR-025 / SC-001）：
+      主界面「新增密钥」流程 MUST 支持在同一条保存路径上可选指定使用方（或紧随的指派），
+      关键确认步数（不含系统权限弹窗与身份确认 sheet）MUST NOT 超过 3。
+      验收口径见 [quickstart.md](./quickstart.md) §1.1b；T061 人工复验时按 SC-001 计步。
 - [x] **T029** 「查看明文」与「复制」接入 `KeyVaultServing`；复制成功后展示剩余清除时间；
       明文 **MUST NOT 存为 `@Published`**（宪法 VII）。
 - [x] **T030** 额度超限时的引导界面（说明「免费版最多 3 把」+ 解锁入口）。
@@ -295,7 +300,7 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 - [x] **T049** 验证方式文案按 `availableBiometry()` 动态显示「Face ID」或「触控 ID」；
       无生物识别设备上 `biometricOnly` 档不可选并说明原因（FR-003a）。
 - [x] **T050** [P] `ApiRelayTests/PreferencesServiceTests.swift`：各项持久化与默认值
-      （剪贴板默认 120 秒、`revealPolicy` 默认 `biometricOrPasscode`）；
+      （剪贴板默认 120 秒、`revealPolicy` 默认 `none`）；
       **专项：改 `appearance` 只影响 `DevicePreferences`，不写入 `UserPreferences`（SC-013）**。
 
 **Checkpoint 6**：设置项逐项「立即生效 + 重启保持」；清除全部数据路径按 SC-014 验收。
@@ -312,11 +317,16 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       若与 iOS 不一致，启用应用内 `Timer` 兜底（plan.md A4）。
 - [x] **T055** ⚠️ 在无 Touch ID 的 Mac 上验证 `biometricOnly` 档自动禁用。
 
-**Checkpoint 7**：Mac 上主流程可用，剪贴板与门闩行为已实测确认。
+**Checkpoint 7**（FR-034）：iPhone 与 Mac（Catalyst）主流程均可用；业务能力两端一致；
+剪贴板与门闩行为已实测确认。
 
 ---
 
 ## Phase 8: 安全审查与上架准备
+
+> **执行序（勿按任务编号大小执行）**：T056–T061（安全/本地化/quickstart）→
+> **T063–T066**（商店材料，playbook **P13 / `v1.13`**）→（用户明确授权后）**T062**
+> （合并 `main` / tag `release/1.0.0` / 提交审核）。`T062` 编号早于材料任务，属历史编号。
 
 - [x] **T056** 明文泄露全面排查：SwiftData store 文件、CloudKit Dashboard、日志、崩溃报告、
       `maskedHint` 存储值——**逐项确认无明文**（quickstart §7）。
@@ -338,19 +348,24 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       掩码位 MUST NOT 被读出完整明文；门闩通过后的明文区 MAY 读出，且 MUST 支持逐字符朗读。
       **安全边界在门闩，不在辅助功能**——禁止一概屏蔽 VoiceOver 读明文。
 - [x] **T061** 按 [quickstart.md](./quickstart.md) 全量走一遍人工验收
-      （**跳过 §3、§4 与 §6 中标注为 V2 的条目**）。
-- [ ] **T063** App Store Connect **元数据与商店描述**（英语 + 简体中文）：卖点仅限保管/分发/权益；
+      （**跳过 §3、§4 与 §6 中标注为 V2 的条目**；**含 §1.1b FR-025/SC-001 计步**）。
+- [x] **T063** App Store Connect **元数据与商店描述**（英语 + 简体中文）：卖点仅限保管/分发/权益；
       **MUST NOT** 提及中转、用量看板、探活等未交付能力（SC-010、DC-009）。
-- [ ] **T064** App **隐私问卷**与产品内可访问隐私说明对齐：如实声明密钥经 iCloud 钥匙串在
+      → playbook：**P13 / `v1.13`**；草稿：`store-drafts/v1.13/metadata-*.md`（ASC 粘贴仍待产品负责人）。
+- [x] **T064** App **隐私问卷**与产品内可访问隐私说明对齐：如实声明密钥经 iCloud 钥匙串在
       用户本人设备间同步等（FR-024、FR-033、SC-010）；与 T059b 法律文本一致、禁止机翻矛盾。
+      → playbook：**P13 / `v1.13`**；对齐表：`store-drafts/v1.13/privacy-questionnaire.md`（ASC 勾选仍待产品负责人）。
 - [ ] **T065** 商店**截图**（无真实密钥；文案不得出现「系统级强制」「无法绕过」）（SC-010、宪法 IX）。
-- [ ] **T066** 提交前清单核对：`MARKETING_VERSION = 1.0.0`；IAP 元数据与
-      `com.apirelay.iap.unlimited_keys` 一致；「恢复购买」可达（FR-028）；
+      → playbook：**P13 / `v1.13`**；目录与拍摄清单已就绪，**PNG 定稿待拍摄**。
+- [x] **T066** 提交前清单核对：`MARKETING_VERSION = 1.0.0`（开发期可为 `1.0`，**提交审核前**钉死；
+      见 BRANCHES.md）；IAP 元数据与 `com.apirelay.iap.unlimited_keys` 一致；「恢复购买」可达（FR-028）；
       加密出口声明与 `PrivacyInfo.xcprivacy` 已在工程内（FR-045、FR-058 / T005）。
+      → playbook：**P13 / `v1.13`**；设置内恢复购买已补；本地 Archive 仍待产品负责人。
 - [ ] **T062** Stage1 发布动作（需用户明确授权）：合并进 `main`，打 tag `release/1.0.0`，
       上传构建并提交审核。
-      **前置**：Checkpoint **2b**（T014b）+ T063–T066 全绿。
+      **前置**：Checkpoint **2b**（T014b，已通过）+ T063–T066 全绿。
       **未执行**：需用户在对话中明确授权合并/打 tag / 上架后再做。
+      **勿在 P13 材料阶段执行。**
 
 **Checkpoint 8**：安全清单全绿；T063–T066 就绪；方可授权执行 T062（**1.0.0**）。
 
@@ -379,24 +394,24 @@ Phase 3..6 → Phase 7 (Catalyst) → Phase 8 (安全与上架)
 
 ---
 
-## V1 明确不做
+## V1 明确不做（实现层）vs V1 已预留（schema / 契约）
 
-| 项 | 归属 | 依据 |
-|----|------|------|
-| 管理类高权限凭证配置 | V2 | FR-012 |
-| 四平台适配器、用量与余额刷新 | V2 | FR-014～FR-020 |
-| 费用估算与单价规则 | V2 | FR-015、FR-019 |
-| 三类本地通知与后台刷新 | V2 | FR-021a、FR-023 |
-| App 内签发/作废密钥 | V2 | FR-009～FR-011 |
-| 关系图 | V2 | FR-039～FR-041 |
-| **加密传递**（把密钥交给他人） | V2 | US9、FR-047～FR-050 |
-| **密钥可用性检测**（感叹号 / 手动探活） | V2 | US10、FR-051～FR-055；V1 预留字段 + `KeyHealthServing` 协议（DC-028），不实现、无 UI |
-| 中转服务与中转密钥 | V3 | US7 |
-| **可撤销的共享**（给他人签发中转密钥） | V3 | US7、DC-016 |
-| 团队功能（成员管理、权限、审计） | **永不做** | DC-016 |
-| 逐笔调用明细 | V3 | FR-031 |
-| 应用内对话/调用窗口 | 永不做 | FR-OUT-001 |
-| 与 VS Code 等外部工具集成 | 永不做 | FR-035 |
+| 项 | V1 义务 | 实现归属 | 依据 |
+|----|---------|----------|------|
+| 管理类高权限凭证配置 | 无 | V2 | FR-012 |
+| 四平台适配器、用量与余额刷新 | schema 预留（`UsageSnapshot` / `BalanceSnapshot` / `periodTimeZone`） | V2 | FR-014～FR-020、FR-019a |
+| 费用估算与单价规则 | schema 预留（`PricingRule`） | V2 | FR-015、FR-019 |
+| 三类本地通知与后台刷新 | 无 | V2 | FR-021a、FR-023 |
+| App 内签发/作废密钥 | `origin` 枚举预留 | V2 | FR-009～FR-011、FR-030 |
+| 关系图 | 无 | V2 | FR-039～FR-041 |
+| **加密传递**（把密钥交给他人） | 备份格式含用途标记（FR-022） | V2 | US9、FR-047～FR-050 |
+| **密钥可用性检测**（感叹号 / 手动探活） | **健康度字段 + `KeyHealthServing` 协议已预留**；V1 不写入非「未检测」、无 UI | V2 | US10、FR-051～FR-055、DC-028；任务 T009/T009a/T012/T014b |
+| 中转服务与中转密钥 | `EntitlementTier.relay` / `origin.relayIssued` 不可达预留 | V3 | US7、FR-032 |
+| **可撤销的共享**（给他人签发中转密钥） | 无 | V3 | US7、DC-016 |
+| 团队功能（成员管理、权限、审计） | 无 | **永不做** | DC-016 |
+| 逐笔调用明细 | **`dataSource` 字段已预留**；`UsageDetail` 实体属 V3 additive | V3 | FR-031；任务 T012/T014b |
+| 应用内对话/调用窗口 | 无 | 永不做 | FR-OUT-001 |
+| 与 VS Code 等外部工具集成 | 无（交付终点=剪贴板） | 永不做 | FR-035 |
 
 `KeyOrigin.providerIssued` / `.relayIssued`、`UsageDataSource.relayLedger`、
 `EntitlementTier.relay` 等枚举值 **V1 定义但不可达**，用于保证 V2/V3 无破坏性迁移

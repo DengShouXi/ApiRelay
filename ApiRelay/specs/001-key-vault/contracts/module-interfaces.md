@@ -351,9 +351,10 @@ protocol RevealGateServing: Sendable {
 }
 
 enum RevealPolicy: String, Sendable {
-    case biometricOrPasscode   // LAPolicy.deviceOwnerAuthentication（默认）
+    case biometricOrPasscode   // LAPolicy.deviceOwnerAuthentication
     case biometricOnly         // LAPolicy.deviceOwnerAuthenticationWithBiometrics
-    case none                  // 不验证
+    case masterPassword        // 应用层主密码（FR-003 / FR-038）
+    case none                  // 不验证（默认）
 }
 ```
 

@@ -118,9 +118,8 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 
 这不是设计违规，无需 Complexity Tracking 豁免；是取舍已被产品负责人明示裁决（DC-006）后的记录。
 
-**Post-Design Re-check（2026-08-05）**：设计层面全部通过。剩余 ⚠️ 仅 VII/VIII 能力上限说明。
-工程配置项（本地化 / 部署版本等）已由 tasks 完成。上架前仍阻塞：**T014b（Checkpoint 2b）**、
-**T063–T066**、**T062**（需授权）。
+**Post-Design Re-check（2026-08-05；2026-08-11 复核）**：设计层面全部通过。剩余 ⚠️ 仅 VII/VIII 能力上限说明。
+工程配置项与 **T014b（Checkpoint 2b）** 已完成。上架前仍阻塞：**T063–T066**、**T062**（需授权）。
 
 ## Project Structure
 

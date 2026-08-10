@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld" : {
+
+    },
     "biometry.faceID" : {
       "comment" : "Display name for Face ID biometric type",
       "extractionState" : "stale",
@@ -1830,6 +1833,54 @@
         }
       }
     },
+    "settings.restorePurchases" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Purchases"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复购买"
+          }
+        }
+      }
+    },
+    "settings.restorePurchases.done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchases restored"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已恢复购买"
+          }
+        }
+      }
+    },
+    "settings.restorePurchases.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-apply Unlimited Keys after reinstall or a new device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重装或换机后重新生效「无限密钥」。"
+          }
+        }
+      }
+    },
     "settings.revealPolicy" : {
       "localizations" : {
         "en" : {
@@ -2068,6 +2119,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "查看与复制共用同一验证方式；关闭验证后二者都不弹出门闩。主密码可选，且仅保存在本机。"
+          }
+        }
+      }
+    },
+    "settings.section.purchases" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchases"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "购买"
+          }
+        }
+      }
+    },
+    "settings.section.purchases.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore a previous Unlimited Keys purchase on this Apple ID."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在本 Apple ID 上恢复已购买的「无限密钥」。"
           }
         }
       }

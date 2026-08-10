@@ -17,7 +17,7 @@
 | 目录 | 大阶段 tip | 小迭代例子 |
 |------|------------|------------|
 | [`v0-planning/`](./v0-planning/) | `plan` | `plan.1` … `plan.3` … |
-| [`v1-key-vault/`](./v1-key-vault/) | `v1` | `v1.1` … `v1.9` … |
+| [`v1-key-vault/`](./v1-key-vault/) | `v1` | `v1.1` … `v1.13`（材料）→ `10-verify` → `12-release-T062` … |
 | [`v2-usage-insights/`](./v2-usage-insights/) | `v2` | `v2.1` … |
 | [`v3-relay-service/`](./v3-relay-service/) | `v3` | `v3.1` … |
 

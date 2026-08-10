@@ -9,7 +9,7 @@ actor UserPreferencesRepository {
         return PreferencesDTO(
             appLockEnabled: model.appLockEnabled,
             autoLockSeconds: model.autoLockSeconds,
-            revealPolicy: RevealPolicy(rawValue: model.revealPolicy) ?? .biometricOrPasscode,
+            revealPolicy: RevealPolicy(rawValue: model.revealPolicy) ?? .none,
             clipboardClearSeconds: model.clipboardClearSeconds,
             clipboardLocalOnly: model.clipboardLocalOnly,
             hideInAppSwitcher: model.hideInAppSwitcher,

@@ -358,7 +358,7 @@ DeepSeek 仅支持本实体、不支持 `UsageSnapshot` 的按密钥拆分——
 | id | UUID | ✅ | 固定 singleton 逻辑 id |
 | appLockEnabled | Bool | ✅ | 打开 App 需身份确认 |
 | autoLockSeconds | Int | ✅ | 自动锁定时长 |
-| revealPolicy | String | ✅ | `biometricOrPasscode` / `biometricOnly` / `masterPassword` / `none`（FR-003 四档） |
+| revealPolicy | String | ✅ | `none`（默认） / `biometricOrPasscode` / `biometricOnly` / `masterPassword`（FR-003 四档） |
 | clipboardClearSeconds | Int | ✅ | 默认 120（FR-005） |
 | clipboardLocalOnly | Bool | ✅ | 禁用通用剪贴板（FR-004） |
 | hideInAppSwitcher | Bool | ✅ | — |
@@ -528,7 +528,7 @@ SwiftData 自动生成 CloudKit record type；**禁止**手动混用 `CKRecord` 
 ### 7.1 CloudKit 生产 schema 部署（不可逆；FR-063 / DC-027）
 
 Development 与 Production 是**两套独立 schema**。下列清单 MUST 在 **Production** 侧一次性部署完成，
-方可通过 tasks.md Checkpoint 2：
+方可通过 tasks.md Checkpoint **2b**（T014b；功能开发可在 Checkpoint **2a** 后继续）：
 
 | Record type（≈ `@Model` 类名） | 关键预留字段（漏了就要再部署） |
 |-------------------------------|-------------------------------|

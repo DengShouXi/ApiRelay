@@ -212,10 +212,10 @@ struct PreferencesPatch: Sendable {
 // MARK: - 门闩与剪贴板
 
 enum RevealPolicy: String, Sendable {
-    case biometricOrPasscode   // LAPolicy.deviceOwnerAuthentication（默认）
+    case biometricOrPasscode   // LAPolicy.deviceOwnerAuthentication
     case biometricOnly         // LAPolicy.deviceOwnerAuthenticationWithBiometrics
     case masterPassword        // 应用层主密码（FR-003 / FR-038）
-    case none                  // 不验证
+    case none                  // 不验证（默认）
 }
 
 enum BiometryKind: Sendable {

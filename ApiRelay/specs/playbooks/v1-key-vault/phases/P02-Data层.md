@@ -26,9 +26,11 @@
 
 - Data 层不得依赖 SwiftUI；不得向上层泄露 `ModelContext`。
 - 完成后勾选 `tasks.md`；`xcodebuild test` 全绿。
-- **未完成 T014b MUST NOT 进入 Phase 3。**
+- **Checkpoint 2a**（Keychain / SwiftData / 本地库绿）通过后**可以**进入 Phase 3+ 功能开发。
+- **Checkpoint 2b（T014b）** 是 TestFlight / 1.0.0 跨设备同步硬门槛：未 Deploy Production 时
+  MUST NOT 声称正式包可同步、MUST NOT 提交依赖 iCloud 同步的审核包（DC-027 修订版）。
 
-汇报：Checkpoint 2 是否通过（含 Production schema 证据说明）。
+汇报：Checkpoint **2a** / **2b** 各自是否通过（2b 须含 Production schema 证据说明）。
 
 
 ---

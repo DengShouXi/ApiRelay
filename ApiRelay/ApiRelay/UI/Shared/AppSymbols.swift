@@ -72,6 +72,7 @@ enum AppSymbols: Sendable {
         nonisolated static let hideInAppSwitcher = "eye.slash.fill"
         nonisolated static let manageTools = "wrench.and.screwdriver.fill"
         nonisolated static let backup = "externaldrive.fill.badge.checkmark"
+        nonisolated static let restorePurchases = "arrow.clockwise.circle.fill"
         nonisolated static let eraseAll = "trash.fill"
         nonisolated static let account = Action.account
         nonisolated static let disclosure = Action.chevronRight

@@ -19,6 +19,8 @@ struct SettingsView: View {
     @State private var masterPasswordIsSet = false
     @State private var confirmErase = false
     @State private var eraseStatus = ""
+    @State private var restoreStatus = ""
+    @State private var isRestoringPurchases = false
 
     var body: some View {
         NavigationStack {
@@ -147,7 +149,7 @@ struct SettingsView: View {
                             RevealPolicySettingsView(
                                 environment: environment,
                                 selection: Binding(
-                                    get: { self.prefs?.revealPolicy ?? .biometricOrPasscode },
+                                    get: { self.prefs?.revealPolicy ?? .none },
                                     set: { value in
                                         if var current = self.prefs {
                                             current.revealPolicy = value
@@ -307,6 +309,41 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
+                }
+
+                settingsGroup(
+                    title: "settings.section.purchases",
+                    footer: "settings.section.purchases.footer"
+                ) {
+                    Button {
+                        Task { await restorePurchasesFromSettings() }
+                    } label: {
+                        settingsLeading(
+                            icon: AppSymbols.Settings.restorePurchases,
+                            tint: .indigo,
+                            title: "settings.restorePurchases",
+                            detail: "settings.restorePurchases.rowDetail"
+                        )
+                        Spacer(minLength: 8)
+                        if isRestoringPurchases {
+                            ProgressView()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isRestoringPurchases)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .accessibilityHint(Text("settings.restorePurchases.rowDetail"))
+
+                    if !restoreStatus.isEmpty {
+                        settingsDivider()
+                        Text(restoreStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                    }
                 }
 
                 settingsGroup(title: "settings.section.danger", footer: "settings.eraseAll.footer", danger: true) {
@@ -584,6 +621,19 @@ struct SettingsView: View {
 
     private func refreshMasterPasswordStatus() async {
         masterPasswordIsSet = (try? await environment.masterPassword.isSet()) ?? false
+    }
+
+    /// FR-028：设置内始终可达的恢复购买（不依赖免费额度条 / 付费墙）。
+    private func restorePurchasesFromSettings() async {
+        restoreStatus = ""
+        isRestoringPurchases = true
+        defer { isRestoringPurchases = false }
+        do {
+            try await environment.entitlements.restorePurchases()
+            restoreStatus = String(localized: "settings.restorePurchases.done")
+        } catch {
+            restoreStatus = error.localizedDescription
+        }
     }
 }
 

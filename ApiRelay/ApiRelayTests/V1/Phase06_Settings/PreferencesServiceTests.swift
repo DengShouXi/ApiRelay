@@ -9,7 +9,7 @@ final class PreferencesServiceTests: XCTestCase {
         let sut = PreferencesService(modelContainer: container)
         let loaded = try await sut.load()
         XCTAssertEqual(loaded.clipboardClearSeconds, 120)
-        XCTAssertEqual(loaded.revealPolicy, .biometricOrPasscode)
+        XCTAssertEqual(loaded.revealPolicy, .none)
 
         var patch = PreferencesPatch()
         patch.appearance = .dark

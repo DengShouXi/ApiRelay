@@ -127,7 +127,7 @@ V1 若遗漏，V2 的加密传递将被迫做破坏性格式升级，且已导�
 | 变更 | 裁决 | 落点 |
 |------|------|------|
 | **清除全部数据**（DC-026） | **做，归 V1**。门闩不可关闭 + 二次确认；不碰 StoreKit；同步清除会跨设备 | FR-061、SC-014、US6 场景 6、T048a/b、`DataLifecycleServing` |
-| **CloudKit 生产 schema 硬门槛**（DC-027） | **做**。Checkpoint 2 未 Deploy Production 不得进 Phase 3 | FR-063、data-model §7.1、T014b |
+| **CloudKit 生产 schema 硬门槛**（DC-027） | **做**。Checkpoint **2a** 后可进 Phase 3；**2b**（Deploy Production）为 TF/1.0.0 同步硬门槛（早期「不得进 Phase 3」误写已废） | FR-063、data-model §7.1、T014b |
 | **KeyHealthServing 契约预留**（DC-028） | **V1 预留协议与 DTO，不实现、不进 UI** | contracts §3.1a、T009a、`KeyRecordDTO.health` |
 
 此前第五次修订列出的下游漂移（版本号 / Bundle ID / VoiceOver / PrivacyInfo）已在同轮对齐。
@@ -143,8 +143,8 @@ V1 若遗漏，V2 的加密传递将被迫做破坏性格式升级，且已导�
 | FR-056/057、FR-062 无任务 | T028a、T044a；产品 ID / 家庭共享写入 plan A5 |
 | 文案漂移 | plan Summary/Tab、quickstart 四档与 SC-012/013、spec 产品概述阶段边界 |
 
-**结论（截至第十次修订）**: analyze Top6 已回填。Stage1 代码大体就绪；上架前仍开：
-**T014b（2b）**、**T063–T066**、**T062**。可再跑 `/speckit-analyze` 复核。
+**结论（截至第十一次修订）**: analyze 文档债已回填。Stage1 代码与 **T014b（2b）** 已关；上架前仍开：
+**T063–T066**、**T062**（授权后）。商店材料在 playbook **P13 / `v1.13`**。
 
 **第九次修订（2026-08-05，版本/上架/分支命名对齐）**：
 
@@ -164,3 +164,15 @@ V1 若遗漏，V2 的加密传递将被迫做破坏性格式升级，且已导�
 | plan Summary 承认 V3 中转 | 消除「最终形态不含中转」漂移 | plan.md |
 | plan A5 / Constitution Check 刷新 | 现状表与已完成 tasks 一致 | plan.md |
 | SC-003 对齐 FR-005 | 剪贴板清除含进程存活例外 | spec.md |
+
+**第十一次修订（2026-08-11，`/speckit-analyze` 剩余计划回填）**：
+
+| 变更 | 影响 | 落点 |
+|------|------|------|
+| DC-027 对齐 2a/2b | 废止「未 Deploy 不得进 Phase 3」误写 | spec.md、P02、本清单第六次表 |
+| T014b 过时阻塞 | plan / 结论去掉已完成的 2b | plan.md、本清单结论 |
+| FR-025 / SC-001 覆盖 | 新增 T028b + quickstart §1.1b | tasks.md、quickstart.md |
+| T014b 补记 FR-019a/031 | `periodTimeZone` / `dataSource` 写入核对笔记 | tasks.md、data-model §7.1 称 2b |
+| Phase 8 执行序 + P13 分流 | T063–T066→P13；P08 仅 T056–T061 | tasks.md、P08 |
+| CL-005 定案 | 主密码最小长度 4、不强制复杂度 | spec.md |
+| 「V1 不做」表 | 拆开 FR-055/031 的 V1 预留 vs 实现 | tasks.md |

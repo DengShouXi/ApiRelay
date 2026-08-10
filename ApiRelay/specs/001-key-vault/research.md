@@ -96,10 +96,10 @@ Touch ID 由**设备硬件决定**——iPhone 是 Face ID，多数 MacBook 是 
 
 | 档位 | 实现 | 说明 |
 |------|------|------|
-| 生物识别或设备密码（默认） | `LAPolicy.deviceOwnerAuthentication` | 系统标准行为，生物识别失败自动回退设备密码。文案按设备显示「Face ID」或「触控 ID」 |
+| 不验证（默认） | 不调用 `LAContext` | 仅适用于普通密钥；管理类凭证的门闩 MUST NOT 可关闭（宪法 VIII） |
+| 生物识别或设备密码 | `LAPolicy.deviceOwnerAuthentication` | 系统标准行为，生物识别失败自动回退设备密码。文案按设备显示「Face ID」或「触控 ID」 |
 | 仅生物识别 | `LAPolicy.deviceOwnerAuthenticationWithBiometrics` | 设备无生物识别能力时该档 MUST 不可选并说明原因 |
 | 应用专属主密码 | 见 §1.2 | 独立于设备密码；校验材料不同步（FR-038） |
-| 不验证 | 不调用 `LAContext` | 仅适用于普通密钥；管理类凭证的门闩 MUST NOT 可关闭（宪法 VIII） |
 
 ### 1.2 应用专属主密码（DC-007，产品负责人裁决为「做」）
 
