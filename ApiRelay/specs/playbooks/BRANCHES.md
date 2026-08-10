@@ -29,7 +29,7 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 
 每次 save 还必须：更新本文件 **English → 简体中文** 备注。
 
-### 旧名对照（历史远程可保留，不再新建）
+### 旧名对照（仅历史对照，远程旧名应删除、勿再建）
 
 | 旧名 | 现行名 |
 |------|--------|
@@ -55,28 +55,38 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 
 ---
 
-## 当前分支
+## 当前分支（本地台账 · 按版本序）
 
-| 分支 | English | 简体中文 |
-|------|---------|----------|
-| `plan.1`（旧 `v0.0.1`） | Earliest engineering baseline | 最初工程基线 |
-| `plan.2` / `plan`（旧 `v0.0.2` / `v0.0`） | Specs/planning freeze | 规格/规划冻住 |
-| `v1`（旧 `v0.1`） | Stage-1 workline tip | 大阶段 1 尖端 |
-| `v1.1` | Phase 1 engineering scaffold | 小迭代 1 — 工程配置 |
-| `v1.2` | Phase 2 Data layer (Keychain actor, 10 models, repos, PresetCatalog). T014b deferred. | 小迭代 2 — Data 层；T014b 延期 |
-| `v1.3` | Phase 3 vault: RevealGate, MasterPassword, clipboard, KeyVaultService, Vault UI | 小迭代 3 — 保管与取出 |
-| `v1.4` | Phase 4 grouping: shared KeyGrouping, consumer tools CRUD/seed, dual perspective UI, custom platform | 小迭代 4 — 指派与双视角 |
-| `v1.5` | Phase 5 entitlements: StoreKit 2 service, DEBUG override, restore, paywall, StoreKit config | 小迭代 5 — 付费解锁 |
-| `v1.6` | Phase 6 settings: PreferencesService, SecureBackup, eraseAllUserData, Settings UI | 小迭代 6 — 设置与加密备份 |
-| `v1.7` | Phase 7 Catalyst window size, Commands, context menus | 小迭代 7 — Catalyst |
-| `v1.8` | Phase 8 security review + Stage1 engineering closeout. Store materials prepared for **1.0.0** when shipping. T014b may await Developer Program. | 小迭代 8 — 安全审查；商店材料随 Stage1→1.0.0 |
-| `v1.9` | UX hardening (multi-key, recycle bin, dual-view flows) + **T014b Checkpoint 2b** (CloudKit Production deploy + DEBUG `CloudKitSchemaBootstrap`). Playbook: `P09-*` + tests `Phase09_UXHardening/`. Checkout `v1.9`. | 小迭代 9 — 可用性加固（多钥/回收站/双视角）+ CloudKit Production 闸门；playbook `P09-*` 与 `Phase09_UXHardening/` 已补档。取 `v1.9`。 |
-| `v1.10` | Phase 10 UI redesign: 4-tab IA (platform / consumer / trash / settings), settings cards, assign sheet, key `sortOrder` + Mac NSTableView reorder (drag polish still imperfect), iCloud sync sheet. Frozen tip after push. | 小迭代 10 — UI 重设计：底栏四 Tab、设置卡片、指派 sheet、密钥分区排序（Mac 拖拽手感仍有瑕疵）、iCloud 同步说明。已冻结上传。 |
-| `v1.11` | Phase 11: App Icon from `ApiRelay/icon` (iOS Any/Dark/Tinted + Mac sizes), `AppSymbols` + PresetCatalog SF semantics, AccentColor aligned, tool iconSymbol backfill. Frozen tip after push. Checkout `v1.11`. | 小迭代 11 — 定稿 App Icon（`ApiRelay/icon` → 全尺寸槽）、`AppSymbols`/PresetCatalog 符号收口、Accent 同源、使用方 iconSymbol 回填。已冻结上传。取 `v1.11`。 |
-| `v1.11.1` | Hotfix on v1.11: force App Icon slot refresh (iPhone/iPad explicit sizes + build bump), tab icons → charge glyphs (`plus.circle` / `minus.circle`). Frozen after push. | 热修 11.1 — 强制刷新 App Icon 全槽、底栏改为正/负电荷符号（⊕/⊖）。已冻结上传。 |
-| `v1.12` | Phase 12: Stage1 code polish / UX follow-ups (scope TBD in `P12-*`). **current**. Checkout `v1.12`. | 小迭代 12 — Stage1 代码调整与体验优化（范围见 `P12-*`，待补）。**当前**。取 `v1.12`。 |
-| `v1` | Stage-1 tip after merge of `v1.11.1`. Continue on `v1.12` for polish before ship prep. | 大阶段 1 尖端（已含 `v1.11.1`）。继续在 `v1.12` 做优化，再进入上架准备。 |
-| `v2` | Stage-2 workline tip (usage insights). Open after Stage1 ship readiness (`10-verify` / `20-push`). | 大阶段 2 尖端（用量看板）。Stage1 上架准备就绪后再开。 |
+> 更新时间：2026-08-11。下列 tip / 时间为各分支**尖端提交**；勿把 tip 回退，以免破坏已冻结里程碑。  
+> **当前工作分支：`v1.12`**（与 `v1`、`v1.11.1` 同 tip）。
+
+| 分支 | tip | tip 时间 | 主要做了什么（简体中文） | 备注 |
+|------|-----|----------|--------------------------|------|
+| `plan.1` | `2cf6803` | 2026-08-04 15:53 | 最初工程基线：Mac SwiftUI 工程与 SpecKit 工具链落地 | 旧名 `v0.0.1` |
+| `plan` | `a62244d` | 2026-08-04 21:47 | 规划 tip：规格与规则快照后冻住，准备进入实现 playbook | 旧名 `v0.0`；与 `plan.2` 同 tip |
+| `plan.2` | `a62244d` | 2026-08-04 21:47 | 规划小迭代 2：规格/规划冻住 | 旧名 `v0.0.2`；与 `plan` 同 tip |
+| `v1.1` | `df0b485` | 2026-08-04 22:14 | 小迭代 1 — 工程配置；明确每个小阶段必须打分支并上传 | 旧名 `v0.1.1` |
+| `v1.2` | `8e85a0c` | 2026-08-04 22:43 | 小迭代 2 — Data 层（Keychain actor、模型/仓库、PresetCatalog）；T014b 延期 | 旧名 `v0.1.2` |
+| `v1.3` | `536ffe7` | 2026-08-04 22:59 | 小迭代 3 — 保管与取出（RevealGate、主密码、剪贴板、KeyVaultService、Vault UI） | 旧名 `v0.1.3` |
+| `v1.4` | `c890219` | 2026-08-04 23:10 | 小迭代 4 — 指派与双视角（分组、使用方工具、自定义平台等）；与 5–7 同 tip | 旧名 `v0.1.4`；连续完成 Phase 4–7 后冻结 |
+| `v1.5` | `c890219` | 2026-08-04 23:10 | 小迭代 5 — 付费解锁（StoreKit 2、DEBUG 覆盖、恢复购买、付费墙） | 旧名 `v0.1.5`；与 `v1.4`–`v1.7` 同 tip |
+| `v1.6` | `c890219` | 2026-08-04 23:10 | 小迭代 6 — 设置与加密备份（偏好、SecureBackup、清空用户数据） | 旧名 `v0.1.6`；与 `v1.4`–`v1.7` 同 tip |
+| `v1.7` | `c890219` | 2026-08-04 23:10 | 小迭代 7 — Catalyst（窗口尺寸、Commands、上下文菜单） | 旧名 `v0.1.7`；tip 含后续 StoreKit/T014b 说明修复 |
+| `v2` | `44468ce` | 2026-08-04 23:07 | 大阶段 2 tip（用量看板）工线已开；Stage1 上架准备就绪后再深做 | 旧名 `v0.2` |
+| `v1.8` | `d7bcbea` | 2026-08-05 10:53 | 小迭代 8 — 安全审查收口；开通 CloudKit + Keychain 同步（Developer 账号后） | 旧名 `v0.1.8` |
+| `v1.9` | `32318c2` | 2026-08-05 16:21 | 小迭代 9 — 可用性加固（多钥/回收站/双视角）+ T014b CloudKit Production 闸门 | 现行 tip（含改名后文档提交）；勿回退到更旧的 `7c77778` |
+| `v1.10` | `8a06e9e` | 2026-08-05 23:34 | 小迭代 10 — UI 重设计：四 Tab、设置卡片、指派 sheet、密钥排序、iCloud 说明；已冻结 | |
+| `v1.11` | `9a1bde1` | 2026-08-11 01:57 | 小迭代 11 — App Icon 全尺寸、SF Symbol/PresetCatalog、Accent 同源、使用方图标回填；已冻结 | |
+| `v1.11.1` | `7eabc59` | 2026-08-11 02:19 | 热修 11.1 — 强制刷新 App Icon 槽；底栏改为正/负电荷符号（⊕/⊖） | 与 `v1` / `v1.12` 同 tip |
+| `v1.12` | `7eabc59` | 2026-08-11 02:19 | 小迭代 12 — Stage1 代码调整与体验优化（范围见 `P12-*`，待补） | **当前工作分支** |
+| `v1` | `7eabc59` | 2026-08-11 02:19 | 大阶段 1 tip（已含 `v1.11.1`）；继续在 `v1.12` 优化后再上架准备 | 推荐作为仓库默认分支；勿回退到旧名 `v0.1` tip |
+
+### 保护约定（避免破坏分支）
+
+1. **小迭代分支是冻结里程碑**：`v1.N` / `plan.N` tip 对齐后，不要用新提交「盖掉」旧 tip，除非明确做热修分支（如 `v1.11.1`）。  
+2. **大阶段 tip**（`v1` / `v2` / `plan`）只前进、不回退。  
+3. **同 tip 不代表可合并删除**：例如 `v1.4`–`v1.7` 同 tip，仍各自保留，对应阶段台账。  
+4. 远程只保留**现行名**；旧名 `v0.*` 仅作历史对照，清理后勿再建。
 
 ---
 
