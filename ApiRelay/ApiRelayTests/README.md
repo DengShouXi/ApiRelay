@@ -29,7 +29,9 @@
 | `v1.6` | `V1/Phase06_Settings/` |
 | `v1.7` | `V1/Phase07_Catalyst/` |
 | `v1.8` | `V1/Phase08_Security/` |
-| `v1.9` | （可用性加固；测试可落在既有 Phase 或后续专目录） |
+| `v1.9` | `V1/Phase09_UXHardening/` |
+| `v1.10` | （UI 重设计；人工验收见 `P10-验收清单.md`） |
+| `v1.11` | `V1/Phase11_AppIconAssets/`（AppSymbols / iconSymbol 回填；人工验收见 `P11-验收清单.md`） |
 
 **上架**：Stage1→`1.0.0` / Stage2→`2.0.0` / Stage3→`3.0.0`（见 `BRANCHES.md`）。旧分支名 `v0.1.N` ≡ `v1.N`。
 

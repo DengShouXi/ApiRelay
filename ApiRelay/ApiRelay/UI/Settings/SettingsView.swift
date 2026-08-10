@@ -32,7 +32,7 @@ struct SettingsView: View {
                     if let onShowAccount {
                         ToolbarItem(placement: .navigation) {
                             Button(action: onShowAccount) {
-                                Image(systemName: "person.crop.circle.fill")
+                                Image(systemName: AppSymbols.Settings.account)
                                     .symbolRenderingMode(.hierarchical)
                                     .font(.title3)
                             }
@@ -77,7 +77,7 @@ struct SettingsView: View {
                 if let prefs {
                     settingsGroup(title: "settings.section.appearance", footer: "settings.appearance.footer") {
                         settingsPickerRow(
-                            icon: "circle.lefthalf.filled",
+                            icon: AppSymbols.Settings.appearance,
                             tint: .orange,
                             title: "settings.appearance",
                             detail: "settings.appearance.rowDetail",
@@ -94,7 +94,7 @@ struct SettingsView: View {
                         settingsDivider()
 
                         settingsPickerRow(
-                            icon: "square.grid.2x2",
+                            icon: AppSymbols.Settings.defaultGrouping,
                             tint: .blue,
                             title: "settings.defaultGrouping",
                             detail: "settings.defaultGrouping.rowDetail",
@@ -120,7 +120,7 @@ struct SettingsView: View {
                         footer: "settings.section.assign.footer"
                     ) {
                         settingsPickerRow(
-                            icon: "arrow.triangle.branch",
+                            icon: AppSymbols.Settings.assignFilter,
                             tint: .mint,
                             title: "settings.assignPickerFilter",
                             detail: "settings.assignPickerFilter.rowDetail",
@@ -159,7 +159,7 @@ struct SettingsView: View {
                             )
                         } label: {
                             settingsLeading(
-                                icon: "faceid",
+                                icon: AppSymbols.Settings.revealPolicy,
                                 tint: .green,
                                 title: "settings.revealPolicy",
                                 detail: "settings.revealPolicy.rowDetail"
@@ -183,7 +183,7 @@ struct SettingsView: View {
                             }
                         } label: {
                             settingsLeading(
-                                icon: "key.fill",
+                                icon: AppSymbols.Settings.masterPassword,
                                 tint: .indigo,
                                 title: "settings.masterPassword",
                                 detail: "settings.masterPassword.rowDetail"
@@ -205,7 +205,7 @@ struct SettingsView: View {
                         settingsDivider()
 
                         settingsToggleRow(
-                            icon: "lock.fill",
+                            icon: AppSymbols.Settings.appLock,
                             tint: .teal,
                             title: "settings.appLock",
                             detail: "settings.appLock.rowDetail",
@@ -215,7 +215,7 @@ struct SettingsView: View {
 
                     settingsGroup(title: "settings.section.lockTiming", footer: "settings.section.lockTiming.footer") {
                         settingsStepperRow(
-                            icon: "timer",
+                            icon: AppSymbols.Settings.autoLock,
                             tint: .purple,
                             title: "settings.autoLock.label",
                             detail: "settings.autoLock.rowDetail",
@@ -231,7 +231,7 @@ struct SettingsView: View {
                         settingsDivider()
 
                         settingsStepperRow(
-                            icon: "doc.on.clipboard",
+                            icon: AppSymbols.Settings.clipboardClear,
                             tint: .pink,
                             title: "settings.clipboardClear.label",
                             detail: "settings.clipboardClear.rowDetail",
@@ -250,7 +250,7 @@ struct SettingsView: View {
                         footer: "settings.section.clipboardPrivacy.footer"
                     ) {
                         settingsToggleRow(
-                            icon: "laptopcomputer.and.iphone",
+                            icon: AppSymbols.Settings.clipboardLocalOnly,
                             tint: .cyan,
                             title: "settings.clipboardLocalOnly",
                             detail: "settings.clipboardLocalOnly.rowDetail",
@@ -260,7 +260,7 @@ struct SettingsView: View {
                         settingsDivider()
 
                         settingsToggleRow(
-                            icon: "eye.slash.fill",
+                            icon: AppSymbols.Settings.hideInAppSwitcher,
                             tint: .gray,
                             title: "settings.hideInAppSwitcher",
                             detail: "settings.hideInAppSwitcher.rowDetail",
@@ -274,13 +274,13 @@ struct SettingsView: View {
                         ConsumerToolsView(environment: environment)
                     } label: {
                         settingsLeading(
-                            icon: "wrench.and.screwdriver.fill",
+                            icon: AppSymbols.Settings.manageTools,
                             tint: .blue,
                             title: "vault.tools.manage",
                             detail: "settings.tools.rowDetail"
                         )
                         Spacer(minLength: 8)
-                        Image(systemName: "chevron.right")
+                        Image(systemName: AppSymbols.Settings.disclosure)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.tertiary)
                     }
@@ -294,13 +294,13 @@ struct SettingsView: View {
                         BackupSettingsView(environment: environment)
                     } label: {
                         settingsLeading(
-                            icon: "externaldrive.fill.badge.checkmark",
+                            icon: AppSymbols.Settings.backup,
                             tint: .orange,
                             title: "settings.backup",
                             detail: "settings.backup.rowDetail"
                         )
                         Spacer(minLength: 8)
-                        Image(systemName: "chevron.right")
+                        Image(systemName: AppSymbols.Settings.disclosure)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.tertiary)
                     }
@@ -314,7 +314,7 @@ struct SettingsView: View {
                         confirmErase = true
                     } label: {
                         settingsLeading(
-                            icon: "trash.fill",
+                            icon: AppSymbols.Settings.eraseAll,
                             tint: .red,
                             title: "settings.eraseAll",
                             detail: "settings.eraseAll.rowDetail",
@@ -673,7 +673,7 @@ private struct RevealPolicySettingsView: View {
                 }
                 Spacer(minLength: 8)
                 if selection == value {
-                    Image(systemName: "checkmark")
+                    Image(systemName: AppSymbols.Settings.checkmark)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Color.accentColor)
                 }

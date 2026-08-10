@@ -31,11 +31,19 @@ actor ConsumerToolService: ConsumerToolServing {
     }
 
     /// 使用端改为「用户自建」：不自动 seed；`PresetCatalog.consumerTools` 仅作添加表单的名称建议。
-    /// 顺带清除历史上 `isPreset == true` 的种子（否则主列表占满且无法删除）。
+    /// 顺带清除历史上 `isPreset == true` 的种子（否则主列表占满且无法删除），
+    /// 并为缺少 `iconSymbol` 的存量工具按名称回填 SF Symbol。
     func ensurePresetsSeeded() async throws {
         let existing = try await repo.fetchAll(includeHidden: true, includeDeleted: true)
         for tool in existing where tool.isPreset {
             try await destroyToolAndAssignments(id: tool.id, allowPreset: true)
+        }
+        for tool in existing where !tool.isPreset {
+            let stored = tool.iconSymbol?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard stored.isEmpty else { continue }
+            var patch = ConsumerToolPatch()
+            patch.iconSymbol = PresetCatalog.toolSymbol(name: tool.name)
+            try await repo.update(id: tool.id, patch: patch)
         }
         try await purgeExpiredDeletedTools()
     }
@@ -43,6 +51,10 @@ actor ConsumerToolService: ConsumerToolServing {
     func createTool(_ draft: ConsumerToolDraft) async throws -> UUID {
         var draft = draft
         draft.isPreset = false
+        let stored = draft.iconSymbol?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if stored.isEmpty {
+            draft.iconSymbol = PresetCatalog.toolSymbol(name: draft.name)
+        }
         return try await repo.insert(draft)
     }
 

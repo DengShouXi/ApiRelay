@@ -43,7 +43,7 @@ struct KeyDetailView: View {
             } else {
                 ContentUnavailableView(
                     "vault.detail.missing.title",
-                    systemImage: "key.slash",
+                    systemImage: AppSymbols.Key.unavailable,
                     description: Text("vault.detail.missing.detail")
                 )
             }
@@ -55,14 +55,14 @@ struct KeyDetailView: View {
                     Button {
                         onCopy(key.id)
                     } label: {
-                        Label("vault.copy", systemImage: "doc.on.doc")
+                        Label("vault.copy", systemImage: AppSymbols.Action.copy)
                     }
                     .disabled(!key.secretAvailable)
 
                     Button {
                         onReveal(key.id)
                     } label: {
-                        Label("vault.reveal", systemImage: "eye")
+                        Label("vault.reveal", systemImage: AppSymbols.Action.reveal)
                     }
                     .disabled(!key.secretAvailable)
 
@@ -116,7 +116,7 @@ struct KeyDetailView: View {
     private func infoCard(_ key: KeyRecordDTO) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 14) {
-                Image(systemName: "key.fill")
+                Image(systemName: AppSymbols.Key.default)
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(width: 52, height: 52)
@@ -197,7 +197,7 @@ struct KeyDetailView: View {
                 Button {
                     onAssign(key.id)
                 } label: {
-                    Label("vault.assign", systemImage: "link")
+                    Label("vault.assign", systemImage: AppSymbols.Action.assign)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
@@ -276,10 +276,10 @@ struct KeyDetailView: View {
     }
 
     private func statusSymbol(for key: KeyRecordDTO) -> String {
-        if !key.secretAvailable { return "exclamationmark.icloud" }
-        if key.consumerToolIds.count >= 2 { return "person.2.fill" }
-        if key.consumerToolIds.isEmpty { return "tray" }
-        return "checkmark.shield.fill"
+        if !key.secretAvailable { return AppSymbols.Key.missingSecret }
+        if key.consumerToolIds.count >= 2 { return AppSymbols.Key.shared }
+        if key.consumerToolIds.isEmpty { return AppSymbols.Key.unassigned }
+        return AppSymbols.Key.ready
     }
 
     private func statusColor(for key: KeyRecordDTO) -> Color {

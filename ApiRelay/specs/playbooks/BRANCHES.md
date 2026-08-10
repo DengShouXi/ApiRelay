@@ -70,10 +70,11 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 | `v1.6` | Phase 6 settings: PreferencesService, SecureBackup, eraseAllUserData, Settings UI | 小迭代 6 — 设置与加密备份 |
 | `v1.7` | Phase 7 Catalyst window size, Commands, context menus | 小迭代 7 — Catalyst |
 | `v1.8` | Phase 8 security review + Stage1 engineering closeout. Store materials prepared for **1.0.0** when shipping. T014b may await Developer Program. | 小迭代 8 — 安全审查；商店材料随 Stage1→1.0.0 |
-| `v1.9` | UX hardening + **T014b Checkpoint 2b**：CloudKit Production 8 表与 §7.1 预留字段已 Deploy；DEBUG `CloudKitSchemaBootstrap` 一次性逼 schema。Checkout `v1.9`。 | 小迭代 9 — 可用性加固 + CloudKit Production 闸门通过 |
+| `v1.9` | UX hardening (multi-key, recycle bin, dual-view flows) + **T014b Checkpoint 2b** (CloudKit Production deploy + DEBUG `CloudKitSchemaBootstrap`). Playbook: `P09-*` + tests `Phase09_UXHardening/`. Checkout `v1.9`. | 小迭代 9 — 可用性加固（多钥/回收站/双视角）+ CloudKit Production 闸门；playbook `P09-*` 与 `Phase09_UXHardening/` 已补档。取 `v1.9`。 |
 | `v1.10` | Phase 10 UI redesign: 4-tab IA (platform / consumer / trash / settings), settings cards, assign sheet, key `sortOrder` + Mac NSTableView reorder (drag polish still imperfect), iCloud sync sheet. Frozen tip after push. | 小迭代 10 — UI 重设计：底栏四 Tab、设置卡片、指派 sheet、密钥分区排序（Mac 拖拽手感仍有瑕疵）、iCloud 同步说明。已冻结上传。 |
-| `v1.11` | Stage1 continuation tip after UI redesign. **current**. Checkout `v1.11` for next coding. | 小迭代 11 — UI 重设计后的 Stage1 继续开发。**当前**。取 `v1.11` 继续编码。 |
-| `v2` | Stage-2 workline tip (usage insights). Open after Stage1 ship readiness (`10-verify` / `20-push`), not required for `v1.11` coding. | 大阶段 2 尖端（用量看板）。Stage1 上架准备就绪后再开；`v1.11` 编码不必先开 `v2`。 |
+| `v1.11` | Phase 11: App Icon from `ApiRelay/icon` (iOS Any/Dark/Tinted + Mac sizes), `AppSymbols` + PresetCatalog SF semantics, AccentColor aligned, tool iconSymbol backfill. Frozen tip after push. Checkout `v1.11`. | 小迭代 11 — 定稿 App Icon（`ApiRelay/icon` → 全尺寸槽）、`AppSymbols`/PresetCatalog 符号收口、Accent 同源、使用方 iconSymbol 回填。已冻结上传。取 `v1.11`。 |
+| `v1` | Stage-1 tip after merge of `v1.11`. Next: Stage1 ship prep (`10-verify` / T063–T066) before opening more `v1.N` or `v2`. **current tip**. | 大阶段 1 尖端（已含 `v1.11`）。下一步：上架准备（`10-verify` / T063–T066）；再开后续 `v1.N` 或 `v2`。**当前 tip**。 |
+| `v2` | Stage-2 workline tip (usage insights). Open after Stage1 ship readiness (`10-verify` / `20-push`). | 大阶段 2 尖端（用量看板）。Stage1 上架准备就绪后再开。 |
 
 ---
 

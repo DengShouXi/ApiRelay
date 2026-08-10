@@ -25,10 +25,10 @@ enum VaultRootTab: Hashable {
 
     var systemImage: String {
         switch self {
-        case .byPlatform: "square.stack.3d.up"
-        case .byConsumer: "laptopcomputer"
-        case .trash: "trash"
-        case .settings: "gearshape"
+        case .byPlatform: AppSymbols.Tab.byPlatform
+        case .byConsumer: AppSymbols.Tab.byConsumer
+        case .trash: AppSymbols.Tab.trash
+        case .settings: AppSymbols.Tab.settings
         }
     }
 }
@@ -253,7 +253,7 @@ struct VaultHomeView: View {
             Button {
                 showAccountPlaceholder = true
             } label: {
-                Image(systemName: "person.crop.circle.fill")
+                Image(systemName: AppSymbols.Action.account)
                     .symbolRenderingMode(.hierarchical)
                     .font(.system(size: 34))
                     .foregroundStyle(.secondary)
@@ -317,7 +317,7 @@ struct VaultHomeView: View {
             } else {
                 ContentUnavailableView(
                     "vault.detail.pick.title",
-                    systemImage: "key",
+                    systemImage: AppSymbols.Key.outline,
                     description: Text("vault.detail.pick.detail")
                 )
             }
@@ -333,7 +333,7 @@ struct VaultHomeView: View {
             } else {
                 ContentUnavailableView(
                     "vault.trash.pick.title",
-                    systemImage: "trash",
+                    systemImage: AppSymbols.Tab.trash,
                     description: Text("vault.trash.pick.detail")
                 )
             }
@@ -359,7 +359,7 @@ struct VaultHomeView: View {
                             case .byConsumer: showAddTool = true
                             }
                         } label: {
-                            Image(systemName: "plus")
+                            Image(systemName: AppSymbols.Action.add)
                         }
                         .accessibilityLabel(
                             mode == .byPlatform
@@ -448,7 +448,7 @@ struct VaultHomeView: View {
                         Button {
                             showAccountPlaceholder = true
                         } label: {
-                            Image(systemName: "person.crop.circle.fill")
+                            Image(systemName: AppSymbols.Action.account)
                                 .symbolRenderingMode(.hierarchical)
                                 .font(.title3)
                         }
@@ -464,7 +464,7 @@ struct VaultHomeView: View {
                                 showAddTool = true
                             }
                         } label: {
-                            Image(systemName: "plus")
+                            Image(systemName: AppSymbols.Action.add)
                         }
                         .accessibilityLabel(
                             viewModel.groupingMode == .byPlatform
@@ -484,7 +484,7 @@ struct VaultHomeView: View {
             if isSearchPresented || isSearching {
                 Section {
                     HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
+                        Image(systemName: AppSymbols.Action.search)
                             .foregroundStyle(.secondary)
                         TextField(String(localized: "vault.search.prompt"), text: $searchText)
                             .autocorrectionDisabled()
@@ -495,7 +495,7 @@ struct VaultHomeView: View {
                             Button {
                                 searchText = ""
                             } label: {
-                                Image(systemName: "xmark.circle.fill")
+                                Image(systemName: AppSymbols.Action.searchClear)
                                     .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
@@ -605,6 +605,23 @@ struct VaultHomeView: View {
         }
     }
 
+    private func sectionSymbol(_ section: KeyGroupSection) -> String {
+        switch section.kind {
+        case .platform(let accountId, _):
+            let platform = viewModel.accounts.first(where: { $0.id == accountId })?.platform
+            return AppSymbols.platform(id: platform ?? "")
+        case .consumer(let toolId, _):
+            if let tool = viewModel.tools.first(where: { $0.id == toolId }) {
+                return AppSymbols.tool(name: tool.name, storedSymbol: tool.iconSymbol)
+            }
+            return AppSymbols.Entity.tool
+        case .shared:
+            return AppSymbols.Key.shared
+        case .unassigned:
+            return AppSymbols.Key.unassigned
+        }
+    }
+
     private func sectionCollapseId(_ section: KeyGroupSection) -> String {
         switch section.kind {
         case .platform(let accountId, _):
@@ -643,10 +660,14 @@ struct VaultHomeView: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                    Image(systemName: collapsed ? AppSymbols.Action.chevronRight : AppSymbols.Action.chevronDown)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 12, alignment: .center)
+                    Image(systemName: sectionSymbol(section))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                     Text(sectionTitle(section))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -673,7 +694,7 @@ struct VaultHomeView: View {
                 Button {
                     showAddKeyFor = viewModel.accounts.first { $0.id == accountId }
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: AppSymbols.Action.add)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
@@ -693,7 +714,7 @@ struct VaultHomeView: View {
                         pendingDeleteAccountId = accountId
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: AppSymbols.Action.more)
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityLabel(Text("vault.a11y.sectionMenu"))
@@ -701,7 +722,7 @@ struct VaultHomeView: View {
                 Button {
                     beginAssignExistingKey(to: toolId)
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: AppSymbols.Action.add)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
@@ -721,7 +742,7 @@ struct VaultHomeView: View {
                         pendingDeleteToolId = toolId
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: AppSymbols.Action.more)
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityLabel(Text("vault.a11y.sectionMenu"))
@@ -770,7 +791,7 @@ struct VaultHomeView: View {
         Button {
             beginAssignExistingKey(to: toolId)
         } label: {
-            Label("vault.consumer.assignKey", systemImage: "plus.circle")
+            Label("vault.consumer.assignKey", systemImage: AppSymbols.Action.addInline)
         }
     }
 
@@ -814,7 +835,7 @@ struct VaultHomeView: View {
                     Button {
                         Task { await beginCopy(key.id) }
                     } label: {
-                        Image(systemName: "doc.on.doc")
+                        Image(systemName: AppSymbols.Action.copy)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
@@ -854,7 +875,7 @@ struct VaultHomeView: View {
 
     private func keyRowLabel(_ key: KeyRecordDTO) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "key.fill")
+            Image(systemName: AppSymbols.Key.default)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white)
                 .frame(width: 28, height: 28)
@@ -1241,7 +1262,7 @@ private struct ReorderKeysSheet: View {
 
     private func reorderRow(_ key: KeyRecordDTO) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "key.fill")
+            Image(systemName: AppSymbols.Key.default)
                 .foregroundStyle(.white)
                 .frame(width: 28, height: 28)
                 .background(
@@ -1334,7 +1355,7 @@ private struct AssignExistingKeySheet: View {
                                             .foregroundStyle(.secondary)
                                     }
                                     Spacer(minLength: 8)
-                                    Image(systemName: "plus.circle.fill")
+                                    Image(systemName: AppSymbols.Action.addFilled)
                                         .foregroundStyle(Color.accentColor)
                                 }
                                 .contentShape(Rectangle())
@@ -1397,9 +1418,10 @@ private struct AddAccountSheet: View {
             Form {
                 Picker("vault.account.platform", selection: $platform) {
                     ForEach(PresetCatalog.platforms, id: \.id) { p in
-                        Text(p.displayName).tag(p.id)
+                        Label(p.displayName, systemImage: p.iconSymbol).tag(p.id)
                     }
-                    Text("vault.custom.platform").tag(PresetCatalog.customPlatformID)
+                    Label("vault.custom.platform", systemImage: AppSymbols.platform(id: PresetCatalog.customPlatformID))
+                        .tag(PresetCatalog.customPlatformID)
                 }
                 LabeledContent("vault.account.platform.selected") {
                     Text(selectedPlatformLabel)
@@ -1498,9 +1520,14 @@ private struct AddConsumerToolSheet: View {
             Form {
                 Picker("vault.consumer.base", selection: $baseName) {
                     ForEach(PresetCatalog.consumerTools, id: \.name) { tool in
-                        Text(tool.name).tag(tool.name)
+                        Label(
+                            tool.name,
+                            systemImage: AppSymbols.tool(name: tool.name, storedSymbol: tool.iconSymbol)
+                        )
+                            .tag(tool.name)
                     }
-                    Text("vault.consumer.base.custom").tag(customBaseTag)
+                    Label("vault.consumer.base.custom", systemImage: AppSymbols.Entity.toolCustom)
+                        .tag(customBaseTag)
                 }
                 TextField(
                     baseName.isEmpty ? "vault.consumer.name.optional" : "vault.consumer.device",
@@ -1699,7 +1726,7 @@ private struct AccountPlaceholderSheet: View {
 
     private var statusHero: some View {
         VStack(spacing: 14) {
-            Image(systemName: "icloud.fill")
+            Image(systemName: AppSymbols.Sync.iCloud)
                 .font(.system(size: 36, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 72, height: 72)
@@ -1752,7 +1779,7 @@ private struct AccountPlaceholderSheet: View {
                         ProgressView()
                             .controlSize(.small)
                     } else {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Image(systemName: AppSymbols.Sync.refresh)
                     }
                     Text(isSyncing ? "vault.sync.now.inProgress" : "vault.sync.now")
                         .font(.body.weight(.semibold))
@@ -1786,7 +1813,7 @@ private struct AccountPlaceholderSheet: View {
 
     private var howCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("vault.sync.section.how", systemImage: "lock.icloud")
+            Label("vault.sync.section.how", systemImage: AppSymbols.Sync.lockedCloud)
                 .font(.headline)
             Text("vault.sync.how.body")
                 .font(.subheadline)
@@ -1806,7 +1833,7 @@ private struct AccountPlaceholderSheet: View {
             Button {
                 openSystemSettingsForAppleAccount()
             } label: {
-                Label("vault.sync.openSystemSettings", systemImage: "gearshape")
+                Label("vault.sync.openSystemSettings", systemImage: AppSymbols.Sync.openSystemSettings)
                     .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -1975,7 +2002,7 @@ private struct RecentlyDeletedView: View {
                 if let onShowAccount {
                     ToolbarItem(placement: .navigation) {
                         Button(action: onShowAccount) {
-                            Image(systemName: "person.crop.circle.fill")
+                            Image(systemName: AppSymbols.Action.account)
                                 .symbolRenderingMode(.hierarchical)
                                 .font(.title3)
                         }
@@ -2017,7 +2044,7 @@ private struct RecentlyDeletedView: View {
             }
         } else if let loadError {
             Section {
-                Label(loadError, systemImage: "exclamationmark.triangle")
+                Label(loadError, systemImage: AppSymbols.Action.warning)
                     .foregroundStyle(.secondary)
                 Button("vault.recentlyDeleted.retry") {
                     Task { await reload() }
@@ -2257,7 +2284,7 @@ private struct RecentlyDeletedDetailHost: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let loadError {
                 ContentUnavailableView {
-                    Label(loadError, systemImage: "exclamationmark.triangle")
+                    Label(loadError, systemImage: AppSymbols.Action.warning)
                 } actions: {
                     Button("vault.recentlyDeleted.retry") {
                         Task { await reload() }
@@ -2272,7 +2299,7 @@ private struct RecentlyDeletedDetailHost: View {
             } else {
                 ContentUnavailableView(
                     "vault.trash.missing.title",
-                    systemImage: "trash",
+                    systemImage: AppSymbols.Tab.trash,
                     description: Text("vault.trash.missing.detail")
                 )
                 .onAppear { onCleared() }
@@ -2299,7 +2326,7 @@ private struct RecentlyDeletedDetailHost: View {
                 title: key.displayName,
                 subtitle: platform,
                 kindTitleKey: "vault.recentlyDeleted.section.keys",
-                systemImage: "key.fill",
+                systemImage: AppSymbols.Key.default,
                 deletedAt: key.deletedAt,
                 purgeAfter: key.purgeAfter,
                 restore: { await vault.restoreKey(key.id) },
@@ -2311,7 +2338,7 @@ private struct RecentlyDeletedDetailHost: View {
                 title: account.displayName,
                 subtitle: account.platform,
                 kindTitleKey: "vault.recentlyDeleted.section.accounts",
-                systemImage: "building.2.fill",
+                systemImage: AppSymbols.Entity.accountFill,
                 deletedAt: account.deletedAt,
                 purgeAfter: account.purgeAfter,
                 restore: { await vault.restoreAccount(account.id) },
@@ -2323,7 +2350,7 @@ private struct RecentlyDeletedDetailHost: View {
                 title: tool.name,
                 subtitle: nil,
                 kindTitleKey: "vault.recentlyDeleted.section.tools",
-                systemImage: "laptopcomputer",
+                systemImage: AppSymbols.Entity.tool,
                 deletedAt: tool.deletedAt,
                 purgeAfter: tool.purgeAfter,
                 restore: { await vault.restoreTool(tool.id) },
@@ -2537,7 +2564,10 @@ struct ConsumerToolsView: View {
             List {
                 ForEach(tools) { tool in
                     HStack {
-                        Text(tool.name)
+                        Label(
+                            tool.name,
+                            systemImage: AppSymbols.tool(name: tool.name, storedSymbol: tool.iconSymbol)
+                        )
                         Spacer()
                         Toggle("vault.tools.hidden", isOn: Binding(
                             get: { tool.isHidden },
@@ -2573,8 +2603,10 @@ struct ConsumerToolsView: View {
                     TextField("vault.tools.new", text: $newName)
                     Button("vault.tools.add") {
                         Task {
+                            let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let icon = PresetCatalog.toolIconForNewBase(trimmed)
                             _ = try? await environment.consumerTools.createTool(
-                                ConsumerToolDraft(name: newName)
+                                ConsumerToolDraft(name: trimmed, iconSymbol: icon)
                             )
                             newName = ""
                             await reload()

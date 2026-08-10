@@ -105,7 +105,7 @@ final class VaultHomeViewModel: ObservableObject {
                 acknowledgePossibleDuplicate: ackDuplicate
             )
             await refresh()
-        } catch let ApiRelayError.quotaExceededFreeTier {
+        } catch ApiRelayError.quotaExceededFreeTier {
             showQuotaAlert = true
         } catch {
             errorMessage = error.localizedDescription
@@ -277,8 +277,10 @@ final class VaultHomeViewModel: ObservableObject {
             resolved = trimmed
         }
         do {
+            let base = PresetCatalog.consumerTools.first { resolved == $0.name || resolved.hasPrefix("\($0.name) · ") || resolved.hasPrefix("\($0.name) - ") }?.name
+            let icon = PresetCatalog.toolIconForNewBase(base ?? resolved)
             let id = try await environment.consumerTools.createTool(
-                ConsumerToolDraft(name: resolved)
+                ConsumerToolDraft(name: resolved, iconSymbol: icon)
             )
             await refresh()
             return tools.first { $0.id == id }
