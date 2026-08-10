@@ -6,8 +6,8 @@ import XCTest
 final class AppSymbolsTests: XCTestCase {
 
     func testTabSymbolsMatchDesignTable() {
-        XCTAssertEqual(AppSymbols.Tab.byPlatform, "square.stack.3d.up")
-        XCTAssertEqual(AppSymbols.Tab.byConsumer, "laptopcomputer")
+        XCTAssertEqual(AppSymbols.Tab.byPlatform, "plus.circle")
+        XCTAssertEqual(AppSymbols.Tab.byConsumer, "minus.circle")
         XCTAssertEqual(AppSymbols.Tab.trash, "trash")
         XCTAssertEqual(AppSymbols.Tab.settings, "gearshape")
     }

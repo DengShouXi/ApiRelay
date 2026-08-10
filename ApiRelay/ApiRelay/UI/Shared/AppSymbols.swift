@@ -8,8 +8,10 @@ enum AppSymbols: Sendable {
     // MARK: - Navigation (Tabs)
 
     enum Tab {
-        nonisolated static let byPlatform = "square.stack.3d.up"
-        nonisolated static let byConsumer = "laptopcomputer"
+        /// 正电荷（⊕），与 App Icon 左极语义对齐。
+        nonisolated static let byPlatform = "plus.circle"
+        /// 负电荷（⊖），与 App Icon 右极语义对齐。
+        nonisolated static let byConsumer = "minus.circle"
         nonisolated static let trash = "trash"
         nonisolated static let settings = "gearshape"
     }

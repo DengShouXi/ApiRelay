@@ -1,7 +1,7 @@
 # V1 — 密钥保险库 Playbook
 
 **大阶段分支**：`v1`  
-**当前工作 tip**：`v1`（已合并 `v1.11` App Icon + SF Symbol；下一档为上架准备 `10-verify` / T063–T066）  
+**当前小迭代**：`v1.12`（Stage1 代码调整 / 体验优化；接 `v1.11` / 热修 `v1.11.1`）  
 **上架目标**：Stage1 验收后 App Store **1.0.0**（tag `release/1.0.0`）  
 台账：[BRANCHES.md](../BRANCHES.md) · 测试：[ApiRelayTests/README.md](../../../ApiRelayTests/README.md)
 
@@ -19,6 +19,7 @@
 | 8 | [`P08-安全审查.md`](./phases/P08-安全审查.md) | [`P08-save.md`](./phases/P08-save.md) → `v1.8` | `V1/Phase08_Security/` |
 | 9 | [`P09-可用性加固.md`](./phases/P09-可用性加固.md) | [`P09-save.md`](./phases/P09-save.md) → `v1.9`（已上传；文档补档） | `V1/Phase09_UXHardening/` · 验收：[`P09-验收清单.md`](./phases/P09-验收清单.md) |
 | 10 | [`P10-UI重设计.md`](./phases/P10-UI重设计.md) | [`P10-save.md`](./phases/P10-save.md) → `v1.10`（已冻结） | 验收：[`P10-验收清单.md`](./phases/P10-验收清单.md) |
-| 11 | [`P11-AppIcon与资源.md`](./phases/P11-AppIcon与资源.md) | [`P11-save.md`](./phases/P11-save.md) → `v1.11`（已冻结） | `V1/Phase11_AppIconAssets/` · 验收：[`P11-验收清单.md`](./phases/P11-验收清单.md) |
+| 11 | [`P11-AppIcon与资源.md`](./phases/P11-AppIcon与资源.md) | [`P11-save.md`](./phases/P11-save.md) → `v1.11`（已冻结；热修 `v1.11.1`） | `V1/Phase11_AppIconAssets/` · 验收：[`P11-验收清单.md`](./phases/P11-验收清单.md) |
+| 12 | （待补 `P12-*.md`） | → `v1.12`（**当前**） | `V1/Phase12_*`（待建） |
 
 收尾（上架准备）：`10-verify` → 准备 **1.0.0** → `20-push`。大阶段 2：`30` / `40` → [`../v2-usage-insights/00-README.md`](../v2-usage-insights/00-README.md)。

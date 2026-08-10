@@ -73,7 +73,9 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 | `v1.9` | UX hardening (multi-key, recycle bin, dual-view flows) + **T014b Checkpoint 2b** (CloudKit Production deploy + DEBUG `CloudKitSchemaBootstrap`). Playbook: `P09-*` + tests `Phase09_UXHardening/`. Checkout `v1.9`. | 小迭代 9 — 可用性加固（多钥/回收站/双视角）+ CloudKit Production 闸门；playbook `P09-*` 与 `Phase09_UXHardening/` 已补档。取 `v1.9`。 |
 | `v1.10` | Phase 10 UI redesign: 4-tab IA (platform / consumer / trash / settings), settings cards, assign sheet, key `sortOrder` + Mac NSTableView reorder (drag polish still imperfect), iCloud sync sheet. Frozen tip after push. | 小迭代 10 — UI 重设计：底栏四 Tab、设置卡片、指派 sheet、密钥分区排序（Mac 拖拽手感仍有瑕疵）、iCloud 同步说明。已冻结上传。 |
 | `v1.11` | Phase 11: App Icon from `ApiRelay/icon` (iOS Any/Dark/Tinted + Mac sizes), `AppSymbols` + PresetCatalog SF semantics, AccentColor aligned, tool iconSymbol backfill. Frozen tip after push. Checkout `v1.11`. | 小迭代 11 — 定稿 App Icon（`ApiRelay/icon` → 全尺寸槽）、`AppSymbols`/PresetCatalog 符号收口、Accent 同源、使用方 iconSymbol 回填。已冻结上传。取 `v1.11`。 |
-| `v1` | Stage-1 tip after merge of `v1.11`. Next: Stage1 ship prep (`10-verify` / T063–T066) before opening more `v1.N` or `v2`. **current tip**. | 大阶段 1 尖端（已含 `v1.11`）。下一步：上架准备（`10-verify` / T063–T066）；再开后续 `v1.N` 或 `v2`。**当前 tip**。 |
+| `v1.11.1` | Hotfix on v1.11: force App Icon slot refresh (iPhone/iPad explicit sizes + build bump), tab icons → charge glyphs (`plus.circle` / `minus.circle`). Frozen after push. | 热修 11.1 — 强制刷新 App Icon 全槽、底栏改为正/负电荷符号（⊕/⊖）。已冻结上传。 |
+| `v1.12` | Phase 12: Stage1 code polish / UX follow-ups (scope TBD in `P12-*`). **current**. Checkout `v1.12`. | 小迭代 12 — Stage1 代码调整与体验优化（范围见 `P12-*`，待补）。**当前**。取 `v1.12`。 |
+| `v1` | Stage-1 tip after merge of `v1.11.1`. Continue on `v1.12` for polish before ship prep. | 大阶段 1 尖端（已含 `v1.11.1`）。继续在 `v1.12` 做优化，再进入上架准备。 |
 | `v2` | Stage-2 workline tip (usage insights). Open after Stage1 ship readiness (`10-verify` / `20-push`). | 大阶段 2 尖端（用量看板）。Stage1 上架准备就绪后再开。 |
 
 ---
