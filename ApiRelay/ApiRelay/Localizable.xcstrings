@@ -1,22 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%@，%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@，%2$@"
-          }
-        }
-      }
-    },
-    "%lld" : {
-
-    },
-    "••••%@" : {
-
-    },
     "biometry.faceID" : {
       "comment" : "Display name for Face ID biometric type",
       "extractionState" : "stale",
@@ -164,9 +148,6 @@
           }
         }
       }
-    },
-    "error.keychainFailure %d" : {
-
     },
     "error.keychainFailure %lld" : {
       "localizations" : {
@@ -703,6 +684,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无限密钥"
+          }
+        }
+      }
+    },
+    "preset.platform.alibabaBailian" : {
+      "comment" : "Preset upstream platform display name",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alibaba Bailian"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阿里百炼"
+          }
+        }
+      }
+    },
+    "preset.platform.siliconflow" : {
+      "comment" : "Preset upstream platform display name",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SiliconFlow"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "硅基流动"
+          }
+        }
+      }
+    },
+    "preset.platform.volcengine" : {
+      "comment" : "Preset upstream platform display name",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volcengine"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "火山引擎"
           }
         }
       }
@@ -1697,7 +1729,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "面容或密码"
+            "value" : "面容 ID 或密码"
           }
         }
       }
@@ -4169,7 +4201,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码可经设备验证后重置，强度不高于设备密码，并非无法绕过。"
+            "value" : "主密码可经设备验证后重置，强度不高于设备密码。"
           }
         }
       }
@@ -4840,6 +4872,23 @@
         }
       }
     },
+    "vault.sync.icloud.status.combined %@ %@" : {
+      "comment" : "VoiceOver: iCloud status label + signed-in/out",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@，%2$@"
+          }
+        }
+      }
+    },
     "vault.sync.icloud.status.footnote" : {
       "localizations" : {
         "en" : {
@@ -5048,6 +5097,57 @@
         }
       }
     },
+    "vault.tab.byConsumer" : {
+      "comment" : "Bottom/sidebar tab short title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Consumer"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按使用方"
+          }
+        }
+      }
+    },
+    "vault.tab.byPlatform" : {
+      "comment" : "Bottom/sidebar tab short title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Platform"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按平台"
+          }
+        }
+      }
+    },
+    "vault.tab.settings" : {
+      "comment" : "Bottom/sidebar tab short title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置"
+          }
+        }
+      }
+    },
     "vault.tab.title" : {
       "comment" : "Vault tab title",
       "extractionState" : "stale",
@@ -5062,6 +5162,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保险库"
+          }
+        }
+      }
+    },
+    "vault.tab.trash" : {
+      "comment" : "Bottom/sidebar tab short title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trash"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回收站"
           }
         }
       }

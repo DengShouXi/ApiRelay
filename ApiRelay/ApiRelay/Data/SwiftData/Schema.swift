@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import SwiftData
 
@@ -7,6 +8,8 @@ import SwiftData
 /// 并按 data-model §7.1 核对 Production record types。仅 Development 可见不算通过。
 enum AppSchema: Sendable {
     nonisolated static let cloudKitContainerID = "iCloud.com.apirelay.ApiRelay"
+    /// 与 entitlements `com.apple.security.application-groups` 一致。
+    nonisolated static let appGroupID = "group.com.apirelay.shared"
 
     nonisolated static let syncedModels: [any PersistentModel.Type] = [
         UpstreamAccount.self,
@@ -56,6 +59,11 @@ enum AppSchema: Sendable {
             return try makeLocalDiskContainer()
         }
         #endif
+        // 模拟器未登录 iCloud 时强开 CloudKit 只会刷 CKAccountStatusNoAccount。
+        if !isICloudAccountAvailable() {
+            print("[ApiRelay] No iCloud account; using local SwiftData store")
+            return try makeLocalDiskContainer()
+        }
         do {
             return try makeCloudKitContainer()
         } catch {
@@ -67,14 +75,18 @@ enum AppSchema: Sendable {
     /// CloudKit private DB + local（需付费账号；T014b Deploy Production 后 TestFlight 才完整可用）。
     @MainActor
     static func makeCloudKitContainer() throws -> ModelContainer {
+        try ensureAppGroupStoreDirectory()
+        let group = ModelConfiguration.GroupContainer.identifier(appGroupID)
         let synced = ModelConfiguration(
             "synced",
             schema: syncedSchema,
+            groupContainer: group,
             cloudKitDatabase: .private(cloudKitContainerID)
         )
         let local = ModelConfiguration(
             "local",
             schema: localSchema,
+            groupContainer: group,
             cloudKitDatabase: .none
         )
         return try ModelContainer(for: fullSchema, configurations: synced, local)
@@ -82,17 +94,48 @@ enum AppSchema: Sendable {
 
     /// 无 CloudKit 的本机持久化双配置（开发期 / 无付费账号回退）。
     nonisolated static func makeLocalDiskContainer() throws -> ModelContainer {
+        try ensureAppGroupStoreDirectory()
+        let group = ModelConfiguration.GroupContainer.identifier(appGroupID)
         let synced = ModelConfiguration(
             "synced",
             schema: syncedSchema,
+            groupContainer: group,
             cloudKitDatabase: .none
         )
         let local = ModelConfiguration(
             "local",
             schema: localSchema,
+            groupContainer: group,
             cloudKitDatabase: .none
         )
         return try ModelContainer(for: fullSchema, configurations: synced, local)
+    }
+
+    /// `groupContainer: .automatic` 会把库放到 App Group；父目录不存在时 CoreData 先刷一长串
+    /// errno 2 再自恢复。启动前建好 `Library/Application Support` 可消掉该噪声。
+    nonisolated static func ensureAppGroupStoreDirectory() throws {
+        guard let root = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+            return
+        }
+        let support = root
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+    }
+
+    /// 启动期短超时探测；无账号时勿打开 CloudKit mirroring。
+    nonisolated static func isICloudAccountAvailable() -> Bool {
+        final class Box: @unchecked Sendable {
+            var status: CKAccountStatus = .couldNotDetermine
+        }
+        let box = Box()
+        let sem = DispatchSemaphore(value: 0)
+        CKContainer(identifier: cloudKitContainerID).accountStatus { status, _ in
+            box.status = status
+            sem.signal()
+        }
+        _ = sem.wait(timeout: .now() + 2)
+        return box.status == .available
     }
 
     /// 单元测试 / Preview：双配置均内存、无 CloudKit。

@@ -55,7 +55,8 @@ extension ApiRelayError: LocalizedError {
         case .biometryUnavailable:
             return String(localized: "error.biometryUnavailable")
         case .keychainFailure(let status):
-            return String(localized: "error.keychainFailure \(status)")
+            // OSStatus 默认按 %d 进 Catalog；统一走已翻译的 %lld 条目。
+            return String(localized: "error.keychainFailure \(Int64(status))")
         case .secretMissingOnDevice:
             return String(localized: "error.secretMissingOnDevice")
         case .quotaExceededFreeTier:

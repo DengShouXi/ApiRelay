@@ -1,4 +1,6 @@
-# 分支迭代台账（统一规则）
+# 分支迭代台账（BRANCHES）
+
+> 中文入口：[`重要说明/索引.md`](./重要说明/索引.md)
 
 **开发小迭代用 Git 分支；商店正式发布才打 `release/N.0.0` tag。**
 
@@ -58,7 +60,7 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 ## 当前分支（本地台账 · 按版本序）
 
 > 更新时间：2026-08-11。下列 tip / 时间为各分支**尖端提交**；勿把 tip 回退，以免破坏已冻结里程碑。  
-> **当前工作分支：`v1.12`**（与 `v1`、`v1.11.1` 同 tip）。
+> **当前工作分支：`v1.12`**（本地化验收已关账；下一小迭代准备 `v1.13` 上架材料）。
 
 | 分支 | tip | tip 时间 | 主要做了什么（简体中文） | 备注 |
 |------|-----|----------|--------------------------|------|
@@ -78,8 +80,8 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 | `v1.10` | `8a06e9e` | 2026-08-05 23:34 | 小迭代 10 — UI 重设计：四 Tab、设置卡片、指派 sheet、密钥排序、iCloud 说明；已冻结 | |
 | `v1.11` | `9a1bde1` | 2026-08-11 01:57 | 小迭代 11 — App Icon 全尺寸、SF Symbol/PresetCatalog、Accent 同源、使用方图标回填；已冻结 | |
 | `v1.11.1` | `7eabc59` | 2026-08-11 02:19 | 热修 11.1 — 强制刷新 App Icon 槽；底栏改为正/负电荷符号（⊕/⊖） | 热修冻结 tip；其后文档在 `v1.12` |
-| `v1.12` | `aed14a0` | 2026-08-11 02:54 | 小迭代 12 — Stage1 代码调整与体验优化；本 tip 起含简体中文分支台账 | **当前工作分支**；与 `v1` 同 tip |
-| `v1` | `aed14a0` | 2026-08-11 02:54 | 大阶段 1 tip（跟随 `v1.12`）；继续在 `v1.12` 优化后再上架准备 | 推荐作为仓库默认分支；勿回退到旧名 `v0.1` tip |
+| `v1.12` | `(push 后填 tip)` | 2026-08-11 | EN: Phase 12 localization audit — String Catalog en+zh-Hans gaps closed, semantic keys for presets/Custom/tabs, Face ID InfoPlist.xcstrings, App Group store dir + remote-notification; no store metadata. / 中文：小迭代 12 — 本地化验收与补漏（Catalog 缺口清零、预置平台/自定义/Tab 双语、Face ID InfoPlist、模拟器存储目录与 remote-notification）；不含商店元数据 | **已关账**；与 `v1` 同 tip |
+| `v1` | `(随 v1.12)` | 2026-08-11 | EN: Stage1 tip follows v1.12; next = store materials T063–T066 on v1.13. / 中文：大阶段 1 tip（跟随 `v1.12`）；下一步 `v1.13` 上架材料 T063–T066 | 推荐作为仓库默认分支；勿回退到旧名 `v0.1` tip |
 
 ### 保护约定（避免破坏分支）
 

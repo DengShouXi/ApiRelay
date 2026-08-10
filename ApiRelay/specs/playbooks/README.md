@@ -1,7 +1,8 @@
 # ApiRelay 实现 Playbook
 
 **迭代规则**：[BRANCHES.md](./BRANCHES.md)  
-**上架**：[ROADMAP.md](../ROADMAP.md)（Stage N → App Store `N.0.0`）
+**上架**：[ROADMAP.md](../ROADMAP.md)（Stage N → App Store `N.0.0`）  
+**中文入口**：[重要说明/索引.md](./重要说明/索引.md)
 
 ## 唯一记法
 

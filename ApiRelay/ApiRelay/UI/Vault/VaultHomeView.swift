@@ -14,12 +14,13 @@ enum VaultRootTab: Hashable {
     case trash
     case settings
 
+    /// 底栏 / 侧栏短标题（英文比「By Platform」更不易截断）。
     var titleKey: LocalizedStringKey {
         switch self {
-        case .byPlatform: "vault.grouping.platform"
-        case .byConsumer: "vault.grouping.consumer"
-        case .trash: "vault.recentlyDeleted"
-        case .settings: "settings.title"
+        case .byPlatform: "vault.tab.byPlatform"
+        case .byConsumer: "vault.tab.byConsumer"
+        case .trash: "vault.tab.trash"
+        case .settings: "vault.tab.settings"
         }
     }
 
@@ -183,7 +184,8 @@ struct VaultHomeView: View {
                         Text(tab.titleKey)
                             .font(.caption2)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                            .minimumScaleFactor(0.7)
+                            .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -1272,7 +1274,7 @@ private struct ReorderKeysSheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(key.displayName)
                 if let hint = key.maskedHint {
-                    Text("••••\(hint)")
+                    Text(verbatim: "••••\(hint)")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
@@ -1754,7 +1756,7 @@ private struct AccountPlaceholderSheet: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(
                     Text(
-                        "\(String(localized: "vault.sync.icloud.status"))，\(isICloudAccountPresent ? String(localized: "vault.sync.icloud.status.signedIn") : String(localized: "vault.sync.icloud.status.signedOut"))"
+                        "vault.sync.icloud.status.combined \(String(localized: "vault.sync.icloud.status")) \(isICloudAccountPresent ? String(localized: "vault.sync.icloud.status.signedIn") : String(localized: "vault.sync.icloud.status.signedOut"))"
                     )
                 )
             }

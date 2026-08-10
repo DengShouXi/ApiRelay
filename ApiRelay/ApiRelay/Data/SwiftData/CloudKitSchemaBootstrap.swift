@@ -13,6 +13,10 @@ enum CloudKitSchemaBootstrap {
     @MainActor
     static func runIfNeeded(container: ModelContainer) {
         guard ProcessInfo.processInfo.environment["APIRELAY_CLOUDKIT"] == "1" else { return }
+        guard AppSchema.isICloudAccountAvailable() else {
+            print("[ApiRelay] CloudKitSchemaBootstrap skipped: no iCloud account on this device/simulator")
+            return
+        }
         let force = ProcessInfo.processInfo.environment["APIRELAY_CLOUDKIT_SCHEMA_BOOTSTRAP"] == "1"
         guard force || !UserDefaults.standard.bool(forKey: defaultsKey) else { return }
 
@@ -34,12 +38,12 @@ enum CloudKitSchemaBootstrap {
         if keys.isEmpty {
             let account = UpstreamAccount(
                 platform: "openai",
-                displayName: "[Schema Bootstrap — 可删]"
+                displayName: "[Schema Bootstrap — deletable]"
             )
             context.insert(account)
             let key = APIKeyRecord(
                 accountId: account.id,
-                displayName: "[Schema Bootstrap — 可删]",
+                displayName: "[Schema Bootstrap — deletable]",
                 maskedHint: "sk-…boot",
                 providerKeyRef: "schemaBootstrap",
                 spendLimit: Decimal(1),

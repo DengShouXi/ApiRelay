@@ -26,16 +26,19 @@ enum PresetCatalog: Sendable {
     nonisolated static let toolFallbackSymbol = "laptopcomputer"
     nonisolated static let toolCustomSymbol = "app"
 
-    nonisolated static let platforms: [Platform] = [
-        Platform(id: "openai", displayName: "OpenAI", iconSymbol: "sparkles"),
-        Platform(id: "anthropic", displayName: "Claude", iconSymbol: "bubble.left.and.bubble.right"),
-        Platform(id: "google", displayName: "Google", iconSymbol: "globe"),
-        Platform(id: "openrouter", displayName: "OpenRouter", iconSymbol: "arrow.triangle.branch"),
-        Platform(id: "deepseek", displayName: "DeepSeek", iconSymbol: "waveform"),
-        Platform(id: "alibaba-bailian", displayName: "阿里百炼", iconSymbol: "cloud"),
-        Platform(id: "volcengine", displayName: "火山引擎", iconSymbol: "bolt.fill"),
-        Platform(id: "siliconflow", displayName: "硅基流动", iconSymbol: "cpu"),
-    ]
+    /// 每次访问按当前语言解析显示名（勿用 `static let` 冻住首次语言）。
+    nonisolated static var platforms: [Platform] {
+        [
+            Platform(id: "openai", displayName: "OpenAI", iconSymbol: "sparkles"),
+            Platform(id: "anthropic", displayName: "Claude", iconSymbol: "bubble.left.and.bubble.right"),
+            Platform(id: "google", displayName: "Google", iconSymbol: "globe"),
+            Platform(id: "openrouter", displayName: "OpenRouter", iconSymbol: "arrow.triangle.branch"),
+            Platform(id: "deepseek", displayName: "DeepSeek", iconSymbol: "waveform"),
+            Platform(id: "alibaba-bailian", displayName: String(localized: "preset.platform.alibabaBailian"), iconSymbol: "cloud"),
+            Platform(id: "volcengine", displayName: String(localized: "preset.platform.volcengine"), iconSymbol: "bolt.fill"),
+            Platform(id: "siliconflow", displayName: String(localized: "preset.platform.siliconflow"), iconSymbol: "cpu"),
+        ]
+    }
 
     /// CL-003 定稿。
     nonisolated static let consumerTools: [Tool] = [
@@ -54,7 +57,7 @@ enum PresetCatalog: Sendable {
         if id == customPlatformID {
             return Platform(
                 id: customPlatformID,
-                displayName: "自定义",
+                displayName: String(localized: "vault.custom.platform"),
                 iconSymbol: platformFallbackSymbol
             )
         }
