@@ -567,46 +567,30 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buy once to unlock unlimited API keys. No relay features in this version."
+            "value" : "Choose a plan. Unlimited Keys unlocks more than 3 keys. Relay arrives in a later release."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一次买断，解锁无限密钥。本版本不含中转相关权益。"
+            "value" : "选择套餐。无限密钥可突破 3 把上限；中转套餐将在后续版本提供。"
           }
         }
       }
     },
     "paywall.buy" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buy Unlimited Keys"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "购买无限密钥"
-          }
-        }
-      }
-    },
-    "paywall.debugUnlimited" : {
       "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "DEBUG: Grant Unlimited"
+            "value" : "Upgrade"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "调试：授予无限额度"
+            "value" : "升级"
           }
         }
       }
@@ -623,6 +607,166 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "升级"
+          }
+        }
+      }
+    },
+    "paywall.owned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already Unlocked"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已解锁"
+          }
+        }
+      }
+    },
+    "paywall.plan.badge.comingSoon" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coming Soon"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即将推出"
+          }
+        }
+      }
+    },
+    "paywall.plan.badge.current" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选"
+          }
+        }
+      }
+    },
+    "paywall.plan.badge.owned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owned"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已拥有"
+          }
+        }
+      }
+    },
+    "paywall.plan.once" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "one-time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一次买断"
+          }
+        }
+      }
+    },
+    "paywall.plan.relay.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Includes Unlimited Keys plus relay features. Not available in this version."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包含无限密钥，并附带中转能力。本版本暂不可购。"
+          }
+        }
+      }
+    },
+    "paywall.plan.relay.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relay"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中转套餐"
+          }
+        }
+      }
+    },
+    "paywall.plan.unlimited.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock unlimited API keys. One-time purchase with Restore Purchases."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解锁无限数量的 API 密钥。一次买断，支持恢复购买。"
+          }
+        }
+      }
+    },
+    "paywall.plan.unlimited.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited Keys"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无限密钥"
+          }
+        }
+      }
+    },
+    "paywall.productUnavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The upgrade product isn’t available yet. In TestFlight use a Sandbox Apple ID, and confirm the IAP exists in App Store Connect (Ready to Submit)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时无法获取升级商品。TestFlight 请用沙盒 Apple ID；并确认 App Store Connect 里已创建内购且状态可用（如「准备提交」）。"
           }
         }
       }
@@ -676,6 +820,7 @@
       }
     },
     "paywall.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -687,6 +832,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无限密钥"
+          }
+        }
+      }
+    },
+    "paywall.upgrade" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升级"
+          }
+        }
+      }
+    },
+    "paywall.upgradeWithPrice %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升级 · %@"
           }
         }
       }
@@ -1552,7 +1729,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "可选加强门闩；校验材料仅存本机、不同步。"
+            "value" : "可选加强验证；校验材料仅存本机、不同步。"
           }
         }
       }
@@ -1586,6 +1763,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "主密码已保存"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.saveFailed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Save"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存失败"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.saveSuccess.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Master password has been saved. Verification method is now Master Password."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主密码已保存，验证方式已设为「主密码」。"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.saveSuccess.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存成功"
           }
         }
       }
@@ -1785,6 +2010,38 @@
         }
       }
     },
+    "settings.policy.masterPassword.notConfigured" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Master password isn’t set. Open Settings → Verification Method to set it, or choose another method."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未设置主密码。请到设置 → 验证方式完成设置，或改选其他验证方式。"
+          }
+        }
+      }
+    },
+    "settings.policy.masterPassword.setupHint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a master password to finish enabling this verification method. Cancel returns without changing your current method."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在此设置主密码以完成「主密码」验证。取消返回，不会更改当前验证方式。"
+          }
+        }
+      }
+    },
     "settings.policy.none" : {
       "localizations" : {
         "en" : {
@@ -1829,6 +2086,91 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "仅触控 ID"
+          }
+        }
+      }
+    },
+    "settings.purchaseUnlimited" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited Keys"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无限密钥"
+          }
+        }
+      }
+    },
+    "settings.purchaseUnlimited.rowDetail" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One-time purchase to remove the free-tier key limit."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一次买断，解除免费档密钥数量上限。"
+          }
+        }
+      }
+    },
+    "settings.purchaseUnlimited.rowDetail.owned" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Apple ID already unlocked Unlimited Keys."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 Apple ID 已解锁无限密钥。"
+          }
+        }
+      }
+    },
+    "settings.purchaseUnlimited.status.buy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "购买"
+          }
+        }
+      }
+    },
+    "settings.purchaseUnlimited.status.owned" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owned"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已购买"
           }
         }
       }
@@ -2118,7 +2460,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不弹出门闩。主密码可选，且仅保存在本机。"
+            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不再要求确认。主密码可选，且仅保存在本机。"
           }
         }
       }
@@ -2144,13 +2486,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restore a previous Unlimited Keys purchase on this Apple ID."
+            "value" : "Upgrade here, or restore a previous purchase on this Apple ID."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在本 Apple ID 上恢复已购买的「无限密钥」。"
+            "value" : "可在此升级，或在本 Apple ID 上恢复以往购买。"
           }
         }
       }
@@ -2184,7 +2526,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不弹出门闩。主密码可选，且仅保存在本机。"
+            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不再要求确认。主密码可选，且仅保存在本机。"
           }
         }
       }
@@ -2235,6 +2577,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "管理使用方工具的显示与删除。"
+          }
+        }
+      }
+    },
+    "settings.upgrade" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升级"
+          }
+        }
+      }
+    },
+    "settings.upgrade.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open upgrade options for this app."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开本应用的升级选项。"
+          }
+        }
+      }
+    },
+    "settings.upgrade.rowDetail.owned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Apple ID already has the paid unlock."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 Apple ID 已拥有付费解锁。"
+          }
+        }
+      }
+    },
+    "settings.upgrade.status.action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升级"
+          }
+        }
+      }
+    },
+    "settings.upgrade.status.owned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owned"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已解锁"
           }
         }
       }
@@ -2416,6 +2838,54 @@
         }
       }
     },
+    "vault.account.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Account"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑账号"
+          }
+        }
+      }
+    },
+    "vault.account.edit.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changing the platform or name applies to all keys under this account."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修改平台或名称会影响该账号下的所有密钥。"
+          }
+        }
+      }
+    },
+    "vault.account.edit.platformRequired" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Platform can’t be empty."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平台不能为空。"
+          }
+        }
+      }
+    },
     "vault.account.name" : {
       "localizations" : {
         "en" : {
@@ -2444,6 +2914,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已按平台自动填写，可直接用或改名；不要把密钥明文贴在这里。"
+          }
+        }
+      }
+    },
+    "vault.account.notes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注"
+          }
+        }
+      }
+    },
+    "vault.account.notes.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional free-form notes for this account."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选备注，自由填写与该账号相关的信息。"
           }
         }
       }
@@ -3086,6 +3588,54 @@
         }
       }
     },
+    "vault.consumer.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重命名"
+          }
+        }
+      }
+    },
+    "vault.consumer.edit.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This updates the consumer name shown in grouping and assignment."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将更新「按使用方」分组与指派中显示的名称。"
+          }
+        }
+      }
+    },
+    "vault.consumer.edit.nameRequired" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Consumer name can’t be empty."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用方名称不能为空。"
+          }
+        }
+      }
+    },
     "vault.consumer.empty.hint" : {
       "localizations" : {
         "en" : {
@@ -3119,6 +3669,22 @@
         }
       }
     },
+    "vault.consumer.name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        }
+      }
+    },
     "vault.consumer.name.hint" : {
       "localizations" : {
         "en" : {
@@ -3147,6 +3713,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名称（可选）"
+          }
+        }
+      }
+    },
+    "vault.consumer.notes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注"
+          }
+        }
+      }
+    },
+    "vault.consumer.notes.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional free-form notes for this consumer."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选备注，自由填写与该使用方相关的信息。"
           }
         }
       }
@@ -3558,6 +4156,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名称"
+          }
+        }
+      }
+    },
+    "vault.detail.notes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注"
           }
         }
       }
@@ -4175,8 +4789,71 @@
         }
       }
     },
+    "vault.key.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑密钥"
+          }
+        }
+      }
+    },
+    "vault.key.edit.accountHint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Platform and upstream account apply to all keys under this account."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平台与上游账号属于该账号；修改会影响同一账号下的其他密钥。"
+          }
+        }
+      }
+    },
+    "vault.key.edit.accountRequired" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upstream account name can’t be empty."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上游账号名称不能为空。"
+          }
+        }
+      }
+    },
+    "vault.key.edit.nameRequired" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key name can’t be empty."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥名称不能为空。"
+          }
+        }
+      }
+    },
     "vault.key.name" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4224,6 +4901,38 @@
         }
       }
     },
+    "vault.key.notes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注"
+          }
+        }
+      }
+    },
+    "vault.key.notes.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional free-form notes. Do not paste secrets here if you can avoid it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选备注，自由填写相关信息。尽量不要把完整密钥写在这里。"
+          }
+        }
+      }
+    },
     "vault.key.secret" : {
       "localizations" : {
         "en" : {
@@ -4236,6 +4945,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "密钥明文"
+          }
+        }
+      }
+    },
+    "vault.key.secret.keepHint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave blank to keep the current secret. Enter a new value only when you need to replace it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留空则保留当前密钥；仅在需要更换时填入新明文。"
+          }
+        }
+      }
+    },
+    "vault.key.secret.optional" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New secret (optional)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新密钥明文（可选）"
           }
         }
       }

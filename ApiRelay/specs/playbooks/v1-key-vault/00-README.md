@@ -1,7 +1,7 @@
 # V1 — 密钥保险库 Playbook
 
 **大阶段分支**：`v1`  
-**当前小迭代**：正在 **`v1.13`**（上架材料 T063–T066；`v1.12` 已关账）  
+**当前小迭代**：**`v1.13`** 关账草案已写（上架材料 T063–T066 + 上架前收口；**待** commit / push；下一步 [`10-verify.md`](./10-verify.md)）  
 **上架目标**：Stage1 验收后 App Store **1.0.0**（tag `release/1.0.0`）  
 台账：[BRANCHES.md](../BRANCHES.md) · 测试：[ApiRelayTests/README.md](../../../ApiRelayTests/README.md) · 中文入口：[重要说明/阶段1-密钥库.md](../重要说明/阶段1-密钥库.md)
 
@@ -47,6 +47,6 @@ P01…P12 实现小迭代（各 P0N → P0N-save → v1.N）
 | 10 | [`P10-UI重设计.md`](./phases/P10-UI重设计.md) | [`P10-save.md`](./phases/P10-save.md) → `v1.10` | [`P10-验收清单.md`](./phases/P10-验收清单.md) |
 | 11 | [`P11-AppIcon与资源.md`](./phases/P11-AppIcon与资源.md) | [`P11-save.md`](./phases/P11-save.md) → `v1.11` | [`P11-验收清单.md`](./phases/P11-验收清单.md)；热修 `v1.11.1` |
 | 12 | [`P12-本地化验收.md`](./phases/P12-本地化验收.md) | [`P12-save.md`](./phases/P12-save.md) → `v1.12`（**已关账**） | [`P12-验收清单.md`](./phases/P12-验收清单.md) |
-| 13 | [`P13-上架材料.md`](./phases/P13-上架材料.md) | [`P13-save.md`](./phases/P13-save.md) → `v1.13`（**进行中**） | [`P13-验收清单.md`](./phases/P13-验收清单.md) · [`P13-人工操作指南/`](./phases/P13-人工操作指南/00-README.md) · [`store-drafts/v1.13/`](./store-drafts/v1.13/) |
+| 13 | [`P13-上架材料.md`](./phases/P13-上架材料.md) | [`P13-save.md`](./phases/P13-save.md) → `v1.13`（**关账草案 / 待 push**） | [`P13-验收清单.md`](./phases/P13-验收清单.md) · [`P13-人工操作指南/`](./phases/P13-人工操作指南/00-README.md) · [`store-drafts/v1.13/`](./store-drafts/v1.13/) |
 
 小迭代上传索引（节选）：[`05-annotate-branch.md`](./05-annotate-branch.md)。

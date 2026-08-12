@@ -37,16 +37,22 @@ final class AppEnvironment: ObservableObject {
         self.gate = gate
         let clipboard = SecureClipboard()
         self.clipboard = clipboard
+        let entitlements = EntitlementService(modelContainer: modelContainer)
+        self.entitlements = entitlements
         self.vault = KeyVaultService(
             keychain: keychain,
             gate: gate,
             clipboard: clipboard,
-            modelContainer: modelContainer
+            modelContainer: modelContainer,
+            entitlements: entitlements
         )
         self.consumerTools = ConsumerToolService(modelContainer: modelContainer, gate: gate)
-        let entitlements = EntitlementService(modelContainer: modelContainer)
-        self.entitlements = entitlements
-        Task { await entitlements.startListening() }
+        Task {
+            await entitlements.startListening()
+            // 启动时纠偏：以 StoreKit currentEntitlements 为准，清掉脏的本地 unlimited 快照。
+            // 本地无限权益：Debug 下走付费墙正常购买（Scheme 已挂 ApiRelay.storekit）；不要启动参数后门。
+            try? await entitlements.refreshFromStore()
+        }
         self.preferences = PreferencesService(modelContainer: modelContainer)
         self.backups = SecureBackupService(
             gate: gate,

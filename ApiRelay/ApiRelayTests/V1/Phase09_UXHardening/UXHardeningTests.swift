@@ -19,6 +19,7 @@ final class UXHardeningTests: XCTestCase {
             deletedAt: Date(),
             purgeAfter: Date().addingTimeInterval(30 * 24 * 3600),
             spendLimit: nil,
+            notes: nil,
             secretAvailable: false,
             sortOrder: 0
         )

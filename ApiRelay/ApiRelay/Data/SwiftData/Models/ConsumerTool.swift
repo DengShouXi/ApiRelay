@@ -8,6 +8,8 @@ final class ConsumerTool {
     var iconSymbol: String?
     var isPreset: Bool = false
     var isHidden: Bool = false
+    /// 可选备注（非密文）。
+    var notes: String?
     var createdAt: Date = Date()
     var sortOrder: Int = 0
     /// 移入回收站时间；非 nil 表示软删除。
@@ -21,6 +23,7 @@ final class ConsumerTool {
         iconSymbol: String? = nil,
         isPreset: Bool = false,
         isHidden: Bool = false,
+        notes: String? = nil,
         createdAt: Date = Date(),
         sortOrder: Int = 0,
         deletedAt: Date? = nil,
@@ -31,6 +34,7 @@ final class ConsumerTool {
         self.iconSymbol = iconSymbol
         self.isPreset = isPreset
         self.isHidden = isHidden
+        self.notes = notes
         self.createdAt = createdAt
         self.sortOrder = sortOrder
         self.deletedAt = deletedAt

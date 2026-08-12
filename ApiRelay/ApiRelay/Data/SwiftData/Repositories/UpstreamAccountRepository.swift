@@ -36,12 +36,14 @@ actor UpstreamAccountRepository {
         }
         let id = UUID()
         let now = Date()
+        let trimmedNotes = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         let model = UpstreamAccount(
             id: id,
             platform: draft.platform,
             customPlatformName: draft.customPlatformName,
             displayName: trimmed,
             customBaseURL: draft.customBaseURL,
+            notes: (trimmedNotes?.isEmpty == false) ? trimmedNotes : nil,
             createdAt: now,
             updatedAt: now,
             sortOrder: draft.sortOrder
@@ -55,6 +57,13 @@ actor UpstreamAccountRepository {
         guard let model = try fetchModel(id: id) else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
         }
+        if let platform = patch.platform {
+            let trimmed = platform.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                throw ApiRelayError.validationFailed(field: "platform", reason: "required")
+            }
+            model.platform = trimmed
+        }
         if let name = patch.displayName {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty, trimmed.count <= 64 else {
@@ -62,9 +71,14 @@ actor UpstreamAccountRepository {
             }
             model.displayName = trimmed
         }
-        if let value = patch.customPlatformName { model.customPlatformName = value }
-        if let value = patch.customBaseURL { model.customBaseURL = value }
+        if let value = patch.customPlatformName {
+            model.customPlatformName = value.isEmpty ? nil : value
+        }
+        if let value = patch.customBaseURL {
+            model.customBaseURL = value.isEmpty ? nil : value
+        }
         if let value = patch.hasManagementCredential { model.hasManagementCredential = value }
+        if let value = patch.notes { model.notes = value.isEmpty ? nil : value }
         if let value = patch.sortOrder { model.sortOrder = value }
         model.updatedAt = Date()
         try modelContext.save()
@@ -113,6 +127,7 @@ actor UpstreamAccountRepository {
             displayName: model.displayName,
             customBaseURL: model.customBaseURL,
             hasManagementCredential: model.hasManagementCredential,
+            notes: model.notes,
             createdAt: model.createdAt,
             updatedAt: model.updatedAt,
             sortOrder: model.sortOrder,

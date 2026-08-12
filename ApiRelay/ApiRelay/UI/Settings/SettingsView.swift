@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -21,6 +22,8 @@ struct SettingsView: View {
     @State private var eraseStatus = ""
     @State private var restoreStatus = ""
     @State private var isRestoringPurchases = false
+    @State private var showPaywall = false
+    @State private var entitlementTier: EntitlementTier = .free
 
     var body: some View {
         NavigationStack {
@@ -50,6 +53,12 @@ struct SettingsView: View {
                 .task {
                     await reload()
                     await refreshMasterPasswordStatus()
+                    await refreshEntitlementTier()
+                }
+                .sheet(isPresented: $showPaywall, onDismiss: {
+                    Task { await refreshEntitlementTier() }
+                }) {
+                    PaywallView(environment: environment)
                 }
                 .confirmationDialog("settings.eraseAll.confirm", isPresented: $confirmErase) {
                     Button("settings.eraseAll", role: .destructive) {
@@ -148,16 +157,15 @@ struct SettingsView: View {
                         NavigationLink {
                             RevealPolicySettingsView(
                                 environment: environment,
-                                selection: Binding(
-                                    get: { self.prefs?.revealPolicy ?? .none },
-                                    set: { value in
-                                        if var current = self.prefs {
-                                            current.revealPolicy = value
-                                            self.prefs = current
-                                        }
-                                        Task { await save(PreferencesPatch(revealPolicy: value)) }
+                                currentPolicy: prefs.revealPolicy,
+                                applyPolicy: { value in
+                                    if var current = self.prefs {
+                                        current.revealPolicy = value
+                                        self.prefs = current
                                     }
-                                )
+                                    await save(PreferencesPatch(revealPolicy: value))
+                                    await refreshMasterPasswordStatus()
+                                }
                             )
                         } label: {
                             settingsLeading(
@@ -177,32 +185,47 @@ struct SettingsView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
 
-                        settingsDivider()
+                        // 仅在选用「主密码」验证时显示管理入口；Face ID 等策略下不单独挂「设主密码」。
+                        if prefs.revealPolicy == .masterPassword {
+                            settingsDivider()
 
-                        NavigationLink {
-                            MasterPasswordSettingsView(environment: environment) {
-                                await refreshMasterPasswordStatus()
+                            NavigationLink {
+                                MasterPasswordSettingsView(
+                                    environment: environment,
+                                    role: .manage
+                                ) {
+                                    await refreshMasterPasswordStatus()
+                                    // 重置后若仍卡在主密码档，回退验证方式，避免无法查看/复制。
+                                    let stillSet = (try? await environment.masterPassword.isSet()) ?? false
+                                    if !stillSet, self.prefs?.revealPolicy == .masterPassword {
+                                        if var current = self.prefs {
+                                            current.revealPolicy = RevealPolicy.none
+                                            self.prefs = current
+                                        }
+                                        await save(PreferencesPatch(revealPolicy: RevealPolicy.none))
+                                    }
+                                }
+                            } label: {
+                                settingsLeading(
+                                    icon: AppSymbols.Settings.masterPassword,
+                                    tint: .indigo,
+                                    title: "settings.masterPassword",
+                                    detail: "settings.masterPassword.rowDetail"
+                                )
+                                Spacer(minLength: 12)
+                                Text(
+                                    masterPasswordIsSet
+                                        ? String(localized: "settings.masterPassword.status.set")
+                                        : String(localized: "settings.masterPassword.status.unset")
+                                )
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                             }
-                        } label: {
-                            settingsLeading(
-                                icon: AppSymbols.Settings.masterPassword,
-                                tint: .indigo,
-                                title: "settings.masterPassword",
-                                detail: "settings.masterPassword.rowDetail"
-                            )
-                            Spacer(minLength: 12)
-                            Text(
-                                masterPasswordIsSet
-                                    ? String(localized: "settings.masterPassword.status.set")
-                                    : String(localized: "settings.masterPassword.status.unset")
-                            )
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
                         }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
 
                         settingsDivider()
 
@@ -315,6 +338,40 @@ struct SettingsView: View {
                     title: "settings.section.purchases",
                     footer: "settings.section.purchases.footer"
                 ) {
+                    Button {
+                        showPaywall = true
+                    } label: {
+                        settingsLeading(
+                            icon: AppSymbols.Settings.upgrade,
+                            tint: .orange,
+                            title: "settings.upgrade",
+                            detail: hasUnlimitedKeys
+                                ? "settings.upgrade.rowDetail.owned"
+                                : "settings.upgrade.rowDetail"
+                        )
+                        Spacer(minLength: 8)
+                        Text(
+                            hasUnlimitedKeys
+                                ? String(localized: "settings.upgrade.status.owned")
+                                : String(localized: "settings.upgrade.status.action")
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(hasUnlimitedKeys ? .secondary : Color.accentColor)
+                        .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .accessibilityHint(
+                        Text(
+                            hasUnlimitedKeys
+                                ? "settings.upgrade.rowDetail.owned"
+                                : "settings.upgrade.rowDetail"
+                        )
+                    )
+
+                    settingsDivider()
+
                     Button {
                         Task { await restorePurchasesFromSettings() }
                     } label: {
@@ -623,6 +680,14 @@ struct SettingsView: View {
         masterPasswordIsSet = (try? await environment.masterPassword.isSet()) ?? false
     }
 
+    private var hasUnlimitedKeys: Bool {
+        entitlementTier == .unlimitedKeys || entitlementTier == .relay
+    }
+
+    private func refreshEntitlementTier() async {
+        entitlementTier = (try? await environment.entitlements.currentTier()) ?? .free
+    }
+
     /// FR-028：设置内始终可达的恢复购买（不依赖免费额度条 / 付费墙）。
     private func restorePurchasesFromSettings() async {
         restoreStatus = ""
@@ -630,6 +695,7 @@ struct SettingsView: View {
         defer { isRestoringPurchases = false }
         do {
             try await environment.entitlements.restorePurchases()
+            await refreshEntitlementTier()
             restoreStatus = String(localized: "settings.restorePurchases.done")
         } catch {
             restoreStatus = error.localizedDescription
@@ -641,8 +707,25 @@ struct SettingsView: View {
 
 private struct RevealPolicySettingsView: View {
     let environment: AppEnvironment
-    @Binding var selection: RevealPolicy
+    let currentPolicy: RevealPolicy
+    /// 写入偏好并刷新状态；调用方 MUST await，保证设密成功后再落盘。
+    let applyPolicy: (RevealPolicy) async -> Void
+
     @Environment(\.dismiss) private var dismiss
+    /// 选「主密码」且尚未设密 → 推进到下一步设密页（不是先改策略）。
+    @State private var goSetMasterPassword = false
+    @State private var highlightedPolicy: RevealPolicy
+
+    init(
+        environment: AppEnvironment,
+        currentPolicy: RevealPolicy,
+        applyPolicy: @escaping (RevealPolicy) async -> Void
+    ) {
+        self.environment = environment
+        self.currentPolicy = currentPolicy
+        self.applyPolicy = applyPolicy
+        _highlightedPolicy = State(initialValue: currentPolicy)
+    }
 
     var body: some View {
         List {
@@ -671,6 +754,18 @@ private struct RevealPolicySettingsView: View {
         #if os(iOS) || targetEnvironment(macCatalyst)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .navigationDestination(isPresented: $goSetMasterPassword) {
+            // 与设置页「主密码」同一界面：首次设密也走这里，避免两套表单。
+            MasterPasswordSettingsView(
+                environment: environment,
+                role: .setupForPolicy,
+                onChanged: {},
+                onSetupComplete: {
+                    await applyPolicy(.masterPassword)
+                    highlightedPolicy = .masterPassword
+                }
+            )
+        }
     }
 
     @ViewBuilder
@@ -709,8 +804,7 @@ private struct RevealPolicySettingsView: View {
         detail: LocalizedStringKey
     ) -> some View {
         Button {
-            selection = value
-            dismiss()
+            Task { await selectPolicy(value) }
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -722,7 +816,7 @@ private struct RevealPolicySettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
-                if selection == value {
+                if highlightedPolicy == value {
                     Image(systemName: AppSymbols.Settings.checkmark)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Color.accentColor)
@@ -732,18 +826,62 @@ private struct RevealPolicySettingsView: View {
         }
         .buttonStyle(.plain)
     }
+
+    /// 未设主密码时：只进入设密下一步，不改 `revealPolicy`。
+    /// 已设主密码 / 其他档：直接应用并返回。
+    private func selectPolicy(_ value: RevealPolicy) async {
+        if value == .masterPassword {
+            let isSet = (try? await environment.masterPassword.isSet()) ?? false
+            if !isSet {
+                goSetMasterPassword = true
+                return
+            }
+        }
+        await applyPolicy(value)
+        highlightedPolicy = value
+        dismiss()
+    }
 }
 
 // MARK: - Master password
 
+/// 主密码唯一界面：首次设密（从验证方式进入）与日常修改/重置共用。
+private enum MasterPasswordScreenRole {
+    /// 验证方式 → 主密码：尚未设密时的下一步。
+    case setupForPolicy
+    /// 设置页「主密码」行：修改 / 重置。
+    case manage
+}
+
 private struct MasterPasswordSettingsView: View {
     let environment: AppEnvironment
+    var role: MasterPasswordScreenRole = .manage
     let onChanged: () async -> Void
+    /// 仅 `setupForPolicy`：设密成功并落盘策略后调用。
+    var onSetupComplete: (() async -> Void)? = nil
 
+    @Environment(\.dismiss) private var dismiss
     @State private var password = ""
     @State private var confirm = ""
-    @State private var status = ""
     @State private var isSaving = false
+    @State private var passwordAlreadySet = false
+    @State private var showSuccessAlert = false
+    @State private var showFailureAlert = false
+    @State private var showResetDoneAlert = false
+    @State private var failureReason = ""
+
+    private var footerKey: LocalizedStringKey {
+        switch role {
+        case .setupForPolicy:
+            return "settings.policy.masterPassword.setupHint"
+        case .manage:
+            return "vault.masterPassword.disclosure"
+        }
+    }
+
+    private var showsReset: Bool {
+        role == .manage && passwordAlreadySet
+    }
 
     var body: some View {
         Form {
@@ -755,20 +893,14 @@ private struct MasterPasswordSettingsView: View {
                 }
                 .disabled(isSaving || password.isEmpty || confirm.isEmpty)
             } footer: {
-                Text("vault.masterPassword.disclosure")
+                Text(footerKey)
             }
 
-            Section {
-                Button("settings.masterPassword.reset", role: .destructive) {
-                    Task { await reset() }
-                }
-            }
-
-            if !status.isEmpty {
+            if showsReset {
                 Section {
-                    Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    Button("settings.masterPassword.reset", role: .destructive) {
+                        Task { await reset() }
+                    }
                 }
             }
         }
@@ -776,12 +908,36 @@ private struct MasterPasswordSettingsView: View {
         #if os(iOS) || targetEnvironment(macCatalyst)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .task {
+            passwordAlreadySet = (try? await environment.masterPassword.isSet()) ?? false
+        }
+        .alert("settings.masterPassword.saveSuccess.title", isPresented: $showSuccessAlert) {
+            Button("settings.done") {
+                if role == .setupForPolicy {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(
+                role == .setupForPolicy
+                    ? "settings.masterPassword.saveSuccess.message"
+                    : "settings.masterPassword.saved"
+            )
+        }
+        .alert("settings.masterPassword.saveFailed.title", isPresented: $showFailureAlert) {
+            Button("settings.done", role: .cancel) {}
+        } message: {
+            Text(failureReason)
+        }
+        .alert("settings.masterPassword.resetDone", isPresented: $showResetDoneAlert) {
+            Button("settings.done", role: .cancel) {}
+        }
     }
 
     private func save() async {
-        status = ""
         guard password == confirm else {
-            status = String(localized: "settings.masterPassword.mismatch")
+            failureReason = String(localized: "settings.masterPassword.mismatch")
+            showFailureAlert = true
             return
         }
         isSaving = true
@@ -790,15 +946,21 @@ private struct MasterPasswordSettingsView: View {
             try await environment.masterPassword.setPassword(password)
             password = ""
             confirm = ""
-            status = String(localized: "settings.masterPassword.saved")
-            await onChanged()
+            passwordAlreadySet = true
+            switch role {
+            case .setupForPolicy:
+                await onSetupComplete?()
+            case .manage:
+                await onChanged()
+            }
+            showSuccessAlert = true
         } catch {
-            status = error.localizedDescription
+            failureReason = error.localizedDescription
+            showFailureAlert = true
         }
     }
 
     private func reset() async {
-        status = ""
         do {
             try await environment.gate.confirmMandatory(
                 reason: String(localized: "gate.resetMasterPassword")
@@ -806,10 +968,14 @@ private struct MasterPasswordSettingsView: View {
             try await environment.masterPassword.reset()
             password = ""
             confirm = ""
-            status = String(localized: "settings.masterPassword.resetDone")
+            passwordAlreadySet = false
             await onChanged()
+            showResetDoneAlert = true
+        } catch ApiRelayError.authenticationCancelled {
+            // 用户取消设备验证，无提示
         } catch {
-            status = error.localizedDescription
+            failureReason = error.localizedDescription
+            showFailureAlert = true
         }
     }
 }
@@ -867,54 +1033,260 @@ private struct BackupSettingsView: View {
 struct PaywallView: View {
     let environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var message = ""
+    @State private var product: Product?
+    @State private var isLoadingProduct = true
+    @State private var isPurchasing = false
+    @State private var isRestoring = false
+    @State private var alreadyOwned = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text("paywall.title").font(.title2.bold())
-                Text("paywall.body").multilineTextAlignment(.center)
-                Button("paywall.buy") {
-                    Task {
-                        do {
-                            try await environment.entitlements.purchaseUnlimitedKeys()
-                            message = String(localized: "paywall.success")
-                        } catch {
-                            message = error.localizedDescription
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("paywall.body")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if isLoadingProduct {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                    } else {
+                        unlimitedPlanCard
+                        relayComingSoonCard
+                    }
+
+                    Button {
+                        Task { await purchase() }
+                    } label: {
+                        Group {
+                            if isPurchasing {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else if alreadyOwned {
+                                Text("paywall.owned")
+                                    .frame(maxWidth: .infinity)
+                            } else if let product {
+                                Text("paywall.upgradeWithPrice \(product.displayPrice)")
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text("paywall.upgrade")
+                                    .frame(maxWidth: .infinity)
+                            }
                         }
+                        .font(.body.weight(.semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(isPurchasing || isRestoring || product == nil || alreadyOwned)
+
+                    Button("paywall.restore") {
+                        Task { await restore() }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .disabled(isPurchasing || isRestoring)
+
+                    if !message.isEmpty {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                Button("paywall.restore") {
-                    Task {
-                        do {
-                            try await environment.entitlements.restorePurchases()
-                            message = String(localized: "paywall.restored")
-                        } catch {
-                            message = error.localizedDescription
-                        }
-                    }
-                }
-                #if DEBUG
-                Button("paywall.debugUnlimited") {
-                    Task {
-                        try? await environment.entitlements.debugOverride(tier: .unlimitedKeys)
-                        message = "DEBUG unlimited"
-                    }
-                }
-                #endif
-                if !message.isEmpty {
-                    Text(message).font(.footnote)
-                }
-                Spacer()
+                .padding(20)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
             }
-            .padding()
+            .background(paywallBackground.ignoresSafeArea())
             .navigationTitle("paywall.nav")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("gate.cancel") { dismiss() }
                 }
             }
+            .task {
+                await loadProductAndTier()
+            }
+        }
+    }
+
+    private var unlimitedPlanCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("paywall.plan.unlimited.title")
+                    .font(.headline)
+                Spacer(minLength: 8)
+                if alreadyOwned {
+                    Text("paywall.plan.badge.owned")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.green.opacity(0.15))
+                        )
+                } else {
+                    Text("paywall.plan.badge.current")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.accentColor.opacity(0.12))
+                        )
+                }
+            }
+
+            Text("paywall.plan.unlimited.detail")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if let product {
+                    Text(product.displayPrice)
+                        .font(.title2.weight(.bold))
+                    Text("paywall.plan.once")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("paywall.productUnavailable")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.top, 2)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(paywallCardFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(alreadyOwned ? 0.15 : 0.35), lineWidth: 1)
+        )
+    }
+
+    private var relayComingSoonCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("paywall.plan.relay.title")
+                    .font(.headline)
+                Spacer(minLength: 8)
+                Text("paywall.plan.badge.comingSoon")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.secondary.opacity(0.12))
+                    )
+            }
+
+            Text("paywall.plan.relay.detail")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(paywallCardFill.opacity(0.7))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
+        .opacity(0.85)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var paywallBackground: Color {
+        if colorScheme == .dark {
+            return Color(white: 0.14)
+        }
+        #if canImport(UIKit) && !os(watchOS)
+        return Color(uiColor: .systemGroupedBackground)
+        #else
+        return Color(red: 0.949, green: 0.949, blue: 0.969)
+        #endif
+    }
+
+    private var paywallCardFill: Color {
+        if colorScheme == .dark {
+            return Color(white: 0.18)
+        }
+        #if canImport(UIKit)
+        return Color(uiColor: .secondarySystemGroupedBackground)
+        #elseif canImport(AppKit)
+        return Color(nsColor: .textBackgroundColor)
+        #else
+        return Color.white
+        #endif
+    }
+
+    private func loadProductAndTier() async {
+        isLoadingProduct = true
+        defer { isLoadingProduct = false }
+        do {
+            let tier = try await environment.entitlements.currentTier()
+            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
+            let products = try await Product.products(
+                for: [EntitlementService.unlimitedKeysProductID]
+            )
+            product = products.first
+            if products.isEmpty {
+                message = String(localized: "paywall.productUnavailable")
+            }
+        } catch {
+            message = error.localizedDescription
+            product = nil
+        }
+    }
+
+    private func purchase() async {
+        message = ""
+        isPurchasing = true
+        defer { isPurchasing = false }
+        do {
+            try await environment.entitlements.purchaseUnlimitedKeys()
+            let tier = try await environment.entitlements.currentTier()
+            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
+            message = String(localized: "paywall.success")
+            if alreadyOwned {
+                dismiss()
+            }
+        } catch ApiRelayError.authenticationCancelled {
+            // 用户取消，不刷错误文案
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    private func restore() async {
+        message = ""
+        isRestoring = true
+        defer { isRestoring = false }
+        do {
+            try await environment.entitlements.restorePurchases()
+            let tier = try await environment.entitlements.currentTier()
+            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
+            message = String(localized: "paywall.restored")
+        } catch {
+            message = error.localizedDescription
         }
     }
 }

@@ -74,7 +74,7 @@ actor APIKeyRecordRepository {
         if let value = patch.maskedHint { model.maskedHint = value }
         if let value = patch.lifecycle { model.lifecycle = value.rawValue }
         if let value = patch.spendLimit { model.spendLimit = value }
-        if let value = patch.notes { model.notes = value }
+        if let value = patch.notes { model.notes = value.isEmpty ? nil : value }
         if let value = patch.deletedAt { model.deletedAt = value }
         if let value = patch.purgeAfter { model.purgeAfter = value }
         if let value = patch.healthState { model.healthState = value.rawValue }
@@ -137,13 +137,20 @@ actor APIKeyRecordRepository {
     }
 
     /// 弱重复：同账号、相同末 4 位掩码、相同 secretLength（FR-057）。
-    func findWeakDuplicate(accountId: UUID, last4: String, length: Int) throws -> UUID? {
+    /// - Parameter excludingId: 编辑换密时排除自身，避免误报重复。
+    func findWeakDuplicate(
+        accountId: UUID,
+        last4: String,
+        length: Int,
+        excludingId: UUID? = nil
+    ) throws -> UUID? {
         let all = try modelContext.fetch(FetchDescriptor<APIKeyRecord>())
         return all.first {
             $0.accountId == accountId
                 && $0.lifecycle != KeyLifecycle.softDeleted.rawValue
                 && $0.maskedHint == last4
                 && $0.secretLength == length
+                && $0.id != excludingId
         }?.id
     }
 
@@ -191,6 +198,7 @@ actor APIKeyRecordRepository {
             deletedAt: model.deletedAt,
             purgeAfter: model.purgeAfter,
             spendLimit: model.spendLimit,
+            notes: model.notes,
             secretAvailable: false,
             sortOrder: model.sortOrder
         )

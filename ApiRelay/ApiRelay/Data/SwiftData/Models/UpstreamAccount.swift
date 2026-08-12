@@ -9,6 +9,8 @@ final class UpstreamAccount {
     var displayName: String = ""
     var customBaseURL: String?
     var hasManagementCredential: Bool = false
+    /// 可选备注（非密文）。
+    var notes: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var sortOrder: Int = 0
@@ -24,6 +26,7 @@ final class UpstreamAccount {
         displayName: String,
         customBaseURL: String? = nil,
         hasManagementCredential: Bool = false,
+        notes: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         sortOrder: Int = 0,
@@ -36,6 +39,7 @@ final class UpstreamAccount {
         self.displayName = displayName
         self.customBaseURL = customBaseURL
         self.hasManagementCredential = hasManagementCredential
+        self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.sortOrder = sortOrder

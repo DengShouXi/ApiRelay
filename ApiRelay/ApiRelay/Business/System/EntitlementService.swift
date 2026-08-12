@@ -42,14 +42,14 @@ actor EntitlementService: EntitlementServing {
 
     func currentTier() async throws -> EntitlementTier {
         #if DEBUG
-        if let debugTier { return debugTier }
-        #endif
-        if let live = await tierFromStoreKit() {
-            try await snapshot.update(tier: live, source: "storekit")
-            return live == .relay ? .unlimitedKeys : live
+        if let debugTier {
+            return Self.canonicalize(debugTier)
         }
-        let snap = try await snapshot.loadOrCreate()
-        return snap.tier == .relay ? .unlimitedKeys : snap.tier
+        #endif
+        // StoreKit currentEntitlements 含本地缓存；空序列 = 未购，须写回 snapshot，避免脏 unlimited 永久放行。
+        let live = Self.canonicalize(await tierFromStoreKit())
+        try await snapshot.update(tier: live, source: "storekit")
+        return live
     }
 
     func refreshFromStore() async throws {
@@ -62,8 +62,10 @@ actor EntitlementService: EntitlementServing {
     }
 
     func purchaseUnlimitedKeys() async throws {
-        guard let product = try await Product.products(for: [Self.unlimitedKeysProductID]).first else {
-            throw ApiRelayError.validationFailed(field: "product", reason: "not_found")
+        let products = try await Product.products(for: [Self.unlimitedKeysProductID])
+        guard let product = products.first else {
+            // StoreKit 拉不到商品：常见于 ASC 未建 IAP / 未就绪 / 未用沙盒账号（TestFlight）。
+            throw ApiRelayError.validationFailed(field: "product", reason: "storekit_product_unavailable")
         }
         let result = try await product.purchase()
         switch result {
@@ -71,43 +73,50 @@ actor EntitlementService: EntitlementServing {
             if case .verified(let transaction) = verification {
                 await handle(transaction: transaction)
                 await transaction.finish()
+            } else {
+                throw ApiRelayError.validationFailed(field: "product", reason: "unverified_transaction")
             }
         case .userCancelled:
             throw ApiRelayError.authenticationCancelled
         case .pending:
-            break
+            throw ApiRelayError.validationFailed(field: "product", reason: "purchase_pending")
         @unknown default:
-            break
+            throw ApiRelayError.validationFailed(field: "product", reason: "purchase_unknown")
         }
     }
 
     #if DEBUG
     func debugOverride(tier: EntitlementTier?) async throws {
-        debugTier = tier
+        debugTier = tier.map(Self.canonicalize)
         if let tier {
-            try await snapshot.update(tier: tier, source: "debugOverride")
+            try await snapshot.update(tier: Self.canonicalize(tier), source: "debugOverride")
+        } else {
+            let live = Self.canonicalize(await tierFromStoreKit())
+            try await snapshot.update(tier: live, source: "storekit")
         }
     }
     #endif
 
-    private func tierFromStoreKit() async -> EntitlementTier? {
-        var sawVerified = false
+    /// 无有效买断交易 → `.free`（不得返回 nil 去「信脏 snapshot」）。
+    private func tierFromStoreKit() async -> EntitlementTier {
         for await result in Transaction.currentEntitlements {
-            if case .verified(let transaction) = result {
-                sawVerified = true
-                if transaction.productID == Self.unlimitedKeysProductID {
-                    return .unlimitedKeys
-                }
+            if case .verified(let transaction) = result,
+               transaction.productID == Self.unlimitedKeysProductID {
+                return .unlimitedKeys
             }
         }
-        // 无已验证交易时返回 nil，让离线 snapshot 兜底（含 DEBUG / 测试写入）。
-        return sawVerified ? .free : nil
+        return .free
     }
 
     private func handle(transaction: Transaction) async {
         let tier: EntitlementTier = (transaction.productID == Self.unlimitedKeysProductID)
             ? .unlimitedKeys
             : .free
-        try? await snapshot.update(tier: tier, source: "storekit")
+        try? await snapshot.update(tier: Self.canonicalize(tier), source: "storekit")
+    }
+
+    /// V1 不暴露 `.relay`：一律视为无限密钥档。
+    private static func canonicalize(_ tier: EntitlementTier) -> EntitlementTier {
+        tier == .relay ? .unlimitedKeys : tier
     }
 }

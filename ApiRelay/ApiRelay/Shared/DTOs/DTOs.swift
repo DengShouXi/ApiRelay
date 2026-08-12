@@ -15,6 +15,7 @@ struct KeyRecordDTO: Identifiable, Sendable {
     let deletedAt: Date?             // 进回收站时间；非 softDeleted 时为 nil
     let purgeAfter: Date?            // 永久清除截止；UI 用以展示剩余天数
     let spendLimit: Decimal?
+    let notes: String?               // 可选备注（非密文）
     let secretAvailable: Bool        // 本机 Keychain 是否有对应明文
     let sortOrder: Int               // 分区内手动排序；越小越靠前
 }

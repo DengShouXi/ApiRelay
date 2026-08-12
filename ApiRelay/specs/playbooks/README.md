@@ -10,14 +10,39 @@
 
 **每个小阶段写完 → 必须用对应 `P0N-save.md` 打分支并上传**（规划 `plan.3` 也一样）。
 
-**禁止**再新建旧名 `v0.0.N` / `v0.1.N` / `v0.2.N` / `v0.3.N`（现行名见上表）。
+**禁止**再新建旧名 `v0.0.N` / `v0.1.N` / `v0.2.N` / `v0.3.N`（现行名见 [BRANCHES.md](./BRANCHES.md)）。
 
-## 目录
+## 大阶段进度
+
+| 阶段 | 目录 | tip | 状态 | 商店版本 |
+|------|------|-----|------|----------|
+| 规划 | [`v0-planning/`](./v0-planning/) | `plan` | **已完成**（`plan.1`–`plan.2`） | — |
+| Stage1 密钥库 | [`v1-key-vault/`](./v1-key-vault/) | `v1` | **开发 + 上架材料已完成**（末迭代 `v1.13`） | 目标 **1.0.0**（尚未 T062 送审） |
+| Stage2 用量看板 | [`v2-usage-insights/`](./v2-usage-insights/) | `v2` | tip 已开；Stage1 送审就绪后再深做 | 目标 **2.0.0** |
+| Stage3 中转 | [`v3-relay-service/`](./v3-relay-service/) | `v3` | 未开工 | 目标 **3.0.0** |
+
+### Stage1 已完成意味着什么
+
+- 小迭代 **`v1.1` … `v1.13`** 全部关账：实现、安全审查、本地化、商店材料（T063–T066）与上架前产品收口均已到位。  
+- **不等于**已上架：未合并 `main`、未打 `release/1.0.0`、未点 ASC「提交以供审核」。
+
+**Stage1 收尾顺序（仍须按序）**：
+
+```text
+P13-save → v1.13 + tip v1
+  → 10-verify（总验收）
+  → 12-release-T062（须明确授权：main + release/1.0.0 + 提交审核）
+  → 20-push → 30/40 → 进入 Stage2
+```
+
+入口：[`v1-key-vault/00-README.md`](./v1-key-vault/00-README.md)
+
+## 目录速查
 
 | 目录 | 大阶段 tip | 小迭代例子 |
 |------|------------|------------|
 | [`v0-planning/`](./v0-planning/) | `plan` | `plan.1` … `plan.3` … |
-| [`v1-key-vault/`](./v1-key-vault/) | `v1` | `v1.1` … `v1.13`（材料）→ `10-verify` → `12-release-T062` … |
+| [`v1-key-vault/`](./v1-key-vault/) | `v1` | `v1.1` … **`v1.13`（已完成）** → `10-verify` → `12-release-T062` … |
 | [`v2-usage-insights/`](./v2-usage-insights/) | `v2` | `v2.1` … |
 | [`v3-relay-service/`](./v3-relay-service/) | `v3` | `v3.1` … |
 

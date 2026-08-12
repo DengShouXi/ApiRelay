@@ -32,11 +32,13 @@ actor ConsumerToolRepository {
             throw ApiRelayError.validationFailed(field: "name", reason: "required_1_to_48")
         }
         let id = UUID()
+        let trimmedNotes = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         let model = ConsumerTool(
             id: id,
             name: trimmed,
             iconSymbol: draft.iconSymbol,
             isPreset: draft.isPreset,
+            notes: (trimmedNotes?.isEmpty == false) ? trimmedNotes : nil,
             sortOrder: draft.sortOrder
         )
         modelContext.insert(model)
@@ -57,6 +59,7 @@ actor ConsumerToolRepository {
         }
         if let value = patch.iconSymbol { model.iconSymbol = value }
         if let value = patch.isHidden { model.isHidden = value }
+        if let value = patch.notes { model.notes = value.isEmpty ? nil : value }
         if let value = patch.sortOrder { model.sortOrder = value }
         try modelContext.save()
     }
@@ -108,6 +111,7 @@ actor ConsumerToolRepository {
             iconSymbol: model.iconSymbol,
             isPreset: model.isPreset,
             isHidden: model.isHidden,
+            notes: model.notes,
             createdAt: model.createdAt,
             sortOrder: model.sortOrder,
             deletedAt: model.deletedAt,

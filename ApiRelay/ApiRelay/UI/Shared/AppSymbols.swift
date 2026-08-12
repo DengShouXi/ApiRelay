@@ -28,6 +28,7 @@ enum AppSymbols: Sendable {
         nonisolated static let searchClear = "xmark.circle.fill"
         nonisolated static let copy = "doc.on.doc"
         nonisolated static let reveal = "eye"
+        nonisolated static let edit = "pencil"
         nonisolated static let assign = "link"
         nonisolated static let chevronRight = "chevron.right"
         nonisolated static let chevronDown = "chevron.down"
@@ -72,6 +73,7 @@ enum AppSymbols: Sendable {
         nonisolated static let hideInAppSwitcher = "eye.slash.fill"
         nonisolated static let manageTools = "wrench.and.screwdriver.fill"
         nonisolated static let backup = "externaldrive.fill.badge.checkmark"
+        nonisolated static let upgrade = "arrow.up.circle.fill"
         nonisolated static let restorePurchases = "arrow.clockwise.circle.fill"
         nonisolated static let eraseAll = "trash.fill"
         nonisolated static let account = Action.account

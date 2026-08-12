@@ -15,11 +15,13 @@ final class KeyVaultServiceTests: XCTestCase {
         try? await master.reset()
         let gate = RevealGate(masterPassword: master) { _, _ in /* always succeed */ }
         let clipboard = SecureClipboard()
+        let entitlements = EntitlementService(modelContainer: container)
         vault = KeyVaultService(
             keychain: keychain,
             gate: gate,
             clipboard: clipboard,
-            modelContainer: container
+            modelContainer: container,
+            entitlements: entitlements
         )
         // Ensure free tier
         let entitlement = EntitlementSnapshotRepository(modelContainer: container)
@@ -46,6 +48,30 @@ final class KeyVaultServiceTests: XCTestCase {
                 secret: "sk-test-secret-4aaa"
             )
             XCTFail("expected quotaExceeded")
+        } catch let ApiRelayError.quotaExceededFreeTier(limit) {
+            XCTAssertEqual(limit, 3)
+        }
+    }
+
+    func testStaleUnlimitedSnapshotStillEnforcesFreeQuota() async throws {
+        let entitlement = EntitlementSnapshotRepository(modelContainer: container)
+        try await entitlement.update(tier: .unlimitedKeys, source: "stale")
+
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "B")
+        )
+        for i in 1...3 {
+            _ = try await vault.createKey(
+                KeyDraft(accountId: accountId, displayName: "s\(i)"),
+                secret: "sk-stale-secret-\(i)aaa"
+            )
+        }
+        do {
+            _ = try await vault.createKey(
+                KeyDraft(accountId: accountId, displayName: "s4"),
+                secret: "sk-stale-secret-4aaa"
+            )
+            XCTFail("expected quotaExceeded despite stale unlimited snapshot")
         } catch let ApiRelayError.quotaExceededFreeTier(limit) {
             XCTAssertEqual(limit, 3)
         }
@@ -126,5 +152,81 @@ final class KeyVaultServiceTests: XCTestCase {
         try await prefs.update(patch)
         let secret = try await vault.revealSecret(keyId: keyId, purpose: .display, masterPassword: nil)
         XCTAssertEqual(secret, "sk-gated-wwwwww")
+    }
+
+    func testEditKeyUpdatesNameSecretPlatformAndAccount() async throws {
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "Acct Old")
+        )
+        let keyId = try await vault.createKey(
+            KeyDraft(accountId: accountId, displayName: "Key Old"),
+            secret: "sk-old-secret-aaaa"
+        )
+
+        try await vault.editKey(
+            keyId,
+            draft: KeyEditDraft(
+                displayName: "Key New",
+                secret: "sk-new-secret-bbbb",
+                notes: "team laptop",
+                accountDisplayName: "Acct New",
+                platform: "anthropic"
+            )
+        )
+
+        let keys = try await vault.keys(in: accountId)
+        XCTAssertEqual(keys.count, 1)
+        XCTAssertEqual(keys[0].displayName, "Key New")
+        XCTAssertEqual(keys[0].maskedHint, "bbbb")
+        XCTAssertEqual(keys[0].notes, "team laptop")
+        let revealed = try await vault.revealSecret(keyId: keyId, purpose: .display, masterPassword: nil)
+        XCTAssertEqual(revealed, "sk-new-secret-bbbb")
+
+        let accounts = try await vault.accounts()
+        let account = try XCTUnwrap(accounts.first { $0.id == accountId })
+        XCTAssertEqual(account.displayName, "Acct New")
+        XCTAssertEqual(account.platform, "anthropic")
+    }
+
+    func testUpdateAccountChangesPlatformAndDisplayName() async throws {
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "Old")
+        )
+        try await vault.updateAccount(
+            accountId,
+            patch: UpstreamAccountPatch(
+                platform: "deepseek",
+                displayName: "New",
+                notes: "work laptop"
+            )
+        )
+        let accounts = try await vault.accounts()
+        let account = try XCTUnwrap(accounts.first { $0.id == accountId })
+        XCTAssertEqual(account.platform, "deepseek")
+        XCTAssertEqual(account.displayName, "New")
+        XCTAssertEqual(account.notes, "work laptop")
+    }
+
+    func testEditKeyKeepsSecretWhenBlank() async throws {
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "A")
+        )
+        let keyId = try await vault.createKey(
+            KeyDraft(accountId: accountId, displayName: "k1"),
+            secret: "sk-keep-zzzzzzzz"
+        )
+        try await vault.editKey(
+            keyId,
+            draft: KeyEditDraft(
+                displayName: "k1-renamed",
+                secret: "   ",
+                accountDisplayName: "A",
+                platform: "openai"
+            )
+        )
+        let revealed = try await vault.revealSecret(keyId: keyId, purpose: .display, masterPassword: nil)
+        XCTAssertEqual(revealed, "sk-keep-zzzzzzzz")
+        let keys = try await vault.keys(in: accountId)
+        XCTAssertEqual(keys.first?.displayName, "k1-renamed")
     }
 }

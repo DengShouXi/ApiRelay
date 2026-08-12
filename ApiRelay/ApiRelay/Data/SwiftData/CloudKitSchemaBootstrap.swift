@@ -8,7 +8,7 @@ import SwiftData
 /// `APIRELAY_CLOUDKIT_SCHEMA_BOOTSTRAP=1` 可强制再跑。
 /// Production 侧仍须在 Console 再 Deploy 一次。
 enum CloudKitSchemaBootstrap {
-    private static let defaultsKey = "ApiRelay.cloudKitSchemaBootstrap.v1"
+    private static let defaultsKey = "ApiRelay.cloudKitSchemaBootstrap.v2"
 
     @MainActor
     static func runIfNeeded(container: ModelContainer) {
@@ -23,12 +23,23 @@ enum CloudKitSchemaBootstrap {
         let context = ModelContext(container)
         do {
             try seedAPIKeyOptionalFields(in: context)
+            try seedAccountAndToolNotes(in: context)
             try seedDeferredSyncedTypes(in: context)
             try context.save()
             UserDefaults.standard.set(true, forKey: defaultsKey)
             print("[ApiRelay] CloudKitSchemaBootstrap: saved — wait for export, then check Development schema / Deploy")
         } catch {
             print("[ApiRelay] CloudKitSchemaBootstrap failed: \(error)")
+        }
+    }
+
+    private static func seedAccountAndToolNotes(in context: ModelContext) throws {
+        for account in try context.fetch(FetchDescriptor<UpstreamAccount>()) {
+            if account.notes == nil { account.notes = "schemaBootstrap" }
+            account.updatedAt = Date()
+        }
+        for tool in try context.fetch(FetchDescriptor<ConsumerTool>()) {
+            if tool.notes == nil { tool.notes = "schemaBootstrap" }
         }
     }
 

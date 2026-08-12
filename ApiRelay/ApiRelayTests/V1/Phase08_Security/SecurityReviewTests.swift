@@ -13,12 +13,14 @@ final class SecurityReviewTests: XCTestCase {
             maskedHint: "abcd", origin: .manualEntry, providerKeyRef: nil,
             lifecycle: .active,
             health: KeyHealthDTO(state: .unknown, lastCheckedAt: nil, lastCheckNote: nil),
-            deletedAt: nil, purgeAfter: nil, spendLimit: nil, secretAvailable: false, sortOrder: 0
+            deletedAt: nil, purgeAfter: nil, spendLimit: nil, notes: nil,
+            secretAvailable: false, sortOrder: 0
         ))
         let labels = Set(mirror.children.compactMap(\.label))
         XCTAssertFalse(labels.contains("secret"))
         XCTAssertFalse(labels.contains("apiKey"))
         XCTAssertTrue(labels.contains("maskedHint"))
+        XCTAssertTrue(labels.contains("notes"))
     }
 
     func testMasterPasswordNotSynchronizable() async throws {

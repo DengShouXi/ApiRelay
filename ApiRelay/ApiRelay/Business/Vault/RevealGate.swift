@@ -55,8 +55,18 @@ actor RevealGate: RevealGateServing {
     /// 主密码档：由 UI 传入口令，服务内校验；不经 LA。
     func confirmWithMasterPassword(reason: String, password: String) async throws {
         _ = reason
+        guard try await masterPassword.isSet() else {
+            throw ApiRelayError.validationFailed(field: "revealPolicy", reason: "master_password_not_set")
+        }
         let ok = try await masterPassword.verify(password)
         guard ok else { throw ApiRelayError.authenticationFailed }
+    }
+
+    /// 选用主密码门闩前确认本机已设密（防策略已写、密未设的卡死态）。
+    func ensureMasterPasswordConfigured() async throws {
+        guard try await masterPassword.isSet() else {
+            throw ApiRelayError.validationFailed(field: "revealPolicy", reason: "master_password_not_set")
+        }
     }
 
     func confirmMandatory(reason: String) async throws {

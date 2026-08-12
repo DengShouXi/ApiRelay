@@ -13,7 +13,8 @@ final class DataLifecycleTests: XCTestCase {
             keychain: keychain,
             gate: gate,
             clipboard: SecureClipboard(),
-            modelContainer: container
+            modelContainer: container,
+            entitlements: EntitlementService(modelContainer: container)
         )
         var patch = PreferencesPatch()
         patch.revealPolicy = .none

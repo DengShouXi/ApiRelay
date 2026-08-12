@@ -11,13 +11,14 @@ actor KeyVaultService: KeyVaultServing {
     private let keysRepo: APIKeyRecordRepository
     private let assignmentsRepo: KeyAssignmentRepository
     private let userPrefsRepo: UserPreferencesRepository
-    private let entitlementRepo: EntitlementSnapshotRepository
+    private let entitlements: EntitlementServing
 
     init(
         keychain: KeychainStore,
         gate: RevealGate,
         clipboard: ClipboardServing,
-        modelContainer: ModelContainer
+        modelContainer: ModelContainer,
+        entitlements: EntitlementServing
     ) {
         self.keychain = keychain
         self.gate = gate
@@ -26,7 +27,7 @@ actor KeyVaultService: KeyVaultServing {
         self.keysRepo = APIKeyRecordRepository(modelContainer: modelContainer)
         self.assignmentsRepo = KeyAssignmentRepository(modelContainer: modelContainer)
         self.userPrefsRepo = UserPreferencesRepository(modelContainer: modelContainer)
-        self.entitlementRepo = EntitlementSnapshotRepository(modelContainer: modelContainer)
+        self.entitlements = entitlements
     }
 
     func accounts() async throws -> [UpstreamAccountDTO] {
@@ -43,6 +44,19 @@ actor KeyVaultService: KeyVaultServing {
 
     func createAccount(_ draft: UpstreamAccountDraft) async throws -> UUID {
         try await accountsRepo.insert(draft)
+    }
+
+    func updateAccount(_ id: UUID, patch: UpstreamAccountPatch) async throws {
+        guard try await accountsRepo.fetch(id: id) != nil else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        if let platform = patch.platform?.trimmingCharacters(in: .whitespacesAndNewlines), platform.isEmpty {
+            throw ApiRelayError.validationFailed(field: "platform", reason: "required")
+        }
+        if let name = patch.displayName?.trimmingCharacters(in: .whitespacesAndNewlines), name.isEmpty {
+            throw ApiRelayError.validationFailed(field: "displayName", reason: "required_1_to_64")
+        }
+        try await accountsRepo.update(id: id, patch: patch)
     }
 
     func deleteAccount(_ id: UUID) async throws {
@@ -94,6 +108,68 @@ actor KeyVaultService: KeyVaultServing {
 
     func updateKey(_ id: UUID, patch: KeyPatch) async throws {
         try await keysRepo.update(id: id, patch: patch)
+    }
+
+    func editKey(_ id: UUID, draft: KeyEditDraft) async throws {
+        guard let key = try await keysRepo.fetch(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        if key.lifecycle == .softDeleted {
+            throw ApiRelayError.validationFailed(field: "id", reason: "in_recycle_bin")
+        }
+        guard try await accountsRepo.fetch(id: key.accountId) != nil else {
+            throw ApiRelayError.validationFailed(field: "accountId", reason: "not_found")
+        }
+
+        let trimmedKeyName = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedKeyName.isEmpty else {
+            throw ApiRelayError.validationFailed(field: "displayName", reason: "required_1_to_64")
+        }
+        let trimmedAccountName = draft.accountDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAccountName.isEmpty else {
+            throw ApiRelayError.validationFailed(field: "accountDisplayName", reason: "required_1_to_64")
+        }
+        let platform = draft.platform.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !platform.isEmpty else {
+            throw ApiRelayError.validationFailed(field: "platform", reason: "required")
+        }
+
+        var keyPatch = KeyPatch(displayName: trimmedKeyName)
+        if let notes = draft.notes {
+            keyPatch.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let rawSecret = draft.secret {
+            let trimmedSecret = rawSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedSecret.isEmpty {
+                let normalized = try Self.normalizeSecret(trimmedSecret)
+                let last4 = Self.last4(of: normalized)
+                if !draft.acknowledgePossibleDuplicate,
+                   let dupId = try await keysRepo.findWeakDuplicate(
+                    accountId: key.accountId,
+                    last4: last4,
+                    length: normalized.count,
+                    excludingId: id
+                   ) {
+                    throw ApiRelayError.validationFailed(
+                        field: "secret",
+                        reason: "possible_duplicate:\(dupId.uuidString)"
+                    )
+                }
+                try await keychain.save(normalized, service: .keys, account: id)
+                keyPatch.maskedHint = last4
+                keyPatch.secretLength = normalized.count
+            }
+        }
+        try await keysRepo.update(id: id, patch: keyPatch)
+
+        let isCustom = platform == PresetCatalog.customPlatformID
+        let accountPatch = UpstreamAccountPatch(
+            platform: platform,
+            customPlatformName: isCustom ? trimmedAccountName : "",
+            displayName: trimmedAccountName,
+            customBaseURL: isCustom ? (draft.customBaseURL ?? "") : ""
+        )
+        try await accountsRepo.update(id: key.accountId, patch: accountPatch)
     }
 
     func reorderKeys(orderedIds: [UUID]) async throws {
@@ -212,8 +288,9 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func remainingFreeQuota() async throws -> Int? {
-        let snap = try await entitlementRepo.loadOrCreate()
-        if snap.tier != .free { return nil }
+        // 必须走 EntitlementServing（含 StoreKit 纠偏），禁止只读可能脏的本地 snapshot。
+        let tier = try await entitlements.currentTier()
+        if tier != .free { return nil }
         let count = try await keysRepo.countActiveNonDeleted()
         return max(0, Self.freeTierLimit - count)
     }
@@ -236,6 +313,7 @@ actor KeyVaultService: KeyVaultServing {
         let prefs = try await userPrefsRepo.loadOrCreate()
         switch prefs.revealPolicy {
         case .masterPassword:
+            try await gate.ensureMasterPasswordConfigured()
             guard let masterPassword else {
                 throw ApiRelayError.validationFailed(field: "masterPassword", reason: "required")
             }
@@ -293,6 +371,7 @@ actor KeyVaultService: KeyVaultServing {
                 deletedAt: record.deletedAt,
                 purgeAfter: record.purgeAfter,
                 spendLimit: record.spendLimit,
+                notes: record.notes,
                 secretAvailable: available,
                 sortOrder: record.sortOrder
             ))

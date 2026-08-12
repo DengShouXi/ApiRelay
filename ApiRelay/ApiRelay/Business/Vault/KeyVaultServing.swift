@@ -5,10 +5,15 @@ protocol KeyVaultServing: Actor {
     func accounts() async throws -> [UpstreamAccountDTO]
     func keys(in accountId: UUID?) async throws -> [KeyRecordDTO]
     func createAccount(_ draft: UpstreamAccountDraft) async throws -> UUID
+    /// 更新上游账号（平台 / 显示名 / 自定义 Base URL）。
+    func updateAccount(_ id: UUID, patch: UpstreamAccountPatch) async throws
     func deleteAccount(_ id: UUID) async throws
 
     func createKey(_ draft: KeyDraft, secret: String, acknowledgePossibleDuplicate: Bool) async throws -> UUID
     func updateKey(_ id: UUID, patch: KeyPatch) async throws
+    /// 编辑已有密钥：名称、可选换密文、备注、所属上游账号的平台与显示名。
+    /// 换密文时不触发门闩（写入而非取出明文）；留空 `draft.secret` 则不碰 Keychain。
+    func editKey(_ id: UUID, draft: KeyEditDraft) async throws
     func deleteKey(_ id: UUID) async throws
     /// 按用户拖拽结果重写分区内密钥顺序（`orderedIds` 为从上到下）。
     func reorderKeys(orderedIds: [UUID]) async throws

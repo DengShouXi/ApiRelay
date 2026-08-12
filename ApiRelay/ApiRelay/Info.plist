@@ -6,6 +6,9 @@
 	<string>ApiRelay uses Face ID to confirm your identity before revealing your API key secrets.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Mac App Store / TestFlight 上传必填（错误 90242）。与商店草稿「开发者工具」一致。 -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

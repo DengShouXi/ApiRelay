@@ -9,7 +9,7 @@ final class GroupingTests: XCTestCase {
         let accounts = [UpstreamAccountDTO(
             id: accountId, platform: "openai", customPlatformName: nil,
             displayName: "Empty Acc", customBaseURL: nil, hasManagementCredential: false,
-            createdAt: Date(), updatedAt: Date(), sortOrder: 0,
+            notes: nil, createdAt: Date(), updatedAt: Date(), sortOrder: 0,
             deletedAt: nil, purgeAfter: nil
         )]
         let sections = KeyGrouping.group(keys: [], accounts: accounts, tools: [], mode: .byPlatform)
@@ -22,7 +22,7 @@ final class GroupingTests: XCTestCase {
         let toolId = UUID()
         let tools = [ConsumerToolDTO(
             id: toolId, name: "Empty Tool", iconSymbol: nil,
-            isPreset: false, isHidden: false, createdAt: Date(), sortOrder: 0,
+            isPreset: false, isHidden: false, notes: nil, createdAt: Date(), sortOrder: 0,
             deletedAt: nil, purgeAfter: nil
         )]
         let sections = KeyGrouping.group(keys: [], accounts: [], tools: tools, mode: .byConsumer)
@@ -43,12 +43,12 @@ final class GroupingTests: XCTestCase {
         let accounts = [UpstreamAccountDTO(
             id: account, platform: "openai", customPlatformName: nil,
             displayName: "OpenAI", customBaseURL: nil, hasManagementCredential: false,
-            createdAt: Date(), updatedAt: Date(), sortOrder: 0,
+            notes: nil, createdAt: Date(), updatedAt: Date(), sortOrder: 0,
             deletedAt: nil, purgeAfter: nil
         )]
         let tools = [
-            ConsumerToolDTO(id: toolA, name: "VS Code", iconSymbol: nil, isPreset: true, isHidden: false, createdAt: Date(), sortOrder: 0, deletedAt: nil, purgeAfter: nil),
-            ConsumerToolDTO(id: toolB, name: "Cursor", iconSymbol: nil, isPreset: true, isHidden: false, createdAt: Date(), sortOrder: 1, deletedAt: nil, purgeAfter: nil),
+            ConsumerToolDTO(id: toolA, name: "VS Code", iconSymbol: nil, isPreset: true, isHidden: false, notes: nil, createdAt: Date(), sortOrder: 0, deletedAt: nil, purgeAfter: nil),
+            ConsumerToolDTO(id: toolB, name: "Cursor", iconSymbol: nil, isPreset: true, isHidden: false, notes: nil, createdAt: Date(), sortOrder: 1, deletedAt: nil, purgeAfter: nil),
         ]
 
         let byPlatform = KeyGrouping.group(keys: keys, accounts: accounts, tools: tools, mode: .byPlatform)
@@ -92,6 +92,7 @@ final class GroupingTests: XCTestCase {
             deletedAt: nil,
             purgeAfter: nil,
             spendLimit: nil,
+            notes: nil,
             secretAvailable: true,
             sortOrder: 0
         )

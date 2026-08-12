@@ -89,7 +89,7 @@ final class VaultHomeViewModel: ObservableObject {
         }
     }
 
-    func createKey(accountId: UUID, name: String, secret: String, ackDuplicate: Bool) async {
+    func createKey(accountId: UUID, name: String, secret: String, ackDuplicate: Bool, notes: String?) async -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedName: String
         if trimmedName.isEmpty {
@@ -98,17 +98,124 @@ final class VaultHomeViewModel: ObservableObject {
         } else {
             resolvedName = trimmedName
         }
+        let trimmedNotes = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             _ = try await vault.createKey(
-                KeyDraft(accountId: accountId, displayName: resolvedName),
+                KeyDraft(
+                    accountId: accountId,
+                    displayName: resolvedName,
+                    notes: (trimmedNotes?.isEmpty == false) ? trimmedNotes : nil
+                ),
                 secret: secret,
                 acknowledgePossibleDuplicate: ackDuplicate
             )
             await refresh()
+            return true
         } catch ApiRelayError.quotaExceededFreeTier {
             showQuotaAlert = true
+            return false
         } catch {
             errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func editKey(
+        keyId: UUID,
+        name: String,
+        secret: String?,
+        ackDuplicate: Bool,
+        notes: String?,
+        accountName: String,
+        platform: String,
+        customBaseURL: String?
+    ) async -> Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            errorMessage = String(localized: "vault.key.edit.nameRequired")
+            return false
+        }
+        let trimmedAccount = accountName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAccount.isEmpty else {
+            errorMessage = String(localized: "vault.key.edit.accountRequired")
+            return false
+        }
+        do {
+            try await vault.editKey(
+                keyId,
+                draft: KeyEditDraft(
+                    displayName: trimmedName,
+                    secret: secret,
+                    acknowledgePossibleDuplicate: ackDuplicate,
+                    notes: notes,
+                    accountDisplayName: trimmedAccount,
+                    platform: platform,
+                    customBaseURL: customBaseURL
+                )
+            )
+            await refresh()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func updateAccount(
+        id: UUID,
+        platform: String,
+        name: String,
+        customBaseURL: String?,
+        notes: String?
+    ) async -> Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            errorMessage = String(localized: "vault.key.edit.accountRequired")
+            return false
+        }
+        let trimmedPlatform = platform.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPlatform.isEmpty else {
+            errorMessage = String(localized: "vault.account.edit.platformRequired")
+            return false
+        }
+        let isCustom = trimmedPlatform == PresetCatalog.customPlatformID
+        let trimmedNotes = notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        do {
+            try await vault.updateAccount(
+                id,
+                patch: UpstreamAccountPatch(
+                    platform: trimmedPlatform,
+                    customPlatformName: isCustom ? trimmedName : "",
+                    displayName: trimmedName,
+                    customBaseURL: isCustom ? (customBaseURL ?? "") : "",
+                    notes: trimmedNotes
+                )
+            )
+            await refresh()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func renameTool(id: UUID, name: String, notes: String?) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            errorMessage = String(localized: "vault.consumer.edit.nameRequired")
+            return false
+        }
+        let trimmedNotes = notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        do {
+            var patch = ConsumerToolPatch()
+            patch.name = trimmed
+            patch.notes = trimmedNotes
+            try await environment.consumerTools.updateTool(id: id, patch: patch)
+            await refresh()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
@@ -160,9 +267,14 @@ final class VaultHomeViewModel: ObservableObject {
                 masterPassword: masterPassword
             )
         } catch let ApiRelayError.validationFailed(_, reason)
-            where reason == "required" || reason.contains("master_password")
+            where reason == "required" || reason == "master_password_prompt_required"
         {
             needsMasterPassword = true
+            return nil
+        } catch let ApiRelayError.validationFailed(_, reason)
+            where reason == "master_password_not_set"
+        {
+            errorMessage = String(localized: "settings.policy.masterPassword.notConfigured")
             return nil
         } catch {
             errorMessage = error.localizedDescription
@@ -178,9 +290,14 @@ final class VaultHomeViewModel: ObservableObject {
             toastMessage = String(localized: "vault.copied.toast")
             return true
         } catch let ApiRelayError.validationFailed(_, reason)
-            where reason == "required" || reason.contains("master_password")
+            where reason == "required" || reason == "master_password_prompt_required"
         {
             needsMasterPassword = true
+            return false
+        } catch let ApiRelayError.validationFailed(_, reason)
+            where reason == "master_password_not_set"
+        {
+            errorMessage = String(localized: "settings.policy.masterPassword.notConfigured")
             return false
         } catch ApiRelayError.authenticationCancelled {
             return false

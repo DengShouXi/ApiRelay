@@ -66,6 +66,10 @@ struct VaultHomeView: View {
     @State private var collapsedSectionIds: Set<String> = []
     @State private var pendingDeleteAccountId: UUID?
     @State private var pendingDeleteToolId: UUID?
+    /// 分区「⋯」→ 编辑上游账号（平台 / 显示名）。
+    @State private var editAccountId: UUID?
+    /// 分区「⋯」→ 重命名使用方。
+    @State private var editToolId: UUID?
     /// Mac 三栏：中间列表选中的密钥，右侧展示详情。
     @State private var selectedKeyId: UUID?
     /// Mac 三栏：回收站中栏选中项，右侧展示恢复 / 永久删除。
@@ -128,6 +132,8 @@ struct VaultHomeView: View {
             pendingAddKeyAccount: $pendingAddKeyAccount,
             assignToToolId: $assignToToolId,
             reorderKeysTarget: $reorderKeysTarget,
+            editAccountId: $editAccountId,
+            editToolId: $editToolId,
             showTools: $showTools,
             showPaywall: $showPaywall,
             showAccountPlaceholder: $showAccountPlaceholder,
@@ -531,14 +537,38 @@ struct VaultHomeView: View {
                 }
             } else {
                 ForEach(displayedSections) { section in
+                    // 标题放进卡片首行，避免 List section header 被系统洗成淡灰。
                     Section {
-                        sectionBody(section, selectionEnabled: selectionEnabled)
-                    } header: {
                         sectionHeader(section)
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 12))
+                            .selectionDisabled()
+                        if !isSectionCollapsed(section) {
+                            sectionBody(section, selectionEnabled: selectionEnabled)
+                        }
                     }
                 }
             }
         }
+        // 对齐设置页：灰底 + 白卡片分区，账号/使用方之间留出缝隙。
+        #if os(iOS)
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(18)
+        #else
+        .listStyle(.inset)
+        #endif
+        .scrollContentBackground(.hidden)
+        .background(vaultGroupedBackground)
+    }
+
+    /// 与设置页同系的分组灰底，让各账号卡片被浅色缝隔开。
+    private var vaultGroupedBackground: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .systemGroupedBackground)
+        #elseif canImport(AppKit)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color.gray.opacity(0.12)
+        #endif
     }
 
     @ViewBuilder
@@ -652,6 +682,17 @@ struct VaultHomeView: View {
         }
     }
 
+    /// 分区标题用接近正文的对比度（List `header:` 会被系统洗成浅灰）。
+    private var vaultSectionTitleColor: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .label)
+        #elseif canImport(AppKit)
+        Color(nsColor: .labelColor)
+        #else
+        Color.primary
+        #endif
+    }
+
     @ViewBuilder
     private func sectionHeader(_ section: KeyGroupSection) -> some View {
         let collapsed = isSectionCollapsed(section)
@@ -663,27 +704,30 @@ struct VaultHomeView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: collapsed ? AppSymbols.Action.chevronRight : AppSymbols.Action.chevronDown)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(vaultSectionTitleColor.opacity(0.7))
                         .frame(width: 12, alignment: .center)
                     Image(systemName: sectionSymbol(section))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.body.weight(.semibold))
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(vaultSectionTitleColor)
                         .accessibilityHidden(true)
                     Text(sectionTitle(section))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(vaultSectionTitleColor)
                         .lineLimit(1)
                     if collapsed {
                         Text("vault.section.keyCount \(section.keys.count)")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(vaultSectionTitleColor.opacity(0.65))
                     }
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
+                .foregroundStyle(vaultSectionTitleColor)
             }
             .buttonStyle(.plain)
+            .tint(vaultSectionTitleColor)
             .accessibilityLabel(Text(sectionTitle(section)))
             .accessibilityHint(
                 Text(collapsed ? "vault.a11y.sectionExpand" : "vault.a11y.sectionCollapse")
@@ -694,16 +738,19 @@ struct VaultHomeView: View {
             switch section.kind {
             case .platform(let accountId, _):
                 Button {
-                    showAddKeyFor = viewModel.accounts.first { $0.id == accountId }
+                    beginAddKey(for: accountId)
                 } label: {
                     Image(systemName: AppSymbols.Action.add)
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(vaultSectionTitleColor.opacity(0.55))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("vault.key.add"))
 
                 Menu {
+                    Button("vault.account.edit", systemImage: AppSymbols.Action.edit) {
+                        editAccountId = accountId
+                    }
                     if section.keys.count >= 2 {
                         Button("vault.reorder.keys") {
                             reorderKeysTarget = ReorderKeysTarget(
@@ -717,7 +764,7 @@ struct VaultHomeView: View {
                     }
                 } label: {
                     Image(systemName: AppSymbols.Action.more)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(vaultSectionTitleColor.opacity(0.55))
                 }
                 .accessibilityLabel(Text("vault.a11y.sectionMenu"))
             case .consumer(let toolId, _):
@@ -726,12 +773,15 @@ struct VaultHomeView: View {
                 } label: {
                     Image(systemName: AppSymbols.Action.add)
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(vaultSectionTitleColor.opacity(0.55))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("vault.consumer.assignKey"))
 
                 Menu {
+                    Button("vault.consumer.edit", systemImage: AppSymbols.Action.edit) {
+                        editToolId = toolId
+                    }
                     if section.keys.count >= 2 {
                         Button("vault.reorder.keys") {
                             reorderKeysTarget = ReorderKeysTarget(
@@ -745,40 +795,36 @@ struct VaultHomeView: View {
                     }
                 } label: {
                     Image(systemName: AppSymbols.Action.more)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(vaultSectionTitleColor.opacity(0.55))
                 }
                 .accessibilityLabel(Text("vault.a11y.sectionMenu"))
             case .shared, .unassigned:
                 EmptyView()
             }
         }
-        .textCase(nil)
+        .padding(.vertical, 2)
     }
 
     @ViewBuilder
     private func sectionBody(_ section: KeyGroupSection, selectionEnabled: Bool) -> some View {
-        if isSectionCollapsed(section) {
-            EmptyView()
-        } else {
-            switch section.kind {
-            case .platform:
-                ForEach(section.keys) { key in
-                    keyRow(key, selectionEnabled: selectionEnabled)
-                }
-            case .consumer(let toolId, _):
-                ForEach(section.keys) { key in
-                    keyRow(
-                        key,
-                        unassignFromToolId: toolId,
-                        allowDelete: false,
-                        selectionEnabled: selectionEnabled
-                    )
-                }
-                consumerSectionFooter(toolId: toolId, hasAssignedKeys: !section.keys.isEmpty)
-            case .shared, .unassigned:
-                ForEach(section.keys) { key in
-                    keyRow(key, allowDelete: false, selectionEnabled: selectionEnabled)
-                }
+        switch section.kind {
+        case .platform:
+            ForEach(section.keys) { key in
+                keyRow(key, selectionEnabled: selectionEnabled)
+            }
+        case .consumer(let toolId, _):
+            ForEach(section.keys) { key in
+                keyRow(
+                    key,
+                    unassignFromToolId: toolId,
+                    allowDelete: false,
+                    selectionEnabled: selectionEnabled
+                )
+            }
+            consumerSectionFooter(toolId: toolId, hasAssignedKeys: !section.keys.isEmpty)
+        case .shared, .unassigned:
+            ForEach(section.keys) { key in
+                keyRow(key, allowDelete: false, selectionEnabled: selectionEnabled)
             }
         }
     }
@@ -924,6 +970,15 @@ struct VaultHomeView: View {
             return
         }
         assignKeyId = keyId
+    }
+
+    /// 免费档用尽时先弹配额，不打开添加表单。
+    private func beginAddKey(for accountId: UUID) {
+        if viewModel.remainingQuota == 0 {
+            viewModel.showQuotaAlert = true
+            return
+        }
+        showAddKeyFor = viewModel.accounts.first { $0.id == accountId }
     }
 
     /// 「按使用方」下：弹出 sheet 选择已有密钥。
@@ -1095,6 +1150,8 @@ private struct VaultHomeSheetsModifier: ViewModifier {
     @Binding var pendingAddKeyAccount: UpstreamAccountDTO?
     @Binding var assignToToolId: UUID?
     @Binding var reorderKeysTarget: ReorderKeysTarget?
+    @Binding var editAccountId: UUID?
+    @Binding var editToolId: UUID?
     @Binding var showTools: Bool
     @Binding var showPaywall: Bool
     @Binding var showAccountPlaceholder: Bool
@@ -1115,12 +1172,36 @@ private struct VaultHomeSheetsModifier: ViewModifier {
         )
     }
 
+    private var editAccountSheet: Binding<UpstreamAccountDTO?> {
+        Binding(
+            get: {
+                guard let id = editAccountId else { return nil }
+                return viewModel.accounts.first { $0.id == id }
+            },
+            set: { editAccountId = $0?.id }
+        )
+    }
+
+    private var editToolSheet: Binding<ConsumerToolDTO?> {
+        Binding(
+            get: {
+                guard let id = editToolId else { return nil }
+                return viewModel.tools.first { $0.id == id }
+            },
+            set: { editToolId = $0?.id }
+        )
+    }
+
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showAddAccount, onDismiss: {
                 if let account = pendingAddKeyAccount {
                     pendingAddKeyAccount = nil
-                    showAddKeyFor = account
+                    if viewModel.remainingQuota == 0 {
+                        viewModel.showQuotaAlert = true
+                    } else {
+                        showAddKeyFor = account
+                    }
                 }
             }) {
                 AddAccountSheet(existingAccounts: viewModel.accounts) { platform, name, url in
@@ -1140,10 +1221,30 @@ private struct VaultHomeSheetsModifier: ViewModifier {
                 AddKeySheet(
                     accountName: account.displayName,
                     existingKeyCount: viewModel.allKeys.filter { $0.accountId == account.id }.count
-                ) { name, secret, ack in
+                ) { name, secret, ack, notes in
                     await viewModel.createKey(
-                        accountId: account.id, name: name, secret: secret, ackDuplicate: ack
+                        accountId: account.id,
+                        name: name,
+                        secret: secret,
+                        ackDuplicate: ack,
+                        notes: notes
                     )
+                }
+            }
+            .sheet(item: editAccountSheet) { account in
+                EditAccountSheet(account: account) { platform, name, url, notes in
+                    await viewModel.updateAccount(
+                        id: account.id,
+                        platform: platform,
+                        name: name,
+                        customBaseURL: url,
+                        notes: notes
+                    )
+                }
+            }
+            .sheet(item: editToolSheet) { tool in
+                EditConsumerToolSheet(tool: tool) { name, notes in
+                    await viewModel.renameTool(id: tool.id, name: name, notes: notes)
                 }
             }
             .sheet(item: assignToToolSheet) { target in
@@ -1425,6 +1526,7 @@ private struct AddAccountSheet: View {
                     Label("vault.custom.platform", systemImage: AppSymbols.platform(id: PresetCatalog.customPlatformID))
                         .tag(PresetCatalog.customPlatformID)
                 }
+                .pickerStyle(.menu)
                 LabeledContent("vault.account.platform.selected") {
                     Text(selectedPlatformLabel)
                         .foregroundStyle(.secondary)
@@ -1590,14 +1692,182 @@ private struct AddConsumerToolSheet: View {
     }
 }
 
+private struct EditAccountSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let account: UpstreamAccountDTO
+    let onSave: (_ platform: String, _ name: String, _ customBaseURL: String?, _ notes: String?) async -> Bool
+
+    @State private var platform: String
+    @State private var name: String
+    @State private var customURL: String
+    @State private var notes: String
+    @State private var isSaving = false
+
+    init(
+        account: UpstreamAccountDTO,
+        onSave: @escaping (_ platform: String, _ name: String, _ customBaseURL: String?, _ notes: String?) async -> Bool
+    ) {
+        self.account = account
+        self.onSave = onSave
+        _platform = State(initialValue: account.platform)
+        _name = State(initialValue: account.displayName)
+        _customURL = State(initialValue: account.customBaseURL ?? "")
+        _notes = State(initialValue: account.notes ?? "")
+    }
+
+    private var selectedPlatformLabel: String {
+        PresetCatalog.platform(id: platform)?.displayName
+            ?? String(localized: "vault.custom.platform")
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("vault.account.platform", selection: $platform) {
+                        ForEach(PresetCatalog.platforms, id: \.id) { p in
+                            Label(p.displayName, systemImage: p.iconSymbol).tag(p.id)
+                        }
+                        Label(
+                            "vault.custom.platform",
+                            systemImage: AppSymbols.platform(id: PresetCatalog.customPlatformID)
+                        )
+                        .tag(PresetCatalog.customPlatformID)
+                    }
+                    .pickerStyle(.menu)
+                    LabeledContent("vault.account.platform.selected") {
+                        Text(selectedPlatformLabel)
+                            .foregroundStyle(.secondary)
+                    }
+                    TextField("vault.account.name", text: $name)
+                    if platform == PresetCatalog.customPlatformID {
+                        TextField("vault.account.baseURL", text: $customURL)
+                            .autocorrectionDisabled()
+                    }
+                    Text("vault.account.edit.hint")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section {
+                    TextField("vault.account.notes", text: $notes, axis: .vertical)
+                        .lineLimit(3...8)
+                    Text("vault.account.notes.hint")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("vault.account.edit")
+            #if os(iOS) || targetEnvironment(macCatalyst)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("gate.cancel") { dismiss() }
+                        .disabled(isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("vault.save") {
+                        Task {
+                            isSaving = true
+                            defer { isSaving = false }
+                            let ok = await onSave(
+                                platform,
+                                name,
+                                platform == PresetCatalog.customPlatformID ? customURL : nil,
+                                notes
+                            )
+                            if ok { dismiss() }
+                        }
+                    }
+                    .disabled(!canSave)
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 420, idealWidth: 460, minHeight: 420, idealHeight: 520)
+        #endif
+    }
+}
+
+private struct EditConsumerToolSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let tool: ConsumerToolDTO
+    let onSave: (_ name: String, _ notes: String?) async -> Bool
+
+    @State private var name: String
+    @State private var notes: String
+    @State private var isSaving = false
+
+    init(tool: ConsumerToolDTO, onSave: @escaping (_ name: String, _ notes: String?) async -> Bool) {
+        self.tool = tool
+        self.onSave = onSave
+        _name = State(initialValue: tool.name)
+        _notes = State(initialValue: tool.notes ?? "")
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("vault.consumer.name", text: $name)
+                    Text("vault.consumer.edit.hint")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Section {
+                    TextField("vault.consumer.notes", text: $notes, axis: .vertical)
+                        .lineLimit(3...8)
+                    Text("vault.consumer.notes.hint")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("vault.consumer.edit")
+            #if os(iOS) || targetEnvironment(macCatalyst)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("gate.cancel") { dismiss() }
+                        .disabled(isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("vault.save") {
+                        Task {
+                            isSaving = true
+                            defer { isSaving = false }
+                            if await onSave(name, notes) { dismiss() }
+                        }
+                    }
+                    .disabled(!canSave)
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 360, idealWidth: 400, minHeight: 320, idealHeight: 380)
+        #endif
+    }
+}
+
 private struct AddKeySheet: View {
     @Environment(\.dismiss) private var dismiss
     let accountName: String
     let existingKeyCount: Int
-    let onSave: (String, String, Bool) async -> Void
+    let onSave: (String, String, Bool, String?) async -> Bool
     @State private var name = ""
     @State private var secret = ""
+    @State private var notes = ""
     @State private var ackDuplicate = false
+    @State private var isSaving = false
 
     var body: some View {
         NavigationStack {
@@ -1612,6 +1882,11 @@ private struct AddKeySheet: View {
                 SecureField("vault.key.secret", text: $secret)
                     .autocorrectionDisabled()
                 Toggle("vault.key.ackDuplicate", isOn: $ackDuplicate)
+                TextField("vault.key.notes", text: $notes, axis: .vertical)
+                    .lineLimit(3...8)
+                Text("vault.key.notes.hint")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             .navigationTitle("vault.key.add")
             .onAppear {
@@ -1622,16 +1897,27 @@ private struct AddKeySheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("gate.cancel") { dismiss() }
+                        .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("vault.save") {
                         Task {
-                            await onSave(name, secret, ackDuplicate)
-                            secret = ""
-                            dismiss()
+                            isSaving = true
+                            defer { isSaving = false }
+                            let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let ok = await onSave(
+                                name,
+                                secret,
+                                ackDuplicate,
+                                trimmedNotes.isEmpty ? nil : trimmedNotes
+                            )
+                            if ok {
+                                secret = ""
+                                dismiss()
+                            }
                         }
                     }
-                    .disabled(secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(isSaving || secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }

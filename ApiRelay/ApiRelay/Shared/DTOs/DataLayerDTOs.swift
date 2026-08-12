@@ -9,6 +9,7 @@ struct UpstreamAccountDTO: Identifiable, Sendable {
     let displayName: String
     let customBaseURL: String?
     let hasManagementCredential: Bool
+    let notes: String?
     let createdAt: Date
     let updatedAt: Date
     let sortOrder: Int
@@ -21,14 +22,17 @@ struct UpstreamAccountDraft: Sendable {
     var customPlatformName: String?
     var displayName: String
     var customBaseURL: String?
+    var notes: String? = nil
     var sortOrder: Int = 0
 }
 
 struct UpstreamAccountPatch: Sendable {
+    var platform: String? = nil
     var customPlatformName: String? = nil
     var displayName: String? = nil
     var customBaseURL: String? = nil
     var hasManagementCredential: Bool? = nil
+    var notes: String? = nil
     var sortOrder: Int? = nil
 }
 
@@ -40,6 +44,7 @@ struct ConsumerToolDTO: Identifiable, Sendable {
     let iconSymbol: String?
     let isPreset: Bool
     let isHidden: Bool
+    let notes: String?
     let createdAt: Date
     let sortOrder: Int
     let deletedAt: Date?
@@ -50,6 +55,7 @@ struct ConsumerToolDraft: Sendable {
     var name: String
     var iconSymbol: String?
     var isPreset: Bool = false
+    var notes: String? = nil
     var sortOrder: Int = 0
 }
 
@@ -57,6 +63,7 @@ struct ConsumerToolPatch: Sendable {
     var name: String? = nil
     var iconSymbol: String? = nil
     var isHidden: Bool? = nil
+    var notes: String? = nil
     var sortOrder: Int? = nil
 }
 
@@ -75,6 +82,19 @@ struct KeyRecordDraft: Sendable {
 }
 
 typealias KeyDraft = KeyRecordDraft
+
+/// 编辑已有密钥（名称 / 可选换密文 / 备注 / 所属上游账号的平台与显示名）。
+struct KeyEditDraft: Sendable {
+    var displayName: String
+    /// `nil` 或纯空白 → 保留原密文，不读、不写 Keychain。
+    var secret: String? = nil
+    var acknowledgePossibleDuplicate: Bool = false
+    /// 写入备注；空字符串表示清空。
+    var notes: String? = nil
+    var accountDisplayName: String
+    var platform: String
+    var customBaseURL: String? = nil
+}
 
 struct KeyRecordPatch: Sendable {
     var displayName: String? = nil
