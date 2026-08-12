@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B6B1CD56302C3C7B004BAA1B /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6B1CD55302C3C7B004BAA1B /* StoreKit.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		D1D1136A0218B3F0AAAA0009 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -18,6 +22,7 @@
 
 /* Begin PBXFileReference section */
 		B62E135930218B3F002E0DE6 /* ApiRelay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ApiRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B6B1CD55302C3C7B004BAA1B /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		D1D113590218B3F0AAAA0001 /* ApiRelayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ApiRelayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -52,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B6B1CD56302C3C7B004BAA1B /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,6 +76,7 @@
 			children = (
 				B62E135B30218B3F002E0DE6 /* ApiRelay */,
 				D1D1135B30218B3F0AAAA0008 /* ApiRelayTests */,
+				B6B1CD54302C3C7B004BAA1B /* Frameworks */,
 				B62E135A30218B3F002E0DE6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -81,6 +88,14 @@
 				D1D113590218B3F0AAAA0001 /* ApiRelayTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B6B1CD54302C3C7B004BAA1B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B6B1CD55302C3C7B004BAA1B /* StoreKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

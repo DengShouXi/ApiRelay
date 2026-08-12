@@ -60,9 +60,10 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 ## 当前分支（本地台账 · 按版本序）
 
 > 更新时间：2026-08-12。下列 tip / 时间为各分支**尖端提交**；勿把 tip 回退，以免破坏已冻结里程碑。  
-> **当前工作分支：`v1.13`（已关账）**；上一关账：`v1.12`。  
-> **P13 之后顺序**：`10-verify` →（授权）`12-release-T062` → `20-push` → `30` / `40`。P08 不含商店材料。  
-> **本关账不做**：合并 `main`、打 `release/1.0.0`、提交 App Store 审核（均属 T062，须另授权）。
+> **当前：T062 已执行** — `main` + tag `release/1.0.0`（Stage1 → 商店 **1.0.0**）。  
+> **工作分支**：`v1.13` / tip `v1` 已对齐发布 tip。  
+> **下一步**：[`v1-key-vault/20-push.md`](./v1-key-vault/20-push.md) 收尾核对 →（可选）开 `v2`。  
+> **App Store Connect**：构建上传与「提交审核」须产品负责人在网页完成；内购首次挂审若仍卡住，不阻塞本仓库 `release/1.0.0` 冻结。
 
 | 分支 | tip | tip 时间 | 主要做了什么（简体中文） | 备注 |
 |------|-----|----------|--------------------------|------|
@@ -83,8 +84,9 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 | `v1.11` | `9a1bde1` | 2026-08-11 01:57 | 小迭代 11 — App Icon 全尺寸、SF Symbol/PresetCatalog、Accent 同源、使用方图标回填；已冻结 | |
 | `v1.11.1` | `7eabc59` | 2026-08-11 02:19 | 热修 11.1 — 强制刷新 App Icon 槽；底栏改为正/负电荷符号（⊕/⊖） | 热修冻结 tip；其后文档在 `v1.12` |
 | `v1.12` | `531234c` | 2026-08-11 03:48 | EN: Phase 12 localization audit — String Catalog en+zh-Hans gaps closed, semantic keys for presets/Custom/tabs, Face ID InfoPlist.xcstrings, App Group store dir + remote-notification; no store metadata. / 中文：小迭代 12 — 本地化验收与补漏（Catalog 缺口清零、预置平台/自定义/Tab 双语、Face ID InfoPlist、模拟器存储目录与 remote-notification）；不含商店元数据 | **已关账**（远程已同步） |
-| `v1.13` | `2c0332b` | 2026-08-12 11:38 | EN: Phase 13 — Stage1 store materials T063–T066 (metadata, privacy questionnaire align, screenshots + IAP review shot, `MARKETING_VERSION=1.0.0`) plus ship polish (Vault/Settings UX, restore-purchases entry, Mac window sizing, StoreKit display price, localization, privacy copy). **T062 not executed** (no `main` merge, no `release/1.0.0`, no ASC submit). / 中文：小迭代 13 — Stage1 上架材料 T063–T066（元数据、隐私问卷对齐、截图含 IAP 审核图、`MARKETING_VERSION=1.0.0`）+ 上架前产品收口（Vault/设置 UX、恢复购买入口、Mac 窗口尺寸、StoreKit 标价、本地化、隐私文案）。**未**执行 T062（无 `main` 合并、无 `release/1.0.0`、无提交审核） | **已关账**；送审另走 T062 |
-| `v1` | `2c0332b` | 2026-08-12 11:38 | EN: Stage1 tip fast-forwarded to v1.13 closeout (`2c0332b`). / 中文：大阶段 1 tip 已前进对齐 `v1.13` 关账点 `2c0332b`（只前进、不回退） | 推荐作为仓库默认分支；**勿**在本步打 `release/1.0.0` |
+| `v1.13` | `RELEASE_TIP` | 2026-08-12 | EN: Phase 13 closeout + T062 — StoreKit.framework link; Stage1 `main` + tag `release/1.0.0` (store **1.0.0**). ASC binary submit / IAP attach remains on product owner. / 中文：小迭代 13 关账 + T062 — 链接 StoreKit.framework；仓库侧建立 `main` 与 `release/1.0.0`（商店 **1.0.0**）。App Store Connect 选构建/提交审核及内购挂审仍由产品负责人处理 | **已关账**；tag `release/1.0.0` |
+| `v1` | `RELEASE_TIP` | 2026-08-12 | EN: Stage1 tip = v1.13 release tip; T062 done in repo. / 中文：大阶段 1 tip 对齐 `v1.13` 发布 tip；仓库侧 T062 已完成 | 与 `main` / `release/1.0.0` 同 tip |
+| `main` | `RELEASE_TIP` | 2026-08-12 | EN: First stable publish branch — Stage1 **1.0.0**. / 中文：首个稳定发布分支 — Stage1 **1.0.0** | 由 `v1` 建立；tag `release/1.0.0` |
 
 ### 保护约定（避免破坏分支）
 

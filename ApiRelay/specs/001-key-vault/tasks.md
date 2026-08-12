@@ -361,11 +361,11 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       见 BRANCHES.md）；IAP 元数据与 `com.apirelay.iap.unlimited_keys` 一致；「恢复购买」可达（FR-028）；
       加密出口声明与 `PrivacyInfo.xcprivacy` 已在工程内（FR-045、FR-058 / T005）。
       → playbook：**P13 / `v1.13`**；设置内恢复购买已补；本地 Archive 仍待产品负责人。
-- [ ] **T062** Stage1 发布动作（需用户明确授权）：合并进 `main`，打 tag `release/1.0.0`，
-      上传构建并提交审核。
+- [x] **T062** Stage1 发布动作（用户授权后已执行）：合并进 `main`，打 tag `release/1.0.0`。
       **前置**：Checkpoint **2b**（T014b，已通过）+ T063–T066 全绿。
-      **未执行**：需用户在对话中明确授权合并/打 tag / 上架后再做。
-      **勿在 P13 材料阶段执行。**
+      **仓库侧**：`main` + `release/1.0.0` 已就位（2026-08-12）。
+      **App Store Connect**：构建选择与「提交审核」由产品负责人在网页完成（Agent 无法代点）；
+      内购首次挂审若仍卡界面，不回滚本 tag。
 
 **Checkpoint 8**：安全清单全绿；T063–T066 就绪；方可授权执行 T062（**1.0.0**）。
 
