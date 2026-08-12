@@ -84,9 +84,9 @@ release/N.0.0   仅 App Store 上架时打的 tag（Stage1→1.0.0，Stage2→2.
 | `v1.11` | `9a1bde1` | 2026-08-11 01:57 | 小迭代 11 — App Icon 全尺寸、SF Symbol/PresetCatalog、Accent 同源、使用方图标回填；已冻结 | |
 | `v1.11.1` | `7eabc59` | 2026-08-11 02:19 | 热修 11.1 — 强制刷新 App Icon 槽；底栏改为正/负电荷符号（⊕/⊖） | 热修冻结 tip；其后文档在 `v1.12` |
 | `v1.12` | `531234c` | 2026-08-11 03:48 | EN: Phase 12 localization audit — String Catalog en+zh-Hans gaps closed, semantic keys for presets/Custom/tabs, Face ID InfoPlist.xcstrings, App Group store dir + remote-notification; no store metadata. / 中文：小迭代 12 — 本地化验收与补漏（Catalog 缺口清零、预置平台/自定义/Tab 双语、Face ID InfoPlist、模拟器存储目录与 remote-notification）；不含商店元数据 | **已关账**（远程已同步） |
-| `v1.13` | `RELEASE_TIP` | 2026-08-12 | EN: Phase 13 closeout + T062 — StoreKit.framework link; Stage1 `main` + tag `release/1.0.0` (store **1.0.0**). ASC binary submit / IAP attach remains on product owner. / 中文：小迭代 13 关账 + T062 — 链接 StoreKit.framework；仓库侧建立 `main` 与 `release/1.0.0`（商店 **1.0.0**）。App Store Connect 选构建/提交审核及内购挂审仍由产品负责人处理 | **已关账**；tag `release/1.0.0` |
-| `v1` | `RELEASE_TIP` | 2026-08-12 | EN: Stage1 tip = v1.13 release tip; T062 done in repo. / 中文：大阶段 1 tip 对齐 `v1.13` 发布 tip；仓库侧 T062 已完成 | 与 `main` / `release/1.0.0` 同 tip |
-| `main` | `RELEASE_TIP` | 2026-08-12 | EN: First stable publish branch — Stage1 **1.0.0**. / 中文：首个稳定发布分支 — Stage1 **1.0.0** | 由 `v1` 建立；tag `release/1.0.0` |
+| `v1.13` | `37d7bd9` | 2026-08-12 | EN: Phase 13 closeout + T062 — StoreKit.framework link; Stage1 `main` + tag `release/1.0.0` (store **1.0.0**). ASC binary submit / IAP attach remains on product owner. / 中文：小迭代 13 关账 + T062 — 链接 StoreKit.framework；仓库侧建立 `main` 与 `release/1.0.0`（商店 **1.0.0**）。App Store Connect 选构建/提交审核及内购挂审仍由产品负责人处理 | **已关账**；tag `release/1.0.0` |
+| `v1` | `37d7bd9` | 2026-08-12 | EN: Stage1 tip = v1.13 release tip; T062 done in repo. / 中文：大阶段 1 tip 对齐 `v1.13` 发布 tip；仓库侧 T062 已完成 | 与 `main` / `release/1.0.0` 同 tip |
+| `main` | `37d7bd9` | 2026-08-12 | EN: First stable publish branch — Stage1 **1.0.0**. / 中文：首个稳定发布分支 — Stage1 **1.0.0** | 由 `v1` 建立；tag `release/1.0.0` |
 
 ### 保护约定（避免破坏分支）
 
