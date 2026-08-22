@@ -784,13 +784,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose a plan. Unlimited Keys unlocks more than 3 keys. Relay arrives in a later release."
+            "value" : "Free accounts can save 3 keys. One-time purchase unlocks unlimited keys."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "选择套餐。无限密钥可突破 3 把上限；中转套餐将在后续版本提供。"
+            "value" : "免费档可保存 3 把密钥。一次买断即可解锁无限密钥。"
           }
         }
       }
@@ -844,22 +844,6 @@
         }
       }
     },
-    "paywall.plan.badge.comingSoon" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coming Soon"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "即将推出"
-          }
-        }
-      }
-    },
     "paywall.plan.badge.current" : {
       "localizations" : {
         "en" : {
@@ -904,38 +888,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "一次买断"
-          }
-        }
-      }
-    },
-    "paywall.plan.relay.detail" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Includes Unlimited Keys plus relay features. Not available in this version."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "包含无限密钥，并附带中转能力。本版本暂不可购。"
-          }
-        }
-      }
-    },
-    "paywall.plan.relay.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Relay"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "中转套餐"
           }
         }
       }

@@ -1144,7 +1144,6 @@ struct PaywallView: View {
                             .padding(.vertical, 24)
                     } else {
                         unlimitedPlanCard
-                        relayComingSoonCard
                     }
 
                     Button {
@@ -1270,42 +1269,6 @@ struct PaywallView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(Color.accentColor.opacity(alreadyOwned ? 0.15 : 0.35), lineWidth: 1)
         )
-    }
-
-    private var relayComingSoonCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("paywall.plan.relay.title")
-                    .font(.headline)
-                Spacer(minLength: 8)
-                Text("paywall.plan.badge.comingSoon")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(Color.secondary.opacity(0.12))
-                    )
-            }
-
-            Text("paywall.plan.relay.detail")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(paywallCardFill.opacity(0.7))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
-        )
-        .opacity(0.85)
-        .accessibilityElement(children: .combine)
     }
 
     private var paywallBackground: Color {
