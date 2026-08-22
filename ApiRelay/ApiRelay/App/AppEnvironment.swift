@@ -32,7 +32,8 @@ final class AppEnvironment: ObservableObject {
         // 单测宿主常缺 sync entitlement → 关闭 synchronizable，避免 -34018。
         let keychain = KeychainStore(
             accessGroup: isTesting ? nil : KeychainAccessGroup.resolved,
-            disableSynchronizableForTesting: isTesting
+            disableSynchronizableForTesting: isTesting,
+            servicePrefix: isTesting ? KeychainStore.testServicePrefix : KeychainStore.productionServicePrefix
         )
         self.keychain = keychain
         let master = MasterPasswordService(keychain: keychain)
@@ -80,7 +81,11 @@ final class AppEnvironment: ObservableObject {
         )
         let monitor = CloudKitSyncMonitor(mirroringEnabled: AppSchema.isCloudKitMirroringEnabled)
         self.cloudSync = CloudSyncService(monitor: monitor)
-        self.appPrivacy = AppPrivacyController(gate: gate, preferences: self.preferences)
+        self.appPrivacy = AppPrivacyController(
+            gate: gate,
+            preferences: self.preferences,
+            masterPassword: master
+        )
         Task { await self.refreshAppearance() }
     }
 

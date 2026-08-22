@@ -13,15 +13,20 @@ import AppKit
 struct AppLockCoverView: View {
     var showsUnlockChrome: Bool
     var usesMasterPassword: Bool
+    /// 策略要主密码但本机没有：此时 MUST NOT 再摆输入框，直接把恢复出口摆到主位。
+    var masterPasswordMissing: Bool
     var isBusy: Bool
     var errorText: String?
     var onUnlock: () -> Void
     var onUnlockWithMasterPassword: (String) -> Void
+    var onRecoverFromLostMasterPassword: () -> Void
 
     @State private var masterPassword = ""
+    @State private var showsRecoveryConfirm = false
     @FocusState private var macPasswordFocused: Bool
 
     private var usesTouchKeyboard: Bool { !SettingsChrome.isMacDesktop }
+    private var showsPasswordField: Bool { usesMasterPassword && !masterPasswordMissing }
 
     var body: some View {
         ZStack {
@@ -42,7 +47,7 @@ struct AppLockCoverView: View {
             if !visible {
                 masterPassword = ""
                 macPasswordFocused = false
-            } else if !usesTouchKeyboard, usesMasterPassword {
+            } else if !usesTouchKeyboard, showsPasswordField {
                 macPasswordFocused = true
             }
         }
@@ -61,13 +66,14 @@ struct AppLockCoverView: View {
             VStack(spacing: 16) {
                 lockMark
                 titleAndHint
-                if usesMasterPassword {
+                if showsPasswordField {
                     touchPasswordField
                 }
                 errorLabel
                 unlockButton
                     .frame(maxWidth: .infinity)
                     .controlSize(.large)
+                forgotMasterPasswordButton
             }
             .frame(maxWidth: 400)
             .frame(maxWidth: .infinity)
@@ -86,7 +92,7 @@ struct AppLockCoverView: View {
         VStack(spacing: 16) {
             lockMark
             titleAndHint
-            if usesMasterPassword {
+            if showsPasswordField {
                 SecureField("vault.masterPassword", text: $masterPassword)
                     .textFieldStyle(.roundedBorder)
                     .focused($macPasswordFocused)
@@ -97,6 +103,7 @@ struct AppLockCoverView: View {
             }
             errorLabel
             unlockButton
+            forgotMasterPasswordButton
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -104,15 +111,25 @@ struct AppLockCoverView: View {
 
     @ViewBuilder
     private var titleAndHint: some View {
-        Text(usesMasterPassword ? "vault.masterPassword.title" : "appLock.coverTitle")
+        Text(titleKey)
             .font(.title3.weight(.semibold))
             .multilineTextAlignment(.center)
-        if usesMasterPassword {
-            Text("appLock.masterPassword.hint")
+        if let hintKey {
+            Text(hintKey)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
+    }
+
+    private var titleKey: LocalizedStringKey {
+        if masterPasswordMissing { return "appLock.masterPassword.missing.title" }
+        return usesMasterPassword ? "vault.masterPassword.title" : "appLock.coverTitle"
+    }
+
+    private var hintKey: LocalizedStringKey? {
+        if masterPasswordMissing { return "appLock.masterPassword.missing.hint" }
+        return usesMasterPassword ? "appLock.masterPassword.hint" : nil
     }
 
     @ViewBuilder
@@ -126,8 +143,10 @@ struct AppLockCoverView: View {
     }
 
     private var unlockButton: some View {
-        Button("appLock.unlock") {
-            if usesMasterPassword {
+        Button(unlockButtonTitle) {
+            if masterPasswordMissing {
+                onRecoverFromLostMasterPassword()
+            } else if usesMasterPassword {
                 submitMasterPassword()
             } else {
                 onUnlock()
@@ -137,6 +156,37 @@ struct AppLockCoverView: View {
         .disabled(isBusy)
     }
 
+    private var unlockButtonTitle: LocalizedStringKey {
+        masterPasswordMissing ? "appLock.masterPassword.missing.action" : "appLock.unlock"
+    }
+
+    /// 忘了主密码就再也进不来，等于数据被自己锁死。这个出口 MUST 一直可达。
+    /// 本机压根没有主密码时它已是主按钮，不必再重复一次。
+    @ViewBuilder
+    private var forgotMasterPasswordButton: some View {
+        if showsPasswordField {
+            Button("appLock.masterPassword.forgot") {
+                showsRecoveryConfirm = true
+            }
+            .font(.footnote)
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
+            .disabled(isBusy)
+            .confirmationDialog(
+                "appLock.masterPassword.forgot.title",
+                isPresented: $showsRecoveryConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("appLock.masterPassword.forgot.confirm") {
+                    onRecoverFromLostMasterPassword()
+                }
+                Button("gate.cancel", role: .cancel) {}
+            } message: {
+                Text("appLock.masterPassword.forgot.message")
+            }
+        }
+    }
+
     @ViewBuilder
     private var touchPasswordField: some View {
         #if canImport(UIKit)
@@ -144,7 +194,7 @@ struct AppLockCoverView: View {
             text: $masterPassword,
             placeholder: String(localized: "vault.masterPassword"),
             isEnabled: !isBusy,
-            activateKeyboard: showsUnlockChrome && usesMasterPassword,
+            activateKeyboard: showsUnlockChrome && showsPasswordField,
             onSubmit: submitMasterPassword
         )
         .frame(maxWidth: .infinity)

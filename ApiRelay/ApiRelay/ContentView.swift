@@ -28,11 +28,15 @@ private struct PrivacyGatedVault: View {
             AppLockCoverView(
                 showsUnlockChrome: privacy.session.needsUnlockPrompt,
                 usesMasterPassword: privacy.usesMasterPasswordUnlock,
-                isBusy: privacy.isUnlocking,
+                masterPasswordMissing: privacy.masterPasswordMissing,
+                isBusy: privacy.isUnlocking || privacy.isRecovering,
                 errorText: privacy.unlockError,
                 onUnlock: { privacy.requestUnlock() },
                 onUnlockWithMasterPassword: { password in
                     Task { await privacy.unlockWithMasterPassword(password) }
+                },
+                onRecoverFromLostMasterPassword: {
+                    Task { await privacy.recoverFromLostMasterPassword() }
                 }
             )
             .opacity(privacy.session.blocksContent ? 1 : 0)

@@ -77,6 +77,134 @@
         }
       }
     },
+    "appLock.masterPassword.forgot" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forgot your master password?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "忘记主密码？"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.forgot.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.forgot.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You will confirm with Face ID or your device passcode. The master password is then removed, and verification switches to Face ID or device passcode. Your keys are not affected."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "先用 Face ID 或设备密码确认身份，随后清除本机主密码，验证方式改为「生物识别或设备密码」。密钥不受影响。"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.forgot.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use your device passcode instead"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用设备密码进入"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.missing.action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with device passcode"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用设备密码解锁"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.missing.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No master password is stored on this device. Unlock with Face ID or your device passcode; revealing keys will use the same method from now on."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机没有存主密码。用 Face ID 或设备密码进入，之后查看密钥也改用同样的方式。"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.missing.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Master password unavailable"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法用主密码解锁"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.notSet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No master password is stored on this device, so it cannot unlock the app."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机没有存主密码，用主密码打不开。"
+          }
+        }
+      }
+    },
     "appLock.unlock" : {
       "localizations" : {
         "en" : {

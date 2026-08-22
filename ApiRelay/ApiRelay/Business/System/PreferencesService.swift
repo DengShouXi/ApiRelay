@@ -4,6 +4,9 @@ import SwiftData
 protocol PreferencesServing: Actor {
     func load() async throws -> PreferencesDTO
     func update(_ patch: PreferencesPatch) async throws
+    /// 同步偏好的非阻塞写入。界面与 MainActor 上的控制器 MUST 走这条，
+    /// MUST NOT `await update`——那会让主线程干等 CloudKit/SwiftData 落盘。
+    nonisolated func persist(_ patch: PreferencesPatch)
 }
 
 actor PreferencesService: PreferencesServing {
