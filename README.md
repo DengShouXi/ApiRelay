@@ -18,6 +18,7 @@
 
 ## 文档
 
+- **中文导航总入口**：[具体说明/00-从这里开始.md](具体说明/00-从这里开始.md)
 - 产品做什么：[spec.md](ApiRelay/specs/001-key-vault/spec.md)
 - 哪一阶段做哪些功能：[ROADMAP.md](ApiRelay/specs/ROADMAP.md)
 - 开发迭代：[playbooks/README.md](ApiRelay/specs/playbooks/README.md)

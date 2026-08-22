@@ -52,6 +52,11 @@ ApiRelay/spec-kit-0.15.2/
 # Local throwaway experiments (never upload)
 ApiRelay/DebugScratch/
 
+# Store screenshots / screen recordings / icon sources (94 MB local asset shelf).
+# The screenshots actually submitted to App Store Connect are versioned under
+# ApiRelay/specs/playbooks/v1-key-vault/store-drafts/. 热修-save.md forbids committing this tree.
+ApiRelay_相关展览/
+
 # CocoaPods
 #
 # We recommend against adding the Pods directory to your .gitignore. However
