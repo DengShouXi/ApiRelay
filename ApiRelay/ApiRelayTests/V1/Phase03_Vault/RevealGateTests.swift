@@ -5,7 +5,7 @@ import LocalAuthentication
 @MainActor
 final class RevealGateTests: XCTestCase {
     func testPolicyNoneDoesNotCallLA() async throws {
-        let keychain = KeychainStore(accessGroup: nil)
+        let keychain = KeychainStore.makeForTests(disableSynchronizable: false)
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let flag = CallFlag()
         let gate = RevealGate(masterPassword: master) { _, _ in
@@ -16,7 +16,7 @@ final class RevealGateTests: XCTestCase {
     }
 
     func testBiometricOnlyWithoutBiometryFails() async throws {
-        let keychain = KeychainStore(accessGroup: nil)
+        let keychain = KeychainStore.makeForTests(disableSynchronizable: false)
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
         switch gate.availableBiometry() {
@@ -33,7 +33,7 @@ final class RevealGateTests: XCTestCase {
     }
 
     func testMasterPasswordNotSetFails() async throws {
-        let keychain = KeychainStore(accessGroup: nil)
+        let keychain = KeychainStore.makeForTests(disableSynchronizable: false)
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         try? await master.reset()
         let gate = RevealGate(masterPassword: master)

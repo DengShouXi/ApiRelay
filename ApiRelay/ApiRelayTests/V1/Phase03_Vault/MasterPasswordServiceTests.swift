@@ -7,7 +7,7 @@ final class MasterPasswordServiceTests: XCTestCase {
     private var sut: MasterPasswordService!
 
     override func setUp() async throws {
-        keychain = KeychainStore(accessGroup: nil)
+        keychain = KeychainStore.makeForTests(disableSynchronizable: false)
         sut = MasterPasswordService(keychain: keychain, calibratedIterations: 12_000)
         try? await sut.reset()
     }

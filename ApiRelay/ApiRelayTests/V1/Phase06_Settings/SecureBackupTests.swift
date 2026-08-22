@@ -204,7 +204,7 @@ final class SecureBackupTests: XCTestCase {
         tools: ConsumerToolService
     ) {
         let container = try AppSchema.makeInMemoryContainer()
-        let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
+        let keychain = KeychainStore.makeForTests()
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
         // 本套件考的是备份导出导入，不是 StoreKit：配额走桩，免去商店超时。

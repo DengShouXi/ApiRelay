@@ -9,7 +9,7 @@ final class ConsumerToolIconBackfillTests: XCTestCase {
 
     override func setUp() async throws {
         container = try AppSchema.makeInMemoryContainer()
-        let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
+        let keychain = KeychainStore.makeForTests()
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         try? await master.reset()
         let gate = RevealGate(masterPassword: master) { _, _ in }

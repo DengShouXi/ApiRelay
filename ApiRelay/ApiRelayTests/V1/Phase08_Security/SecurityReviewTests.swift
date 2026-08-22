@@ -33,7 +33,7 @@ final class SecurityReviewTests: XCTestCase {
     /// 列表刷新只回答「本机有没有这一条」，DTO 不得携带任何可推出真实长度的字段。
     func testKeyListExposesAvailabilityWithoutSecretLength() async throws {
         let container = try AppSchema.makeInMemoryContainer()
-        let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
+        let keychain = KeychainStore.makeForTests()
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
         let vault = KeyVaultService(
@@ -79,7 +79,7 @@ final class SecurityReviewTests: XCTestCase {
     }
 
     func testMasterPasswordNotSynchronizable() async throws {
-        let store = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: false)
+        let store = KeychainStore.makeForTests(disableSynchronizable: false)
         // masterpw path works without sync entitlement
         let master = MasterPasswordService(keychain: store, calibratedIterations: 10_000)
         try? await master.reset()
@@ -96,7 +96,7 @@ final class SecurityReviewTests: XCTestCase {
 
     func testBackupFormatReservesPurposeAndScope() async throws {
         let container = try AppSchema.makeInMemoryContainer()
-        let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
+        let keychain = KeychainStore.makeForTests()
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
         let backup = SecureBackupService(gate: gate, keychain: keychain, modelContainer: container)

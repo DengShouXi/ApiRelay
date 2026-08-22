@@ -12,7 +12,7 @@ final class CatalystAdaptationTests: XCTestCase {
     }
 
     func testBiometricOnlyDisabledWhenNoBiometry() async throws {
-        let keychain = KeychainStore(accessGroup: nil)
+        let keychain = KeychainStore.makeForTests(disableSynchronizable: false)
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
         switch gate.availableBiometry() {

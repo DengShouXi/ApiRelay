@@ -9,7 +9,7 @@ final class KeychainStoreTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        sut = KeychainStore(accessGroup: nil)
+        sut = KeychainStore.makeForTests(disableSynchronizable: false)
     }
 
     override func tearDown() async throws {
@@ -31,6 +31,32 @@ final class KeychainStoreTests: XCTestCase {
             throw XCTSkip("Keychain synchronizable requires full app entitlements / iCloud Keychain (status -34018)")
         }
         throw error
+    }
+
+    /// 测试写入的条目 MUST NOT 出现在生产 Service 名下。
+    ///
+    /// 回归的是一次真实事故：测试与宿主 App 共用同一 Keychain 访问组时，
+    /// setUp 里的 `reset()` 与 tearDown 里的枚举删除会清掉用户本机的主密码与密钥明文，
+    /// 表现为 App 锁屏输入正确主密码仍提示「不正确」。
+    /// 此处只对生产前缀做只读枚举，不写、不删任何真实条目。
+    func testTestEntriesAreInvisibleUnderProductionServiceName() async throws {
+        XCTAssertNotEqual(KeychainStore.testServicePrefix, KeychainStore.productionServicePrefix)
+
+        let account = UUID()
+        do {
+            try await sut.save("isolation-probe", service: .keys, account: account)
+        } catch {
+            try skipIfMissingEntitlement(error)
+        }
+
+        let production = KeychainStore(accessGroup: nil)
+        let productionAccounts = try await production.listAccounts(service: .keys)
+        try await sut.delete(service: .keys, account: account)
+
+        XCTAssertFalse(
+            productionAccounts.contains(account),
+            "测试条目落进了生产 Service 名，隔离失效——测试会删掉用户真实的主密码与密钥明文"
+        )
     }
 
     func testSaveReadRoundTrip_keys() async throws {

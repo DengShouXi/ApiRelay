@@ -9,7 +9,9 @@ import Security
 ///
 /// - Parameters:
 ///   - accessGroup: 生产环境传入 `$(AppIdentifierPrefix)group.com.apirelay.shared` 展开后的值。
-///     单元测试（无 Host App entitlements）传 `nil`，省略 `kSecAttrAccessGroup`。
+///     传 `nil` 时省略 `kSecAttrAccessGroup`，系统落到 entitlement 里的第一个组——
+///     本工程只有一个组，所以 `nil` 与显式传值指向同一份条目，**不构成测试隔离**。
+///   - servicePrefix: 测试隔离靠它，见 `testServicePrefix`。
 actor KeychainStore: KeychainStoring {
 
     /// 主密码条目的固定 account（singleton）。
@@ -17,23 +19,40 @@ actor KeychainStore: KeychainStoring {
     /// 备份口令条目的固定 account（singleton）。明文仅用于加密备份文件。
     static let backupPassphraseAccount = UUID(uuidString: "00000000-0000-4000-8000-000000000002")!
 
+    /// 生产 Service 名前缀。
+    static let productionServicePrefix = "com.apirelay.keychain"
+    /// 单元测试专用 Service 名前缀，MUST 与 `productionServicePrefix` 不同。
+    ///
+    /// 测试 bundle 由 `ApiRelay.app` 宿主加载，进程带的是 App 的 entitlements，而
+    /// `keychain-access-groups` 里只有一个组——省略 `kSecAttrAccessGroup` 时系统就落到该组。
+    /// 因此 `accessGroup: nil` 并不构成隔离：测试 setUp 里的 `MasterPasswordService.reset()`
+    /// 与 `eraseAllUserData()` 的枚举删除，会直接命中用户在本机真实存下的主密码与密钥明文。
+    /// 隔离只能靠换 Service 名。
+    static let testServicePrefix = "com.apirelay.keychain.tests"
+
     private let accessGroup: String?
     /// 单元测试宿主常缺 iCloud Keychain entitlement；为 true 时全部 Service 不写 synchronizable。
     private let disableSynchronizableForTesting: Bool
+    private let servicePrefix: String
 
-    init(accessGroup: String? = nil, disableSynchronizableForTesting: Bool = false) {
+    init(
+        accessGroup: String? = nil,
+        disableSynchronizableForTesting: Bool = false,
+        servicePrefix: String = KeychainStore.productionServicePrefix
+    ) {
         self.accessGroup = accessGroup
         self.disableSynchronizableForTesting = disableSynchronizableForTesting
+        self.servicePrefix = servicePrefix
     }
 
     // MARK: - Service 配置
 
     private func serviceName(for service: KeychainService) -> String {
         switch service {
-        case .keys:     return "com.apirelay.keychain.keys"
-        case .admin:    return "com.apirelay.keychain.admin"
-        case .masterpw: return "com.apirelay.keychain.masterpw"
-        case .backuppw: return "com.apirelay.keychain.backuppw"
+        case .keys:     return "\(servicePrefix).keys"
+        case .admin:    return "\(servicePrefix).admin"
+        case .masterpw: return "\(servicePrefix).masterpw"
+        case .backuppw: return "\(servicePrefix).backuppw"
         }
     }
 

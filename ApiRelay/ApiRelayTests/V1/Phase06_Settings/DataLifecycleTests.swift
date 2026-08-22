@@ -6,7 +6,7 @@ import SwiftData
 final class DataLifecycleTests: XCTestCase {
     func testEraseClearsActiveKeysTrashAndConsumerTools() async throws {
         let container = try AppSchema.makeInMemoryContainer()
-        let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
+        let keychain = KeychainStore.makeForTests()
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
         // 清除流程要真服务（`purgeLocalSnapshotForErase` 不在协议上，且不碰 StoreKit）；

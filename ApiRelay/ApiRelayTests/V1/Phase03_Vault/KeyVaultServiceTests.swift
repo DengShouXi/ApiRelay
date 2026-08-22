@@ -12,7 +12,7 @@ final class KeyVaultServiceTests: XCTestCase {
 
     override func setUp() async throws {
         container = try AppSchema.makeInMemoryContainer()
-        keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
+        keychain = KeychainStore.makeForTests()
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         try? await master.reset()
         gate = RevealGate(masterPassword: master) { _, _ in /* always succeed */ }
