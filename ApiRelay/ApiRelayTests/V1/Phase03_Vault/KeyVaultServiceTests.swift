@@ -6,6 +6,8 @@ import SwiftData
 final class KeyVaultServiceTests: XCTestCase {
     private var container: ModelContainer!
     private var keychain: KeychainStore!
+    private var gate: RevealGate!
+    private var clipboard: SecureClipboard!
     private var vault: KeyVaultService!
 
     override func setUp() async throws {
@@ -13,16 +15,10 @@ final class KeyVaultServiceTests: XCTestCase {
         keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         try? await master.reset()
-        let gate = RevealGate(masterPassword: master) { _, _ in /* always succeed */ }
-        let clipboard = SecureClipboard()
-        let entitlements = EntitlementService(modelContainer: container)
-        vault = KeyVaultService(
-            keychain: keychain,
-            gate: gate,
-            clipboard: clipboard,
-            modelContainer: container,
-            entitlements: entitlements
-        )
+        gate = RevealGate(masterPassword: master) { _, _ in /* always succeed */ }
+        clipboard = SecureClipboard()
+        // 本套件考的是密钥库，不是 StoreKit：走桩，免去每次配额检查 60 秒的商店超时。
+        vault = makeVault(entitlements: StubEntitlements(tier: .free))
         // Ensure free tier
         let entitlement = EntitlementSnapshotRepository(modelContainer: container)
         try await entitlement.update(tier: .free, source: "test")
@@ -30,6 +26,16 @@ final class KeyVaultServiceTests: XCTestCase {
         var patch = PreferencesPatch()
         patch.revealPolicy = .none
         try await prefs.update(patch)
+    }
+
+    private func makeVault(entitlements: EntitlementServing) -> KeyVaultService {
+        KeyVaultService(
+            keychain: keychain,
+            gate: gate,
+            clipboard: clipboard,
+            modelContainer: container,
+            entitlements: entitlements
+        )
     }
 
     func testQuotaThirdSucceedsFourthFails() async throws {
@@ -57,6 +63,7 @@ final class KeyVaultServiceTests: XCTestCase {
         let entitlement = EntitlementSnapshotRepository(modelContainer: container)
         try await entitlement.update(tier: .unlimitedKeys, source: "stale")
 
+        // 前三把只是把额度铺满，不是被考的对象，用桩建。
         let accountId = try await vault.createAccount(
             UpstreamAccountDraft(platform: "openai", displayName: "B")
         )
@@ -66,6 +73,10 @@ final class KeyVaultServiceTests: XCTestCase {
                 secret: "sk-stale-secret-\(i)aaa"
             )
         }
+
+        // 第四把才是本条的题眼：快照说 unlimited，但真服务问过 StoreKit 后仍应拦下。
+        // 这一步必须用真服务，换成桩就测了个空；代价是等一次商店超时。
+        vault = makeVault(entitlements: EntitlementService(modelContainer: container))
         do {
             _ = try await vault.createKey(
                 KeyDraft(accountId: accountId, displayName: "s4"),

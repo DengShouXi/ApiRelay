@@ -41,7 +41,8 @@ final class SecurityReviewTests: XCTestCase {
             gate: gate,
             clipboard: SecureClipboard(),
             modelContainer: container,
-            entitlements: EntitlementService(modelContainer: container)
+            // 本套件考的是明文不外泄，不是 StoreKit：配额走桩，免去商店超时。
+            entitlements: StubEntitlements(tier: .free)
         )
         let accountId = try await vault.createAccount(
             UpstreamAccountDraft(platform: "openai", displayName: "Acct")

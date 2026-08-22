@@ -9,6 +9,7 @@ protocol PreferencesServing: Actor {
 actor PreferencesService: PreferencesServing {
     private let userRepo: UserPreferencesRepository
     private let deviceRepo: DevicePreferencesRepository
+    private nonisolated let writeChain = SerialWriteChain()
 
     init(modelContainer: ModelContainer) {
         self.userRepo = UserPreferencesRepository(modelContainer: modelContainer)
@@ -65,16 +66,52 @@ actor PreferencesService: PreferencesServing {
 
     /// 界面写入 CloudKit 同步的 UserPreferences 时，MUST NOT 在 MainActor 上 `await update`。
     /// SwiftUI `.modelContainer` 的 mainContext 与 `@ModelActor` save 互相等待，会卡住整窗转圈。
-    /// `Task.detached`：工程开了 NonisolatedNonsendingByDefault，普通 `Task {}` 仍会继承 MainActor。
+    /// 立即返回，写入排进串行链：连拨开关时最后一次拨的值一定是最后写进去的那个。
     nonisolated func persist(_ patch: PreferencesPatch) {
-        Task.detached {
-            try? await self.update(patch)
+        writeChain.append { [weak self] in
+            try? await self?.update(patch)
         }
+    }
+
+    /// 等到目前排队的 `persist` 全部落盘。测试用；界面 MUST NOT 调用，那就等于又在主线程干等 save。
+    nonisolated func drainPendingWrites() async {
+        await writeChain.drain()
     }
 
     /// FR-061：清空同步偏好与本机偏好；下次 `load` 会重建默认值。
     func purgeAllRecordsForErase() async throws {
         try await userRepo.deleteAllRecords()
         try await deviceRepo.deleteAllRecords()
+    }
+}
+
+/// 把「不等结果」的写入按调用顺序串起来。
+/// 各自 `Task.detached` 是并发的，谁先落盘不确定；对同一个字段连拨就可能留下中间值。
+/// 入队在锁内同步完成，因此链上的顺序 == 调用顺序；每个任务先等上一个跑完再动手。
+/// `Task.detached`：工程开了 NonisolatedNonsendingByDefault，普通 `Task {}` 仍会继承 MainActor。
+nonisolated final class SerialWriteChain: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tail: Task<Void, Never> = Task.detached {}
+
+    func append(_ work: @escaping @Sendable () async -> Void) {
+        lock.lock()
+        let previous = tail
+        tail = Task.detached {
+            await previous.value
+            await work()
+        }
+        lock.unlock()
+    }
+
+    /// 测试用：等到目前排队的写入全部落盘。生产代码 MUST NOT 在 MainActor 上调用。
+    /// 取尾巴要单独走同步方法：`NSLock` 在 async 上下文里不可用（跨挂起点持锁会死锁）。
+    func drain() async {
+        await currentTail().value
+    }
+
+    private func currentTail() -> Task<Void, Never> {
+        lock.lock()
+        defer { lock.unlock() }
+        return tail
     }
 }

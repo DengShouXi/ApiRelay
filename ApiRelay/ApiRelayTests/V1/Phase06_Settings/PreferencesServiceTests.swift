@@ -41,6 +41,28 @@ final class PreferencesServiceTests: XCTestCase {
         XCTAssertFalse(loaded.hideInAppSwitcher)
     }
 
+    /// 设置页的同步开关全部走 `persist`（不在 MainActor 上 `await`）。
+    /// 连拨 5 次后落盘的必须是最后一次拨的值，否则重开 App 会看到中间值。
+    func testPersistKeepsLastValueWhenToggledRapidly() async throws {
+        let container = try AppSchema.makeInMemoryContainer()
+        let sut = PreferencesService(modelContainer: container)
+
+        for enabled in [true, false, true, false, true] {
+            sut.persist(PreferencesPatch(appLockEnabled: enabled))
+        }
+        sut.persist(PreferencesPatch(revealPolicy: .biometricOnly, clipboardLocalOnly: false))
+        sut.persist(PreferencesPatch(clipboardClearSeconds: 300))
+        sut.persist(PreferencesPatch(hideInAppSwitcher: false))
+        await sut.drainPendingWrites()
+
+        let loaded = try await sut.load()
+        XCTAssertTrue(loaded.appLockEnabled)
+        XCTAssertEqual(loaded.revealPolicy, .biometricOnly)
+        XCTAssertFalse(loaded.clipboardLocalOnly)
+        XCTAssertEqual(loaded.clipboardClearSeconds, 300)
+        XCTAssertFalse(loaded.hideInAppSwitcher)
+    }
+
     func testRevealPolicyUpdateDoesNotTouchDeviceAppearance() async throws {
         let container = try AppSchema.makeInMemoryContainer()
         let sut = PreferencesService(modelContainer: container)

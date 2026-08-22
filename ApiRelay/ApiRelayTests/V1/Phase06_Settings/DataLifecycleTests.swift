@@ -9,13 +9,15 @@ final class DataLifecycleTests: XCTestCase {
         let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
+        // 清除流程要真服务（`purgeLocalSnapshotForErase` 不在协议上，且不碰 StoreKit）；
+        // 建密钥时的配额检查走桩，免去每次 60 秒的商店超时。
         let entitlements = EntitlementService(modelContainer: container)
         let vault = KeyVaultService(
             keychain: keychain,
             gate: gate,
             clipboard: SecureClipboard(),
             modelContainer: container,
-            entitlements: entitlements
+            entitlements: StubEntitlements(tier: .free)
         )
         let consumerTools = ConsumerToolService(modelContainer: container, gate: gate)
         let preferences = PreferencesService(modelContainer: container)

@@ -39,13 +39,13 @@ final class RecentlyDeletedBatchTests: XCTestCase {
             counter.increment()
         }
         let clipboard = SecureClipboard()
-        let entitlements = EntitlementService(modelContainer: container)
+        // 本套件考的是回收站批量操作与门闩次数，不是 StoreKit：配额走桩，免去商店超时。
         vault = KeyVaultService(
             keychain: keychain,
             gate: gate,
             clipboard: clipboard,
             modelContainer: container,
-            entitlements: entitlements
+            entitlements: StubEntitlements(tier: .free)
         )
         tools = ConsumerToolService(modelContainer: container, gate: gate)
         batch = RecentlyDeletedBatchService(vault: vault, consumerTools: tools, gate: gate)

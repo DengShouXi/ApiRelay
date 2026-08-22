@@ -207,13 +207,13 @@ final class SecureBackupTests: XCTestCase {
         let keychain = KeychainStore(accessGroup: nil, disableSynchronizableForTesting: true)
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
-        let entitlements = EntitlementService(modelContainer: container)
+        // 本套件考的是备份导出导入，不是 StoreKit：配额走桩，免去商店超时。
         let vault = KeyVaultService(
             keychain: keychain,
             gate: gate,
             clipboard: SecureClipboard(),
             modelContainer: container,
-            entitlements: entitlements
+            entitlements: StubEntitlements(tier: .free)
         )
         let backups = SecureBackupService(
             gate: gate,

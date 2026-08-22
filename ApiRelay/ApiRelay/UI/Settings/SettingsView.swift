@@ -115,7 +115,13 @@ struct SettingsView: View {
                             detail: "settings.appearance.rowDetail",
                             selection: Binding(
                                 get: { prefs.appearance },
-                                set: { v in Task { await save(PreferencesPatch(appearance: v)) } }
+                                set: { v in
+                                    if var current = self.prefs {
+                                        current.appearance = v
+                                        self.prefs = current
+                                    }
+                                    Task { await save(PreferencesPatch(appearance: v)) }
+                                }
                             )
                         ) {
                             Text("settings.appearance.system").tag(AppearancePreference.system)
@@ -197,21 +203,15 @@ struct SettingsView: View {
                                 environment: environment,
                                 currentPolicy: prefs.revealPolicy,
                                 applyPolicy: { value in
-                                    environment.preferences.persist(PreferencesPatch(revealPolicy: value))
-                                    if var current = self.prefs {
-                                        current.revealPolicy = value
-                                        self.prefs = current
-                                        environment.appPrivacy.applyLivePreferences(AppLockPreferences(current))
-                                    }
+                                    persistSyncedPatch(PreferencesPatch(revealPolicy: value))
                                     await refreshMasterPasswordStatus()
                                 }
                             )
                             .id("reveal-policy-settings")
                             .onDisappear {
-                                Task {
-                                    await reload()
-                                    await refreshMasterPasswordStatus()
-                                }
+                                // MUST NOT 在这里 reload：返回时同步写入可能还没落盘，
+                                // 读回旧值会把刚选好的验证方式弹回去。内存里已是最新值。
+                                Task { await refreshMasterPasswordStatus() }
                             }
                         }
 
@@ -236,11 +236,7 @@ struct SettingsView: View {
                                     // 重置后若仍卡在主密码档，回退验证方式，避免无法查看/复制。
                                     let stillSet = (try? await environment.masterPassword.isSet()) ?? false
                                     if !stillSet, self.prefs?.revealPolicy == .masterPassword {
-                                        if var current = self.prefs {
-                                            current.revealPolicy = RevealPolicy.none
-                                            self.prefs = current
-                                        }
-                                        await save(PreferencesPatch(revealPolicy: RevealPolicy.none))
+                                        persistSyncedPatch(PreferencesPatch(revealPolicy: RevealPolicy.none))
                                     }
                                 }
                             }
@@ -268,7 +264,7 @@ struct SettingsView: View {
                                 seconds: prefs.autoLockSeconds,
                                 value: Binding(
                                     get: { prefs.autoLockSeconds },
-                                    set: { persistPrivacyPatch(PreferencesPatch(autoLockSeconds: $0)) }
+                                    set: { persistSyncedPatch(PreferencesPatch(autoLockSeconds: $0)) }
                                 ),
                                 range: 0...600,
                                 step: 30
@@ -284,7 +280,7 @@ struct SettingsView: View {
                                 seconds: prefs.clipboardClearSeconds,
                                 value: Binding(
                                     get: { prefs.clipboardClearSeconds },
-                                    set: { v in Task { await save(PreferencesPatch(clipboardClearSeconds: v)) } }
+                                    set: { persistSyncedPatch(PreferencesPatch(clipboardClearSeconds: $0)) }
                                 ),
                                 range: 30...600,
                                 step: 30
@@ -685,15 +681,11 @@ struct SettingsView: View {
             set: { newValue in
                 switch keyPath {
                 case \.appLockEnabled:
-                    persistPrivacyPatch(PreferencesPatch(appLockEnabled: newValue))
+                    persistSyncedPatch(PreferencesPatch(appLockEnabled: newValue))
                 case \.hideInAppSwitcher:
-                    persistPrivacyPatch(PreferencesPatch(hideInAppSwitcher: newValue))
+                    persistSyncedPatch(PreferencesPatch(hideInAppSwitcher: newValue))
                 case \.clipboardLocalOnly:
-                    Task {
-                        var patch = PreferencesPatch()
-                        patch.clipboardLocalOnly = newValue
-                        await save(patch)
-                    }
+                    persistSyncedPatch(PreferencesPatch(clipboardLocalOnly: newValue))
                 default:
                     break
                 }
@@ -701,20 +693,27 @@ struct SettingsView: View {
         )
     }
 
-    /// App 锁三项：先改内存再 persist，避免等 CloudKit save 卡住，并让遮罩/锁立即跟开关走。
-    private func persistPrivacyPatch(_ patch: PreferencesPatch) {
+    /// 写同步那份偏好（`UserPreferences` → CloudKit）的唯一入口。
+    /// 先改内存让控件立刻跟手，再 `persist`（内部 `Task.detached`）。
+    /// MUST NOT 在 MainActor 上 `await update`：`mainContext` 与 `@ModelActor` 的 save 互相等待，整窗转圈。
+    /// 也 MUST NOT 在写完后 `reload`，那会用尚未落盘的旧值把开关弹回去。
+    private func persistSyncedPatch(_ patch: PreferencesPatch) {
         guard var current = prefs else { return }
         if let value = patch.appLockEnabled { current.appLockEnabled = value }
         if let value = patch.autoLockSeconds { current.autoLockSeconds = value }
         if let value = patch.hideInAppSwitcher { current.hideInAppSwitcher = value }
+        if let value = patch.revealPolicy { current.revealPolicy = value }
+        if let value = patch.clipboardClearSeconds { current.clipboardClearSeconds = value }
+        if let value = patch.clipboardLocalOnly { current.clipboardLocalOnly = value }
         prefs = current
         environment.appPrivacy.applyLivePreferences(AppLockPreferences(current))
         environment.preferences.persist(patch)
     }
 
+    /// 只用于本机 `DevicePreferences`（外观 / 默认视角 / 指派筛选），不经 CloudKit，故可直接 `await`。
+    /// 三个调用点都已先改内存，这里 MUST NOT 再 `reload`：那会顺带用旧值盖掉尚未落盘的同步开关。
     private func save(_ patch: PreferencesPatch) async {
         try? await environment.preferences.update(patch)
-        await reload()
         if patch.appearance != nil {
             await environment.refreshAppearance()
         }
@@ -763,7 +762,7 @@ struct SettingsView: View {
 private struct RevealPolicySettingsView: View {
     let environment: AppEnvironment
     let currentPolicy: RevealPolicy
-    /// 仅主密码设密成功后调用；选档本身走 `persist`，不在此等待 SwiftData。
+    /// 每次选档都调用（含主密码设密成功后）。上层在其中改内存并 `persist`，不在 MainActor 上等 SwiftData。
     let applyPolicy: (RevealPolicy) async -> Void
 
     /// 选「主密码」且尚未设密 → 推进到下一步设密页（不是先改策略）。
@@ -869,7 +868,8 @@ private struct RevealPolicySettingsView: View {
     }
 
     /// 未设主密码时：只进入设密下一步，不改 `revealPolicy`。
-    /// 写入走 `persist`：不在 MainActor 上等待 CloudKit/SwiftData save，否则会整窗转圈。
+    /// 选档本身不在这里写库，交给 `applyPolicy`，让上层同一处既改内存又 `persist`，
+    /// 否则上层的摘要行会停在旧值、返回时还要靠 reload 兜底。
     private func selectPolicy(_ value: RevealPolicy) async {
         if value == .masterPassword {
             let isSet = (try? await environment.masterPassword.isSet()) ?? false
@@ -879,7 +879,7 @@ private struct RevealPolicySettingsView: View {
             }
         }
         highlightedPolicy = value
-        environment.preferences.persist(PreferencesPatch(revealPolicy: value))
+        await applyPolicy(value)
     }
 }
 
