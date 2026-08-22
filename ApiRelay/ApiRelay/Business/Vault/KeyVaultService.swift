@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Security
 
 actor KeyVaultService: KeyVaultServing {
     static let freeTierLimit = 3
@@ -78,12 +79,10 @@ actor KeyVaultService: KeyVaultServing {
             throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
         }
 
-        let last4 = Self.last4(of: normalized)
         if !acknowledgePossibleDuplicate,
-           let dupId = try await keysRepo.findWeakDuplicate(
-            accountId: draft.accountId,
-            last4: last4,
-            length: normalized.count
+           let dupId = try await existingKeyId(
+            matching: normalized,
+            accountId: draft.accountId
            ) {
             throw ApiRelayError.validationFailed(
                 field: "secret",
@@ -92,8 +91,8 @@ actor KeyVaultService: KeyVaultServing {
         }
 
         var draft = draft
-        draft.maskedHint = last4
-        draft.secretLength = normalized.count
+        draft.maskedHint = nil
+        draft.secretLength = nil
         draft.origin = .manualEntry
 
         let id = try await keysRepo.insert(draft)
@@ -138,16 +137,17 @@ actor KeyVaultService: KeyVaultServing {
         if let notes = draft.notes {
             keyPatch.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        keyPatch.updatesAvatar = true
+        keyPatch.avatarSymbol = draft.avatarSymbol
+        keyPatch.avatarColor = draft.avatarColor
         if let rawSecret = draft.secret {
             let trimmedSecret = rawSecret.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmedSecret.isEmpty {
                 let normalized = try Self.normalizeSecret(trimmedSecret)
-                let last4 = Self.last4(of: normalized)
                 if !draft.acknowledgePossibleDuplicate,
-                   let dupId = try await keysRepo.findWeakDuplicate(
+                   let dupId = try await existingKeyId(
+                    matching: normalized,
                     accountId: key.accountId,
-                    last4: last4,
-                    length: normalized.count,
                     excludingId: id
                    ) {
                     throw ApiRelayError.validationFailed(
@@ -156,16 +156,18 @@ actor KeyVaultService: KeyVaultServing {
                     )
                 }
                 try await keychain.save(normalized, service: .keys, account: id)
-                keyPatch.maskedHint = last4
-                keyPatch.secretLength = normalized.count
             }
         }
         try await keysRepo.update(id: id, patch: keyPatch)
 
         let isCustom = platform == PresetCatalog.customPlatformID
+        let trimmedCustom = draft.customPlatformName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if isCustom, trimmedCustom.isEmpty {
+            throw ApiRelayError.validationFailed(field: "customPlatformName", reason: "required")
+        }
         let accountPatch = UpstreamAccountPatch(
             platform: platform,
-            customPlatformName: isCustom ? trimmedAccountName : "",
+            customPlatformName: isCustom ? trimmedCustom : "",
             displayName: trimmedAccountName,
             customBaseURL: isCustom ? (draft.customBaseURL ?? "") : ""
         )
@@ -174,6 +176,10 @@ actor KeyVaultService: KeyVaultServing {
 
     func reorderKeys(orderedIds: [UUID]) async throws {
         try await keysRepo.reorder(orderedIds: orderedIds)
+    }
+
+    func reorderAccounts(orderedIds: [UUID]) async throws {
+        try await accountsRepo.reorder(orderedIds: orderedIds)
     }
 
     func deleteKey(_ id: UUID) async throws {
@@ -191,17 +197,12 @@ actor KeyVaultService: KeyVaultServing {
         if let remaining = try await remainingFreeQuota(), remaining <= 0 {
             throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
         }
-        if let key = try await keysRepo.fetch(id: id),
-           let account = try await accountsRepo.fetch(id: key.accountId),
-           account.deletedAt != nil {
-            try await accountsRepo.clearDeletionMarks(id: account.id)
-        }
-        try await keysRepo.clearDeletionMarks(id: id)
+        _ = try await restoreKeyAfterAuth(id, requirePresent: true)
     }
 
     func permanentlyDeleteKey(_ id: UUID) async throws {
         try await gate.confirmMandatory(reason: String(localized: "gate.permanentDelete"))
-        try await destroyKey(id)
+        _ = try await permanentlyDeleteKeyAfterAuth(id)
     }
 
     func purgeExpiredDeletedKeys() async throws {
@@ -218,26 +219,12 @@ actor KeyVaultService: KeyVaultServing {
 
     func restoreAccount(_ id: UUID) async throws {
         try await gate.confirmMandatory(reason: String(localized: "gate.restoreAccount"))
-        guard let account = try await accountsRepo.fetch(id: id), account.deletedAt != nil else {
-            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
-        }
-        let cascadeKeys = try await keysRepo.fetch(accountId: id, lifecycles: [.softDeleted])
-        if let remaining = try await remainingFreeQuota(), cascadeKeys.count > remaining {
-            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
-        }
-        try await accountsRepo.clearDeletionMarks(id: id)
-        for key in cascadeKeys {
-            try await keysRepo.clearDeletionMarks(id: key.id)
-        }
+        _ = try await restoreAccountAfterAuth(id, requirePresent: true)
     }
 
     func permanentlyDeleteAccount(_ id: UUID) async throws {
         try await gate.confirmMandatory(reason: String(localized: "gate.permanentDelete"))
-        let allKeys = try await keysRepo.fetch(accountId: id, lifecycles: nil)
-        for key in allKeys {
-            try await destroyKey(key.id)
-        }
-        try await accountsRepo.delete(id: id)
+        _ = try await permanentlyDeleteAccountAfterAuth(id)
     }
 
     func purgeExpiredDeletedAccounts() async throws {
@@ -272,13 +259,31 @@ actor KeyVaultService: KeyVaultServing {
         _ = purpose
         try await ensureActiveForReveal(keyId)
         try await runGate(masterPassword: masterPassword)
-        return try await keychain.read(service: .keys, account: keyId)
+        do {
+            return try await keychain.read(service: .keys, account: keyId)
+        } catch let ApiRelayError.keychainFailure(status) where status == errSecItemNotFound {
+            throw ApiRelayError.secretMissingOnDevice
+        }
     }
 
     func copySecretToClipboard(keyId: UUID, masterPassword: String?) async throws {
         try await ensureActiveForReveal(keyId)
         try await runGate(masterPassword: masterPassword)
-        let secret = try await keychain.read(service: .keys, account: keyId)
+        let secret: String
+        do {
+            secret = try await keychain.read(service: .keys, account: keyId)
+        } catch let ApiRelayError.keychainFailure(status) where status == errSecItemNotFound {
+            throw ApiRelayError.secretMissingOnDevice
+        }
+        try await writeSecretToClipboard(secret)
+    }
+
+    /// 将已通过门闩取出的明文写入剪贴板。MUST NOT 再走门闩。
+    func copyRevealedSecretToClipboard(_ secret: String) async throws {
+        try await writeSecretToClipboard(secret)
+    }
+
+    private func writeSecretToClipboard(_ secret: String) async throws {
         let prefs = try await userPrefsRepo.loadOrCreate()
         try await clipboard.write(
             secret,
@@ -307,6 +312,16 @@ actor KeyVaultService: KeyVaultServing {
     func performStartupMaintenance() async throws {
         try await purgeExpiredDeletedKeys()
         try await purgeExpiredDeletedAccounts()
+        try await keysRepo.clearStoredSecretFragments()
+    }
+
+    /// FR-061：物理删除本服务 ModelActor 里的账号 / 密钥 / 指派 / 安全偏好（含回收站）。
+    /// 必须走这些已有仓库，另开 ModelContext 删除后主列表仍会读到旧对象。
+    func purgeAllRecordsForErase() async throws {
+        try await assignmentsRepo.deleteAllRecords()
+        try await keysRepo.deleteAllRecords()
+        try await accountsRepo.deleteAllRecords()
+        try await userPrefsRepo.deleteAllRecords()
     }
 
     private func runGate(masterPassword: String?) async throws {
@@ -338,6 +353,175 @@ actor KeyVaultService: KeyVaultServing {
         }
     }
 
+    /// 批量恢复前先算额度。超出则整批拒绝，且 MUST 在门闩之前调用。
+    func preflightRestoreQuota(keyIds: [UUID], accountIds: [UUID]) async throws {
+        let needed = try await keysThatWouldBecomeActive(keyIds: keyIds, accountIds: accountIds).count
+        guard needed > 0 else { return }
+        if let remaining = try await remainingFreeQuota(), needed > remaining {
+            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
+        }
+    }
+
+    /// 调用方 MUST 已完成 `confirmMandatory`。先账号（级联其下密钥），再处理剩余密钥。
+    func restoreDeletedAfterAuthentication(
+        keyIds: [UUID],
+        accountIds: [UUID]
+    ) async -> TrashBatchOutcome {
+        var successCount = 0
+        var failures: [TrashBatchItemFailure] = []
+        for accountId in unique(accountIds) {
+            let name = await accountDisplayName(accountId)
+            do {
+                if try await restoreAccountAfterAuth(accountId, requirePresent: false) {
+                    successCount += 1
+                }
+            } catch {
+                failures.append(TrashBatchItemFailure(name: name, detail: error.localizedDescription))
+            }
+        }
+        let selectedAccounts = Set(accountIds)
+        for keyId in unique(keyIds) {
+            let name = await keyDisplayName(keyId)
+            do {
+                if let key = try await keysRepo.fetch(id: keyId),
+                   selectedAccounts.contains(key.accountId),
+                   key.lifecycle != .softDeleted {
+                    successCount += 1
+                    continue
+                }
+                if try await restoreKeyAfterAuth(keyId, requirePresent: false) {
+                    successCount += 1
+                }
+            } catch {
+                failures.append(TrashBatchItemFailure(name: name, detail: error.localizedDescription))
+            }
+        }
+        return TrashBatchOutcome(successCount: successCount, failures: failures)
+    }
+
+    /// 调用方 MUST 已完成 `confirmMandatory`。先账号（会拆掉其下密钥），再删剩余密钥。
+    func permanentlyDeleteDeletedAfterAuthentication(
+        keyIds: [UUID],
+        accountIds: [UUID]
+    ) async -> TrashBatchOutcome {
+        var successCount = 0
+        var failures: [TrashBatchItemFailure] = []
+        for accountId in unique(accountIds) {
+            let name = await accountDisplayName(accountId)
+            do {
+                if try await permanentlyDeleteAccountAfterAuth(accountId) {
+                    successCount += 1
+                }
+            } catch {
+                failures.append(TrashBatchItemFailure(name: name, detail: error.localizedDescription))
+            }
+        }
+        for keyId in unique(keyIds) {
+            let name = await keyDisplayName(keyId)
+            do {
+                if try await keysRepo.fetch(id: keyId) == nil {
+                    successCount += 1
+                    continue
+                }
+                if try await permanentlyDeleteKeyAfterAuth(keyId) {
+                    successCount += 1
+                }
+            } catch {
+                failures.append(TrashBatchItemFailure(name: name, detail: error.localizedDescription))
+            }
+        }
+        return TrashBatchOutcome(successCount: successCount, failures: failures)
+    }
+
+    private func keysThatWouldBecomeActive(keyIds: [UUID], accountIds: [UUID]) async throws -> Set<UUID> {
+        var ids = Set<UUID>()
+        for accountId in unique(accountIds) {
+            let cascade = try await keysRepo.fetch(accountId: accountId, lifecycles: [.softDeleted])
+            for key in cascade {
+                ids.insert(key.id)
+            }
+        }
+        for keyId in unique(keyIds) {
+            guard let key = try await keysRepo.fetch(id: keyId), key.lifecycle == .softDeleted else {
+                continue
+            }
+            ids.insert(key.id)
+        }
+        return ids
+    }
+
+    /// - Returns: 是否把一条回收站账号变成了有效（已恢复则 true，以便重试计成功）。
+    @discardableResult
+    private func restoreAccountAfterAuth(_ id: UUID, requirePresent: Bool) async throws -> Bool {
+        guard let account = try await accountsRepo.fetch(id: id) else {
+            if requirePresent {
+                throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+            }
+            return true
+        }
+        guard account.deletedAt != nil else { return true }
+        let cascadeKeys = try await keysRepo.fetch(accountId: id, lifecycles: [.softDeleted])
+        if let remaining = try await remainingFreeQuota(), cascadeKeys.count > remaining {
+            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
+        }
+        try await accountsRepo.clearDeletionMarks(id: id)
+        for key in cascadeKeys {
+            try await keysRepo.clearDeletionMarks(id: key.id)
+        }
+        return true
+    }
+
+    /// - Returns: 是否已不在回收站（含本来就有效、或刚恢复）。
+    @discardableResult
+    private func restoreKeyAfterAuth(_ id: UUID, requirePresent: Bool) async throws -> Bool {
+        guard let key = try await keysRepo.fetch(id: id) else {
+            if requirePresent {
+                throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+            }
+            return true
+        }
+        guard key.lifecycle == .softDeleted else { return true }
+        if let remaining = try await remainingFreeQuota(), remaining <= 0 {
+            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
+        }
+        if let account = try await accountsRepo.fetch(id: key.accountId),
+           account.deletedAt != nil {
+            try await accountsRepo.clearDeletionMarks(id: account.id)
+        }
+        try await keysRepo.clearDeletionMarks(id: id)
+        return true
+    }
+
+    @discardableResult
+    private func permanentlyDeleteAccountAfterAuth(_ id: UUID) async throws -> Bool {
+        guard try await accountsRepo.fetch(id: id) != nil else { return true }
+        let allKeys = try await keysRepo.fetch(accountId: id, lifecycles: nil)
+        for key in allKeys {
+            try await destroyKey(key.id)
+        }
+        try await accountsRepo.delete(id: id)
+        return true
+    }
+
+    @discardableResult
+    private func permanentlyDeleteKeyAfterAuth(_ id: UUID) async throws -> Bool {
+        try await destroyKey(id)
+        return true
+    }
+
+    private func keyDisplayName(_ id: UUID) async -> String {
+        (try? await keysRepo.fetch(id: id))?.displayName ?? id.uuidString
+    }
+
+    private func accountDisplayName(_ id: UUID) async -> String {
+        (try? await accountsRepo.fetch(id: id))?.displayName ?? id.uuidString
+    }
+
+    private func unique(_ ids: [UUID]) -> [UUID] {
+        var seen = Set<UUID>()
+        return ids.filter { seen.insert($0).inserted }
+    }
+
     private func softDeleteKeyMetadata(_ id: UUID) async throws {
         try await keysRepo.softDelete(id: id, retainDays: 30)
     }
@@ -352,18 +536,21 @@ actor KeyVaultService: KeyVaultServing {
         var result: [KeyRecordDTO] = []
         for record in records {
             let available: Bool
+            let length: Int?
             do {
-                _ = try await keychain.read(service: .keys, account: record.id)
+                let secret = try await keychain.read(service: .keys, account: record.id)
                 available = true
+                length = secret.count
             } catch {
                 available = false
+                length = nil
             }
             result.append(KeyRecordDTO(
                 id: record.id,
                 accountId: record.accountId,
                 consumerToolIds: record.consumerToolIds,
                 displayName: record.displayName,
-                maskedHint: record.maskedHint,
+                maskedHint: nil,
                 origin: record.origin,
                 providerKeyRef: record.providerKeyRef,
                 lifecycle: record.lifecycle,
@@ -373,7 +560,10 @@ actor KeyVaultService: KeyVaultServing {
                 spendLimit: record.spendLimit,
                 notes: record.notes,
                 secretAvailable: available,
-                sortOrder: record.sortOrder
+                secretLength: length,
+                sortOrder: record.sortOrder,
+                avatarSymbol: record.avatarSymbol,
+                avatarColor: record.avatarColor
             ))
         }
         return result
@@ -390,7 +580,28 @@ actor KeyVaultService: KeyVaultServing {
         return trimmed
     }
 
-    nonisolated static func last4(of secret: String) -> String {
-        String(secret.suffix(4))
+    /// 录入查重：对本机 Keychain 已有明文做相等比较。MUST NOT 走门闩——明文未交给用户。
+    private func existingKeyId(
+        matching secret: String,
+        accountId: UUID,
+        excludingId: UUID? = nil
+    ) async throws -> UUID? {
+        let records = try await keysRepo.fetch(
+            accountId: accountId,
+            lifecycles: [.active, .revokedUpstream]
+        )
+        for record in records {
+            if record.id == excludingId { continue }
+            let existing: String
+            do {
+                existing = try await keychain.read(service: .keys, account: record.id)
+            } catch {
+                continue
+            }
+            if existing == secret {
+                return record.id
+            }
+        }
+        return nil
     }
 }

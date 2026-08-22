@@ -105,7 +105,7 @@
       `(keyId, consumerToolId)` 去重（CloudKit 无唯一约束，同步竞态会产生重复行）。
       **MUST NOT 向上层泄露 `ModelContext`**（宪法 I）。
 - [x] **T014a** [P] `Business/Vault/PresetCatalog.swift`：两类预置清单作为**内置常量**——
-      上游平台（OpenAI、Claude、Google、OpenRouter、DeepSeek、阿里百炼、火山引擎、硅基流动）
+      上游平台（OpenAI、Anthropic、Google、OpenRouter、DeepSeek、智谱 AI、阿里百炼、火山引擎、硅基流动）
       与使用方工具（CL-003 定稿）。
       **MUST NOT 持久化为用户数据**；应用更新扩充清单时 MUST NOT 覆盖或删除用户自建项（FR-007a）。
 - [x] **T014b** **CloudKit Production schema 部署**（FR-063 / DC-027，**Checkpoint 2b 硬门槛**）：
@@ -180,6 +180,9 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       进入回收站 / 恢复 / 立即删除 MUST 经 `confirmMandatory`。
 - [x] **T024a** 「最近删除」UI：列表展示剩余天数；恢复 / 立即删除；入口放在设置或保险库
       次级页面。主列表 MUST NOT 出现回收站密钥。
+- [x] **T024b** 回收站选择模式与批量（FR-006a）：`RecentlyDeletedBatchServing` 整批一次
+      `confirmMandatory`；恢复前预检免费额度（超出则整批拒绝）；账号级联覆盖其下密钥；
+      永久删除须先确认数量。单条路径保持 T024 / FR-006。
 - [x] **T025** 启动时巡检：① 孤儿（元信息有而 Keychain 无 → `secretAvailable = false`；
       Keychain 有而元信息无 → 提示）；② **`purgeExpiredDeletedKeys()`** 永久清除到期项。
 - [x] **T026** [P] `ApiRelayTests/KeyVaultServiceTests.swift`：额度边界（第 3 把成功 / 第 4 把被拒 /
@@ -188,16 +191,16 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 
 ### UI
 
-- [x] **T027** `UI/Vault/`：平台分组的密钥列表，**只显示掩码**；`secretAvailable == false`
+- [x] **T027** `UI/Vault/`：平台分组的密钥列表，**不展示密钥的任何字符**；`secretAvailable == false`
       时显示「本机暂无明文」状态（FR-002、FR-033）。
-- [x] **T028** 账号与密钥的新建/编辑表单，含名称校验与掩码生成
-      （`maskedHint` **MUST NOT 存足以还原明文的内容**）。
+- [x] **T028** 账号与密钥的新建/编辑表单，含名称校验；
+      （`maskedHint` **MUST 保持 nil**）。
 - [x] **T028a** **密钥录入正确性**（FR-056、FR-057 / SC-012）：
       - 密钥输入控件 MUST 关闭自动更正、自动大写、智能标点/智能引号。
       - 保存前去除首尾空白；含空格/制表符/换行 MUST 拒绝并说明原因。
       - 长度明显异常时提醒但 MUST NOT 阻止保存。
-      - 同一上游账号下已存在**末 4 位与 `secretLength` 都相同**的密钥时，提示可能重复并指出是哪一条，
-        用户确认后才继续。**MUST NOT** 存储明文哈希或任何派生物（宪法 VII）。
+      - 同一上游账号下本机 Keychain 已有**完全相同明文**时，提示可能重复并指出是哪一条，
+        用户确认后才继续。**MUST NOT** 存储明文哈希、末位片段或任何派生物（宪法 VII）。
       - 单测或手工验收覆盖 SC-012（智能标点环境粘贴含 `-` 的密钥）。
 - [x] **T028b** **新增并指定使用方 ≤3 步**（FR-025 / SC-001）：
       主界面「新增密钥」流程 MUST 支持在同一条保存路径上可选指定使用方（或紧随的指派），
@@ -208,7 +211,7 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 - [x] **T030** 额度超限时的引导界面（说明「免费版最多 3 把」+ 解锁入口）。
 - [x] **T031** 主密码输入界面（作为门闩的一档）与设置/修改/重置流程界面。
 
-**Checkpoint 3（V1 已具备独立产品价值）**：能录入、掩码展示、按四档中任一方式验证后查看/复制、
+**Checkpoint 3（V1 已具备独立产品价值）**：能录入、列表不展示密钥字符、按四档中任一方式验证后查看/复制、
 剪贴板 2 分钟后自动清除（含杀死 App 后仍生效）、免费 3 把上限生效。
 按 [quickstart.md](./quickstart.md) §1 全部条目验收，含两台真机的同步与通用剪贴板验证。
 
@@ -329,7 +332,7 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 > （合并 `main` / tag `release/1.0.0` / 提交审核）。`T062` 编号早于材料任务，属历史编号。
 
 - [x] **T056** 明文泄露全面排查：SwiftData store 文件、CloudKit Dashboard、日志、崩溃报告、
-      `maskedHint` 存储值——**逐项确认无明文**（quickstart §7）。
+      `maskedHint` / `secretLength` 存储值——**逐项确认为空**（quickstart §7）。
 - [x] **T057** 代码审查 `KeychainStore`：确认**无** `kSecAttrAccessControl`；
       主密码校验材料确为 `ThisDeviceOnly` 且**未同步**。
 - [x] **T058** 文案审查：安全相关文案与商店描述**不得出现**「系统级强制」「无法绕过」等表述；
@@ -345,7 +348,7 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       - 用户输入的密钥名、自定义平台名、自定义工具名**未被翻译**（FR-046）。
 - [x] **T059b** 隐私政策与法律文本的**人工双语**版本（英语 + 简体中文），**禁止机翻**（FR-044）。
 - [x] **T060** [P] 无障碍与体验：Dynamic Type、深色模式、VoiceOver 标签（FR-059 / DC-024）。
-      掩码位 MUST NOT 被读出完整明文；门闩通过后的明文区 MAY 读出，且 MUST 支持逐字符朗读。
+      列表与详情 MUST NOT 朗读密钥片段；门闩通过后的明文区 MAY 读出，且 MUST 支持逐字符朗读。
       **安全边界在门闩，不在辅助功能**——禁止一概屏蔽 VoiceOver 读明文。
 - [x] **T061** 按 [quickstart.md](./quickstart.md) 全量走一遍人工验收
       （**跳过 §3、§4 与 §6 中标注为 V2 的条目**；**含 §1.1b FR-025/SC-001 计步**）。

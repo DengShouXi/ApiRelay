@@ -14,7 +14,7 @@ final class KeychainStoreTests: XCTestCase {
 
     override func tearDown() async throws {
         if let sut {
-            for service: KeychainService in [.keys, .admin, .masterpw] {
+            for service: KeychainService in [.keys, .admin, .masterpw, .backuppw] {
                 let listed = (try? await sut.listAccounts(service: service)) ?? []
                 for account in listed {
                     try? await sut.delete(service: service, account: account)

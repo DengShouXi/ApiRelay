@@ -7,6 +7,7 @@ final class APIKeyRecord {
     var id: UUID = UUID()
     var accountId: UUID = UUID()
     var displayName: String = ""
+    /// CloudKit 遗留字段（不可删）。MUST 保持 nil，禁止存密钥片段。
     var maskedHint: String?
     var origin: String = KeyOrigin.manualEntry.rawValue
     var providerKeyRef: String?
@@ -22,9 +23,13 @@ final class APIKeyRecord {
     var healthState: String = KeyHealthState.unknown.rawValue
     var lastCheckedAt: Date?
     var lastCheckNote: String?
+    /// CloudKit 遗留字段（不可删）。MUST 保持 nil，禁止存明文字符长度。
     var secretLength: Int?
     /// 分区内展示顺序（越小越靠前）；同值时再按 createdAt 新→旧。
     var sortOrder: Int = 0
+    /// 用户在编辑里选的头像；nil = 跟设置里的密钥默认。
+    var avatarSymbol: String?
+    var avatarColor: String?
 
     init(
         id: UUID = UUID(),
@@ -45,7 +50,9 @@ final class APIKeyRecord {
         lastCheckedAt: Date? = nil,
         lastCheckNote: String? = nil,
         secretLength: Int? = nil,
-        sortOrder: Int = 0
+        sortOrder: Int = 0,
+        avatarSymbol: String? = nil,
+        avatarColor: String? = nil
     ) {
         self.id = id
         self.accountId = accountId
@@ -66,5 +73,7 @@ final class APIKeyRecord {
         self.lastCheckNote = lastCheckNote
         self.secretLength = secretLength
         self.sortOrder = sortOrder
+        self.avatarSymbol = avatarSymbol
+        self.avatarColor = avatarColor
     }
 }

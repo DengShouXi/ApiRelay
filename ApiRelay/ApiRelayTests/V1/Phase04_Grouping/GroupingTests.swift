@@ -22,7 +22,7 @@ final class GroupingTests: XCTestCase {
         let toolId = UUID()
         let tools = [ConsumerToolDTO(
             id: toolId, name: "Empty Tool", iconSymbol: nil,
-            isPreset: false, isHidden: false, notes: nil, createdAt: Date(), sortOrder: 0,
+            isPreset: false, isHidden: false, notes: nil, createdAt: Date(), updatedAt: Date(), sortOrder: 0,
             deletedAt: nil, purgeAfter: nil
         )]
         let sections = KeyGrouping.group(keys: [], accounts: [], tools: tools, mode: .byConsumer)
@@ -47,8 +47,8 @@ final class GroupingTests: XCTestCase {
             deletedAt: nil, purgeAfter: nil
         )]
         let tools = [
-            ConsumerToolDTO(id: toolA, name: "VS Code", iconSymbol: nil, isPreset: true, isHidden: false, notes: nil, createdAt: Date(), sortOrder: 0, deletedAt: nil, purgeAfter: nil),
-            ConsumerToolDTO(id: toolB, name: "Cursor", iconSymbol: nil, isPreset: true, isHidden: false, notes: nil, createdAt: Date(), sortOrder: 1, deletedAt: nil, purgeAfter: nil),
+            ConsumerToolDTO(id: toolA, name: "VS Code", iconSymbol: nil, isPreset: true, isHidden: false, notes: nil, createdAt: Date(), updatedAt: Date(), sortOrder: 0, deletedAt: nil, purgeAfter: nil),
+            ConsumerToolDTO(id: toolB, name: "Cursor", iconSymbol: nil, isPreset: true, isHidden: false, notes: nil, createdAt: Date(), updatedAt: Date(), sortOrder: 1, deletedAt: nil, purgeAfter: nil),
         ]
 
         let byPlatform = KeyGrouping.group(keys: keys, accounts: accounts, tools: tools, mode: .byPlatform)
@@ -59,6 +59,95 @@ final class GroupingTests: XCTestCase {
         XCTAssertEqual(KeyGrouping.uniqueKeyCount(in: byConsumer), 2)
         XCTAssertTrue(byConsumer.contains { $0.kind == .shared })
         XCTAssertFalse(byConsumer.contains { $0.kind == .unassigned })
+    }
+
+    func testPlatformSectionsSortByNameDescending() {
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+        let beta = makeAccount(name: "Beta", createdAt: older, updatedAt: older, sortOrder: 0)
+        let alpha = makeAccount(name: "Alpha", createdAt: newer, updatedAt: newer, sortOrder: 1)
+        let sections = KeyGrouping.group(
+            keys: [],
+            accounts: [beta, alpha],
+            tools: [],
+            mode: .byPlatform,
+            sectionSort: SectionSortPreference(criterion: .name, ascending: false)
+        )
+        XCTAssertEqual(titles(sections), ["Beta", "Alpha"])
+    }
+
+    func testPlatformSectionsSortByCreatedDescending() {
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+        let first = makeAccount(name: "Zed", createdAt: older, updatedAt: newer, sortOrder: 5)
+        let second = makeAccount(name: "Alpha", createdAt: newer, updatedAt: older, sortOrder: 0)
+        let sections = KeyGrouping.group(
+            keys: [],
+            accounts: [first, second],
+            tools: [],
+            mode: .byPlatform,
+            sectionSort: SectionSortPreference(criterion: .createdAt, ascending: false)
+        )
+        XCTAssertEqual(titles(sections), ["Alpha", "Zed"])
+    }
+
+    func testPlatformSectionsSortByUpdatedAscending() {
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+        let stale = makeAccount(name: "New name", createdAt: newer, updatedAt: older, sortOrder: 1)
+        let fresh = makeAccount(name: "Old name", createdAt: older, updatedAt: newer, sortOrder: 0)
+        let sections = KeyGrouping.group(
+            keys: [],
+            accounts: [stale, fresh],
+            tools: [],
+            mode: .byPlatform,
+            sectionSort: SectionSortPreference(criterion: .updatedAt, ascending: true)
+        )
+        XCTAssertEqual(titles(sections), ["New name", "Old name"])
+    }
+
+    func testPlatformSectionsSortByCustomOrder() {
+        let a = makeAccount(name: "Alpha", sortOrder: 2)
+        let b = makeAccount(name: "Beta", sortOrder: 0)
+        let c = makeAccount(name: "Gamma", sortOrder: 1)
+        let sections = KeyGrouping.group(
+            keys: [],
+            accounts: [a, b, c],
+            tools: [],
+            mode: .byPlatform,
+            sectionSort: SectionSortPreference(criterion: .custom, ascending: true)
+        )
+        XCTAssertEqual(titles(sections), ["Beta", "Gamma", "Alpha"])
+    }
+
+    func testConsumerCustomSortKeepsSharedLast() {
+        let account = UUID()
+        let toolA = UUID()
+        let toolB = UUID()
+        let keys = [
+            makeKey(id: UUID(), accountId: account, tools: [toolA, toolB]),
+        ]
+        let tools = [
+            makeTool(id: toolA, name: "Alpha", sortOrder: 1),
+            makeTool(id: toolB, name: "Beta", sortOrder: 0),
+        ]
+        let sections = KeyGrouping.group(
+            keys: keys,
+            accounts: [],
+            tools: tools,
+            mode: .byConsumer,
+            sectionSort: SectionSortPreference(criterion: .custom, ascending: true)
+        )
+        XCTAssertEqual(sections.count, 3)
+        XCTAssertEqual(titles(sections.dropLast()), ["Beta", "Alpha"])
+        XCTAssertEqual(sections.last?.kind, .shared)
+    }
+
+    func testNeedsCustomSeedWhenOrdersCollide() {
+        XCTAssertTrue(SectionSortPreference.needsCustomSeed(sortOrders: [0, 0, 0]))
+        XCTAssertFalse(SectionSortPreference.needsCustomSeed(sortOrders: [0, 1, 2]))
+        XCTAssertFalse(SectionSortPreference.needsCustomSeed(sortOrders: [0]))
+        XCTAssertFalse(SectionSortPreference.needsCustomSeed(sortOrders: []))
     }
 
     func testAssignmentDedupDoesNotInflateKind() async throws {
@@ -78,6 +167,46 @@ final class GroupingTests: XCTestCase {
         }
     }
 
+    private func titles(_ sections: some Sequence<KeyGroupSection>) -> [String] {
+        sections.compactMap { section in
+            switch section.kind {
+            case .platform(_, let title), .consumer(_, let title):
+                return title
+            case .shared, .unassigned:
+                return nil
+            }
+        }
+    }
+
+    private func makeAccount(
+        name: String,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        sortOrder: Int = 0
+    ) -> UpstreamAccountDTO {
+        UpstreamAccountDTO(
+            id: UUID(), platform: "openai", customPlatformName: nil,
+            displayName: name, customBaseURL: nil, hasManagementCredential: false,
+            notes: nil, createdAt: createdAt, updatedAt: updatedAt, sortOrder: sortOrder,
+            deletedAt: nil, purgeAfter: nil
+        )
+    }
+
+    private func makeTool(
+        id: UUID = UUID(),
+        name: String,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        sortOrder: Int = 0
+    ) -> ConsumerToolDTO {
+        ConsumerToolDTO(
+            id: id, name: name, iconSymbol: nil,
+            isPreset: false, isHidden: false, notes: nil,
+            createdAt: createdAt, updatedAt: updatedAt, sortOrder: sortOrder,
+            deletedAt: nil, purgeAfter: nil
+        )
+    }
+
     private func makeKey(id: UUID, accountId: UUID, tools: [UUID]) -> KeyRecordDTO {
         KeyRecordDTO(
             id: id,
@@ -94,6 +223,7 @@ final class GroupingTests: XCTestCase {
             spendLimit: nil,
             notes: nil,
             secretAvailable: true,
+            secretLength: 16,
             sortOrder: 0
         )
     }

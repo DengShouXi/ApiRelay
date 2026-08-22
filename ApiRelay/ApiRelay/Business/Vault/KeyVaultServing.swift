@@ -9,6 +9,7 @@ protocol KeyVaultServing: Actor {
     func updateAccount(_ id: UUID, patch: UpstreamAccountPatch) async throws
     func deleteAccount(_ id: UUID) async throws
 
+    /// 同账号下本机 Keychain 明文完全相同则抛 `possible_duplicate`；该比对 MUST NOT 走门闩。
     func createKey(_ draft: KeyDraft, secret: String, acknowledgePossibleDuplicate: Bool) async throws -> UUID
     func updateKey(_ id: UUID, patch: KeyPatch) async throws
     /// 编辑已有密钥：名称、可选换密文、备注、所属上游账号的平台与显示名。
@@ -17,6 +18,8 @@ protocol KeyVaultServing: Actor {
     func deleteKey(_ id: UUID) async throws
     /// 按用户拖拽结果重写分区内密钥顺序（`orderedIds` 为从上到下）。
     func reorderKeys(orderedIds: [UUID]) async throws
+    /// 按用户拖拽结果重写上游账号分区顺序（`orderedIds` 为从上到下）。不改 `updatedAt`。
+    func reorderAccounts(orderedIds: [UUID]) async throws
 
     func recentlyDeletedKeys() async throws -> [KeyRecordDTO]
     func restoreKey(_ id: UUID) async throws
@@ -35,6 +38,8 @@ protocol KeyVaultServing: Actor {
     /// `masterPassword` 仅在 revealPolicy == .masterPassword 时需要。
     func revealSecret(keyId: UUID, purpose: RevealPurpose, masterPassword: String?) async throws -> String
     func copySecretToClipboard(keyId: UUID, masterPassword: String?) async throws
+    /// 将已通过门闩取出的明文写入剪贴板。MUST NOT 再走门闩。
+    func copyRevealedSecretToClipboard(_ secret: String) async throws
 
     func remainingFreeQuota() async throws -> Int?
     func readSecretForAutomatedUse(keyId: UUID, purpose: AutomatedSecretPurpose) async throws -> String

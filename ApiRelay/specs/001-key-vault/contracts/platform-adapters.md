@@ -40,7 +40,7 @@ GET /keys?include_disabled=true&offset=0
 |------|--------|
 | `hash` | `APIKeyRecord.providerKeyRef` |
 | `name` | 平台侧名称（用于与本地 `displayName` 对照） |
-| `label` | 掩码片段 → `maskedHint` |
+| `label` | 仅用于与本地名称对照；MUST NOT 写入 `maskedHint`（该字段遗留、恒为 nil） |
 | `disabled` | `true` → `lifecycle = .revokedUpstream` |
 | `limit` / `limit_remaining` / `limit_reset` | `spendLimit` 与余额展示 |
 | `usage` / `usage_daily` / `usage_weekly` / `usage_monthly` | `UsageSnapshot.reportedCostUSD`，粒度 `total`/`day`/`week`/`month` |

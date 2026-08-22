@@ -35,4 +35,9 @@ actor EntitlementSnapshotRepository {
         try modelContext.save()
         return created
     }
+
+    /// FR-061：清本地权益快照；StoreKit 交易保留，可经「恢复购买」写回。
+    func deleteAllRecords() throws {
+        try modelContext.deleteAllRecords(EntitlementSnapshot.self)
+    }
 }

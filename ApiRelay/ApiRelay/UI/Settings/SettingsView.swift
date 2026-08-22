@@ -14,10 +14,10 @@ struct SettingsView: View {
     /// 左上角账号头像（与密钥列表页同一入口）。
     var onShowAccount: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.colorScheme) private var colorScheme
     @State private var prefs: PreferencesDTO?
     @State private var masterPasswordIsSet = false
+    @State private var backupPassphraseIsSet = false
     @State private var confirmErase = false
     @State private var eraseStatus = ""
     @State private var restoreStatus = ""
@@ -27,14 +27,18 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            settingsForm
-                .navigationTitle("settings.title")
-                #if os(iOS) || targetEnvironment(macCatalyst)
+            settingsRoot
+                .navigationTitle(SettingsChrome.isMacDesktop ? "" : "settings.title")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(settingsGroupedBackground, for: .navigationBar)
+                .navigationBarBackButtonHidden(SettingsChrome.isMacDesktop)
+                .toolbar(SettingsChrome.isMacDesktop ? .hidden : .automatic, for: .navigationBar)
+                #if !targetEnvironment(macCatalyst)
+                .toolbarBackground(SettingsChrome.groupedBackground(colorScheme), for: .navigationBar)
+                #endif
                 #endif
                 .toolbar {
-                    if let onShowAccount {
+                    if !SettingsChrome.isMacDesktop, let onShowAccount {
                         ToolbarItem(placement: .navigation) {
                             Button(action: onShowAccount) {
                                 Image(systemName: AppSymbols.Settings.account)
@@ -44,7 +48,7 @@ struct SettingsView: View {
                             .accessibilityLabel(Text("vault.sync.title"))
                         }
                     }
-                    if showsDismissButton {
+                    if !SettingsChrome.isMacDesktop, showsDismissButton {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("settings.done") { dismiss() }
                         }
@@ -53,12 +57,14 @@ struct SettingsView: View {
                 .task {
                     await reload()
                     await refreshMasterPasswordStatus()
+                    await refreshBackupPassphraseStatus()
                     await refreshEntitlementTier()
                 }
                 .sheet(isPresented: $showPaywall, onDismiss: {
                     Task { await refreshEntitlementTier() }
                 }) {
                     PaywallView(environment: environment)
+                        .settingsTaskSheet()
                 }
                 .confirmationDialog("settings.eraseAll.confirm", isPresented: $confirmErase) {
                     Button("settings.eraseAll", role: .destructive) {
@@ -66,7 +72,11 @@ struct SettingsView: View {
                             do {
                                 try await environment.dataLifecycle.eraseAllUserData()
                                 eraseStatus = String(localized: "settings.eraseAll.done")
+                                await reload()
                                 await refreshMasterPasswordStatus()
+                                await refreshBackupPassphraseStatus()
+                                await refreshEntitlementTier()
+                                await environment.refreshAppearance()
                             } catch {
                                 eraseStatus = error.localizedDescription
                             }
@@ -76,17 +86,28 @@ struct SettingsView: View {
                     Text("settings.eraseAll.message")
                 }
         }
-        .background(settingsGroupedBackground.ignoresSafeArea())
+        .background(SettingsChrome.groupedBackground(colorScheme).ignoresSafeArea())
+    }
+
+    @ViewBuilder
+    private var settingsRoot: some View {
+        if SettingsChrome.isMacDesktop {
+            VStack(spacing: 0) {
+                SettingsMacChromeBar(title: "settings.title")
+                settingsForm
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        } else {
+            settingsForm
+        }
     }
 
     /// 参考「钱迹」式分组：圆角卡片 + 彩色图标行 + 卡片间距拉开。
     @ViewBuilder
     private var settingsForm: some View {
-        ScrollView {
-            // 组与组：浅灰缝分开；组内各行：同一白卡片、零间距紧贴（仅细分割线）。
-            VStack(alignment: .leading, spacing: 18) {
+        SettingsColumnScroll {
                 if let prefs {
-                    settingsGroup(title: "settings.section.appearance", footer: "settings.appearance.footer") {
+                    settingsGroup(title: "settings.section.appearance") {
                         settingsPickerRow(
                             icon: AppSymbols.Settings.appearance,
                             tint: .orange,
@@ -100,6 +121,20 @@ struct SettingsView: View {
                             Text("settings.appearance.system").tag(AppearancePreference.system)
                             Text("settings.appearance.light").tag(AppearancePreference.light)
                             Text("settings.appearance.dark").tag(AppearancePreference.dark)
+                        }
+
+                        settingsDivider()
+
+                        settingsDisclosureRow(
+                            icon: AppSymbols.Settings.avatars,
+                            tint: .pink,
+                            title: "settings.avatars",
+                            detail: "settings.avatars.rowDetail"
+                        ) {
+                            AvatarSettingsView(environment: environment)
+                                .onDisappear {
+                                    Task { await reload() }
+                                }
                         }
 
                         settingsDivider()
@@ -126,10 +161,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    settingsGroup(
-                        title: "settings.section.assign",
-                        footer: "settings.section.assign.footer"
-                    ) {
+                    settingsGroup(title: "settings.section.assign") {
                         settingsPickerRow(
                             icon: AppSymbols.Settings.assignFilter,
                             tint: .mint,
@@ -153,43 +185,48 @@ struct SettingsView: View {
                         }
                     }
 
-                    settingsGroup(title: "settings.section.password", footer: "settings.section.password.footer") {
-                        NavigationLink {
+                    settingsGroup(title: "settings.section.password") {
+                        settingsDisclosureRow(
+                            icon: AppSymbols.Settings.revealPolicy,
+                            tint: .green,
+                            title: "settings.revealPolicy",
+                            detail: "settings.revealPolicy.rowDetail",
+                            status: revealPolicySummary(prefs.revealPolicy)
+                        ) {
                             RevealPolicySettingsView(
                                 environment: environment,
                                 currentPolicy: prefs.revealPolicy,
                                 applyPolicy: { value in
+                                    environment.preferences.persist(PreferencesPatch(revealPolicy: value))
                                     if var current = self.prefs {
                                         current.revealPolicy = value
                                         self.prefs = current
                                     }
-                                    await save(PreferencesPatch(revealPolicy: value))
                                     await refreshMasterPasswordStatus()
                                 }
                             )
-                        } label: {
-                            settingsLeading(
-                                icon: AppSymbols.Settings.revealPolicy,
-                                tint: .green,
-                                title: "settings.revealPolicy",
-                                detail: "settings.revealPolicy.rowDetail"
-                            )
-                            Spacer(minLength: 8)
-                            Text(revealPolicySummary(prefs.revealPolicy))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
+                            .id("reveal-policy-settings")
+                            .onDisappear {
+                                Task {
+                                    await reload()
+                                    await refreshMasterPasswordStatus()
+                                }
+                            }
                         }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
 
                         // 仅在选用「主密码」验证时显示管理入口；Face ID 等策略下不单独挂「设主密码」。
                         if prefs.revealPolicy == .masterPassword {
                             settingsDivider()
 
-                            NavigationLink {
+                            settingsDisclosureRow(
+                                icon: AppSymbols.Settings.masterPassword,
+                                tint: .indigo,
+                                title: "settings.masterPassword",
+                                detail: "settings.masterPassword.rowDetail",
+                                status: masterPasswordIsSet
+                                    ? String(localized: "settings.masterPassword.status.set")
+                                    : String(localized: "settings.masterPassword.status.unset")
+                            ) {
                                 MasterPasswordSettingsView(
                                     environment: environment,
                                     role: .manage
@@ -205,26 +242,7 @@ struct SettingsView: View {
                                         await save(PreferencesPatch(revealPolicy: RevealPolicy.none))
                                     }
                                 }
-                            } label: {
-                                settingsLeading(
-                                    icon: AppSymbols.Settings.masterPassword,
-                                    tint: .indigo,
-                                    title: "settings.masterPassword",
-                                    detail: "settings.masterPassword.rowDetail"
-                                )
-                                Spacer(minLength: 12)
-                                Text(
-                                    masterPasswordIsSet
-                                        ? String(localized: "settings.masterPassword.status.set")
-                                        : String(localized: "settings.masterPassword.status.unset")
-                                )
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
                             }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
                         }
 
                         settingsDivider()
@@ -238,42 +256,44 @@ struct SettingsView: View {
                         )
                     }
 
-                    settingsGroup(title: "settings.section.lockTiming", footer: "settings.section.lockTiming.footer") {
-                        settingsStepperRow(
-                            icon: AppSymbols.Settings.autoLock,
-                            tint: .purple,
-                            title: "settings.autoLock.label",
-                            detail: "settings.autoLock.rowDetail",
-                            seconds: prefs.autoLockSeconds,
-                            value: Binding(
-                                get: { prefs.autoLockSeconds },
-                                set: { v in Task { await save(PreferencesPatch(autoLockSeconds: v)) } }
-                            ),
-                            range: 0...600,
-                            step: 30
-                        )
+                    // 页脚紧贴卡片（7pt，与分组标题同距），说明 Mac 端清除的真实边界。
+                    VStack(alignment: .leading, spacing: 7) {
+                        settingsGroup(title: "settings.section.lockTiming") {
+                            settingsStepperRow(
+                                icon: AppSymbols.Settings.autoLock,
+                                tint: .purple,
+                                title: "settings.autoLock.label",
+                                detail: "settings.autoLock.rowDetail",
+                                seconds: prefs.autoLockSeconds,
+                                value: Binding(
+                                    get: { prefs.autoLockSeconds },
+                                    set: { v in Task { await save(PreferencesPatch(autoLockSeconds: v)) } }
+                                ),
+                                range: 0...600,
+                                step: 30
+                            )
 
-                        settingsDivider()
+                            settingsDivider()
 
-                        settingsStepperRow(
-                            icon: AppSymbols.Settings.clipboardClear,
-                            tint: .pink,
-                            title: "settings.clipboardClear.label",
-                            detail: "settings.clipboardClear.rowDetail",
-                            seconds: prefs.clipboardClearSeconds,
-                            value: Binding(
-                                get: { prefs.clipboardClearSeconds },
-                                set: { v in Task { await save(PreferencesPatch(clipboardClearSeconds: v)) } }
-                            ),
-                            range: 30...600,
-                            step: 30
-                        )
+                            settingsStepperRow(
+                                icon: AppSymbols.Settings.clipboardClear,
+                                tint: .pink,
+                                title: "settings.clipboardClear.label",
+                                detail: "settings.clipboardClear.rowDetail",
+                                seconds: prefs.clipboardClearSeconds,
+                                value: Binding(
+                                    get: { prefs.clipboardClearSeconds },
+                                    set: { v in Task { await save(PreferencesPatch(clipboardClearSeconds: v)) } }
+                                ),
+                                range: 30...600,
+                                step: 30
+                            )
+                        }
+
+                        SettingsFooterNote(text: "settings.section.lockTiming.footer")
                     }
 
-                    settingsGroup(
-                        title: "settings.section.clipboardPrivacy",
-                        footer: "settings.section.clipboardPrivacy.footer"
-                    ) {
+                    settingsGroup(title: "settings.section.clipboardPrivacy") {
                         settingsToggleRow(
                             icon: AppSymbols.Settings.clipboardLocalOnly,
                             tint: .cyan,
@@ -294,72 +314,75 @@ struct SettingsView: View {
                     }
                 }
 
-                settingsGroup(title: "settings.section.backup", footer: "settings.section.backup.footer") {
-                    NavigationLink {
-                        ConsumerToolsView(environment: environment)
-                    } label: {
-                        settingsLeading(
-                            icon: AppSymbols.Settings.manageTools,
-                            tint: .blue,
-                            title: "vault.tools.manage",
-                            detail: "settings.tools.rowDetail"
-                        )
-                        Spacer(minLength: 8)
-                        Image(systemName: AppSymbols.Settings.disclosure)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                settingsGroup(title: "settings.section.backup") {
+                    settingsDisclosureRow(
+                        icon: AppSymbols.Settings.backupPassphrase,
+                        tint: .indigo,
+                        title: "settings.backup.passphrase.setDefault",
+                        detail: "settings.backup.passphrase.rowDetail",
+                        status: backupPassphraseIsSet
+                            ? String(localized: "settings.backup.passphrase.status.set")
+                            : String(localized: "settings.backup.passphrase.status.unset")
+                    ) {
+                        BackupPassphraseSettingsView(environment: environment) {
+                            await refreshBackupPassphraseStatus()
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
 
                     settingsDivider()
 
-                    NavigationLink {
-                        BackupSettingsView(environment: environment)
-                    } label: {
-                        settingsLeading(
-                            icon: AppSymbols.Settings.backup,
-                            tint: .orange,
-                            title: "settings.backup",
-                            detail: "settings.backup.rowDetail"
-                        )
-                        Spacer(minLength: 8)
-                        Image(systemName: AppSymbols.Settings.disclosure)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                    settingsDisclosureRow(
+                        icon: AppSymbols.Settings.backupExport,
+                        tint: .orange,
+                        title: "settings.backup.export",
+                        detail: "settings.backup.export.rowDetail"
+                    ) {
+                        BackupExportView(environment: environment)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+
+                    settingsDivider()
+
+                    settingsDisclosureRow(
+                        icon: AppSymbols.Settings.backupImport,
+                        tint: .teal,
+                        title: "settings.backup.import",
+                        detail: "settings.backup.import.rowDetail"
+                    ) {
+                        BackupImportView(environment: environment)
+                    }
                 }
 
-                settingsGroup(
-                    title: "settings.section.purchases",
-                    footer: "settings.section.purchases.footer"
-                ) {
-                    Button {
-                        showPaywall = true
-                    } label: {
-                        settingsLeading(
-                            icon: AppSymbols.Settings.upgrade,
-                            tint: .orange,
+                settingsGroup(title: "settings.section.purchases") {
+                    HStack(alignment: .center, spacing: 8) {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                settingsLeading(
+                                    icon: AppSymbols.Settings.upgrade,
+                                    tint: .orange,
+                                    title: "settings.upgrade"
+                                )
+                                Text(
+                                    hasUnlimitedKeys
+                                        ? String(localized: "settings.upgrade.status.owned")
+                                        : String(localized: "settings.upgrade.status.action")
+                                )
+                                .font(.subheadline)
+                                .foregroundStyle(hasUnlimitedKeys ? .secondary : Color.accentColor)
+                                .lineLimit(1)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        InlineHelpButton(
                             title: "settings.upgrade",
-                            detail: hasUnlimitedKeys
+                            message: hasUnlimitedKeys
                                 ? "settings.upgrade.rowDetail.owned"
-                                : "settings.upgrade.rowDetail"
+                                : "settings.upgrade.rowDetail",
+                            showsTitle: false
                         )
-                        Spacer(minLength: 8)
-                        Text(
-                            hasUnlimitedKeys
-                                ? String(localized: "settings.upgrade.status.owned")
-                                : String(localized: "settings.upgrade.status.action")
-                        )
-                        .font(.subheadline)
-                        .foregroundStyle(hasUnlimitedKeys ? .secondary : Color.accentColor)
-                        .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .accessibilityHint(
@@ -372,22 +395,30 @@ struct SettingsView: View {
 
                     settingsDivider()
 
-                    Button {
-                        Task { await restorePurchasesFromSettings() }
-                    } label: {
-                        settingsLeading(
-                            icon: AppSymbols.Settings.restorePurchases,
-                            tint: .indigo,
-                            title: "settings.restorePurchases",
-                            detail: "settings.restorePurchases.rowDetail"
-                        )
-                        Spacer(minLength: 8)
-                        if isRestoringPurchases {
-                            ProgressView()
+                    HStack(alignment: .center, spacing: 8) {
+                        Button {
+                            Task { await restorePurchasesFromSettings() }
+                        } label: {
+                            HStack(spacing: 12) {
+                                settingsLeading(
+                                    icon: AppSymbols.Settings.restorePurchases,
+                                    tint: .indigo,
+                                    title: "settings.restorePurchases"
+                                )
+                                if isRestoringPurchases {
+                                    ProgressView()
+                                }
+                            }
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .disabled(isRestoringPurchases)
+                        InlineHelpButton(
+                            title: "settings.restorePurchases",
+                            message: "settings.restorePurchases.rowDetail",
+                            showsTitle: false
+                        )
                     }
-                    .buttonStyle(.plain)
-                    .disabled(isRestoringPurchases)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .accessibilityHint(Text("settings.restorePurchases.rowDetail"))
@@ -403,20 +434,26 @@ struct SettingsView: View {
                     }
                 }
 
-                settingsGroup(title: "settings.section.danger", footer: "settings.eraseAll.footer", danger: true) {
-                    Button {
-                        confirmErase = true
-                    } label: {
-                        settingsLeading(
-                            icon: AppSymbols.Settings.eraseAll,
-                            tint: .red,
+                settingsGroup(title: "settings.section.danger", danger: true) {
+                    HStack(alignment: .center, spacing: 8) {
+                        Button {
+                            confirmErase = true
+                        } label: {
+                            settingsLeading(
+                                icon: AppSymbols.Settings.eraseAll,
+                                tint: .red,
+                                title: "settings.eraseAll",
+                                titleColor: .red
+                            )
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        InlineHelpButton(
                             title: "settings.eraseAll",
-                            detail: "settings.eraseAll.rowDetail",
-                            titleColor: .red
+                            message: "settings.eraseAll.rowDetail",
+                            showsTitle: false
                         )
-                        Spacer(minLength: 8)
                     }
-                    .buttonStyle(.plain)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
 
@@ -430,73 +467,41 @@ struct SettingsView: View {
                             .padding(.vertical, 10)
                     }
                 }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 28)
-            .frame(maxWidth: shouldUseCompactSettingsColumn ? 560 : .infinity)
-            .frame(maxWidth: .infinity)
         }
-        .scrollContentBackground(.hidden)
-        .background(settingsGroupedBackground.ignoresSafeArea())
-    }
-
-    /// 浅灰底：贴近白卡片，不要「一块深灰底板」那种反差。
-    private var settingsGroupedBackground: Color {
-        if colorScheme == .dark {
-            return Color(white: 0.14)
-        }
-        #if canImport(UIKit) && !os(watchOS)
-        return Color(uiColor: .systemGroupedBackground)
-        #else
-        // 约 #F2F2F7，比 underPageBackground 更浅、更接近钱迹。
-        return Color(red: 0.949, green: 0.949, blue: 0.969)
-        #endif
-    }
-
-    /// 卡片近白；与灰底只差一档。
-    private var settingsCardFill: Color {
-        if colorScheme == .dark {
-            return Color(white: 0.18)
-        }
-        #if canImport(UIKit)
-        return Color(uiColor: .secondarySystemGroupedBackground)
-        #elseif canImport(AppKit)
-        return Color(nsColor: .textBackgroundColor)
-        #else
-        return Color.white
-        #endif
     }
 
     private func settingsGroup<Content: View>(
         title: LocalizedStringKey,
-        footer: LocalizedStringKey,
         danger: Bool = false,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
             Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(danger ? Color.red.opacity(0.9) : Color.secondary)
-                .padding(.horizontal, 4)
+                // 系统设置分组标题：13pt 常规、次要色，不和行标题抢字重。
+                .font(.footnote)
+                .foregroundStyle(danger ? Color.red.opacity(0.85) : Color.secondary)
+                .padding(.horizontal, 16)
 
             // 同一功能区：一行贴一行，中间只有细分隔线，不留灰缝。
             VStack(spacing: 0) {
                 content()
             }
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(settingsCardFill)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(SettingsChrome.cardFill(colorScheme))
             )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            // 极轻阴影：略托起卡片即可，不要深灰「掉下去」感。
-            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.25 : 0.04), radius: 2, y: 1)
-
-            Text(footer)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(SettingsChrome.cardStroke(colorScheme), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .shadow(
+                color: SettingsChrome.isMacDesktop
+                    ? Color.clear
+                    : Color.black.opacity(colorScheme == .dark ? 0.25 : 0.04),
+                radius: 2,
+                y: 1
+            )
         }
     }
 
@@ -506,11 +511,51 @@ struct SettingsView: View {
             .padding(.leading, 54)
     }
 
+    /// 子页行：`标题　当前值　ⓘ　〉`。〉 在最右；点 ⓘ 只出说明。
+    private func settingsDisclosureRow<Destination: View>(
+        icon: String,
+        tint: Color,
+        title: LocalizedStringKey,
+        detail: LocalizedStringResource,
+        status: String? = nil,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            NavigationLink {
+                destination()
+            } label: {
+                HStack(spacing: 12) {
+                    settingsLeading(icon: icon, tint: tint, title: title)
+                    if let status {
+                        Text(status)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            InlineHelpButton(title: title, message: detail, showsTitle: false)
+            NavigationLink {
+                destination()
+            } label: {
+                Image(systemName: AppSymbols.Settings.disclosure)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
     private func settingsLeading(
         icon: String,
         tint: Color,
         title: LocalizedStringKey,
-        detail: LocalizedStringKey,
         titleColor: Color = .primary
     ) -> some View {
         HStack(alignment: .center, spacing: 12) {
@@ -524,19 +569,13 @@ struct SettingsView: View {
                 )
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(titleColor)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(title)
+                .font(.body)
+                .foregroundStyle(titleColor)
+                .multilineTextAlignment(.leading)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .layoutPriority(1)
     }
@@ -565,32 +604,33 @@ struct SettingsView: View {
         icon: String,
         tint: Color,
         title: LocalizedStringKey,
-        detail: LocalizedStringKey,
+        detail: LocalizedStringResource,
         isOn: Binding<Bool>
     ) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            settingsLeading(icon: icon, tint: tint, title: title, detail: detail)
+        HStack(alignment: .center, spacing: 10) {
+            settingsLeading(icon: icon, tint: tint, title: title)
+            InlineHelpButton(title: title, message: detail, showsTitle: false)
             Toggle(title, isOn: isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .accessibilityElement(children: .combine)
     }
 
     private func settingsStepperRow(
         icon: String,
         tint: Color,
         title: LocalizedStringKey,
-        detail: LocalizedStringKey,
+        detail: LocalizedStringResource,
         seconds: Int,
         value: Binding<Int>,
         range: ClosedRange<Int>,
         step: Int
     ) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            settingsLeading(icon: icon, tint: tint, title: title, detail: detail)
+        HStack(alignment: .center, spacing: 10) {
+            settingsLeading(icon: icon, tint: tint, title: title)
+            InlineHelpButton(title: title, message: detail, showsTitle: false)
             // 数字与「秒」、步进器同一行横排，避免 120 被挤成竖着断行。
             HStack(spacing: 6) {
                 Text("\(seconds)")
@@ -618,12 +658,13 @@ struct SettingsView: View {
         icon: String,
         tint: Color,
         title: LocalizedStringKey,
-        detail: LocalizedStringKey,
+        detail: LocalizedStringResource,
         selection: Binding<Selection>,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            settingsLeading(icon: icon, tint: tint, title: title, detail: detail)
+        HStack(alignment: .center, spacing: 10) {
+            settingsLeading(icon: icon, tint: tint, title: title)
+            InlineHelpButton(title: title, message: detail, showsTitle: false)
             Picker(title, selection: selection) {
                 content()
             }
@@ -635,15 +676,6 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-    }
-
-    /// iPad / Mac 宽屏：居中窄栏，避免一行拉满整个窗口。
-    private var shouldUseCompactSettingsColumn: Bool {
-        #if os(macOS) || targetEnvironment(macCatalyst)
-        true
-        #else
-        horizontalSizeClass == .regular
-        #endif
     }
 
     private func binding(_ keyPath: WritableKeyPath<PreferencesDTO, Bool>, _ value: Bool) -> Binding<Bool> {
@@ -680,6 +712,10 @@ struct SettingsView: View {
         masterPasswordIsSet = (try? await environment.masterPassword.isSet()) ?? false
     }
 
+    private func refreshBackupPassphraseStatus() async {
+        backupPassphraseIsSet = (try? await environment.backupPassphrase.isSet()) ?? false
+    }
+
     private var hasUnlimitedKeys: Bool {
         entitlementTier == .unlimitedKeys || entitlementTier == .relay
     }
@@ -708,10 +744,9 @@ struct SettingsView: View {
 private struct RevealPolicySettingsView: View {
     let environment: AppEnvironment
     let currentPolicy: RevealPolicy
-    /// 写入偏好并刷新状态；调用方 MUST await，保证设密成功后再落盘。
+    /// 仅主密码设密成功后调用；选档本身走 `persist`，不在此等待 SwiftData。
     let applyPolicy: (RevealPolicy) async -> Void
 
-    @Environment(\.dismiss) private var dismiss
     /// 选「主密码」且尚未设密 → 推进到下一步设密页（不是先改策略）。
     @State private var goSetMasterPassword = false
     @State private var highlightedPolicy: RevealPolicy
@@ -728,32 +763,29 @@ private struct RevealPolicySettingsView: View {
     }
 
     var body: some View {
-        List {
-            Section {
+        SettingsSubpage(title: "settings.revealPolicy") {
+            SettingsCard {
                 policyRow(
                     .biometricOrPasscode,
                     title: "settings.policy.biometricOrPasscode",
                     detail: "settings.policy.biometricOrPasscode.detail"
                 )
+                SettingsCardDivider()
                 biometryOnlyOption
+                SettingsCardDivider()
                 policyRow(
                     .masterPassword,
                     title: "settings.policy.masterPassword",
                     detail: "settings.policy.masterPassword.detail"
                 )
+                SettingsCardDivider()
                 policyRow(
                     .none,
                     title: "settings.policy.none",
                     detail: "settings.policy.none.detail"
                 )
-            } footer: {
-                Text("settings.section.password.footer")
             }
         }
-        .navigationTitle("settings.revealPolicy")
-        #if os(iOS) || targetEnvironment(macCatalyst)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
         .navigationDestination(isPresented: $goSetMasterPassword) {
             // 与设置页「主密码」同一界面：首次设密也走这里，避免两套表单。
             MasterPasswordSettingsView(
@@ -784,51 +816,41 @@ private struct RevealPolicySettingsView: View {
                 detail: "settings.policy.biometricOnly.detail"
             )
         case .none:
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("settings.policy.biometricOnly.unavailable")
-                        .foregroundStyle(.secondary)
-                    Text("settings.policy.biometricOnly.unavailable.detail")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer(minLength: 0)
+            HStack(alignment: .center, spacing: 8) {
+                Text("settings.policy.biometricOnly.unavailable")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                InlineHelpButton(
+                    title: "settings.policy.biometricOnly.unavailable",
+                    message: "settings.policy.biometricOnly.unavailable.detail",
+                    showsTitle: false
+                )
+                Color.clear
+                    .frame(width: 22, height: 22)
+                    .accessibilityHidden(true)
             }
-            .padding(.vertical, 2)
+            .padding(.horizontal, 14)
+            .padding(.vertical, SettingsChrome.isMacDesktop ? 10 : 12)
         }
     }
 
     private func policyRow(
         _ value: RevealPolicy,
         title: LocalizedStringKey,
-        detail: LocalizedStringKey
+        detail: LocalizedStringResource
     ) -> some View {
-        Button {
+        SettingsChoiceRow(
+            title: title,
+            selected: highlightedPolicy == value,
+            helpTitle: title,
+            helpMessage: detail
+        ) {
             Task { await selectPolicy(value) }
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .foregroundStyle(.primary)
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 8)
-                if highlightedPolicy == value {
-                    Image(systemName: AppSymbols.Settings.checkmark)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                }
-            }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
     }
 
     /// 未设主密码时：只进入设密下一步，不改 `revealPolicy`。
-    /// 已设主密码 / 其他档：直接应用并返回。
+    /// 写入走 `persist`：不在 MainActor 上等待 CloudKit/SwiftData save，否则会整窗转圈。
     private func selectPolicy(_ value: RevealPolicy) async {
         if value == .masterPassword {
             let isSet = (try? await environment.masterPassword.isSet()) ?? false
@@ -837,9 +859,8 @@ private struct RevealPolicySettingsView: View {
                 return
             }
         }
-        await applyPolicy(value)
         highlightedPolicy = value
-        dismiss()
+        environment.preferences.persist(PreferencesPatch(revealPolicy: value))
     }
 }
 
@@ -884,30 +905,37 @@ private struct MasterPasswordSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                SecureField("vault.masterPassword", text: $password)
-                SecureField("settings.masterPassword.confirm", text: $confirm)
-                Button("settings.masterPassword.save") {
-                    Task { await save() }
-                }
-                .disabled(isSaving || password.isEmpty || confirm.isEmpty)
-            } footer: {
-                Text(footerKey)
+        SettingsSubpage(title: "settings.masterPassword") {
+            SettingsCard {
+                SettingsSecureField(title: "vault.masterPassword", text: $password)
+                SettingsCardDivider()
+                SettingsSecureField(title: "settings.masterPassword.confirm", text: $confirm)
+            }
+            SettingsFooterNote(text: footerKey)
+
+            SettingsPrimaryButton(
+                title: "settings.masterPassword.save",
+                disabled: isSaving || password.isEmpty || confirm.isEmpty
+            ) {
+                Task { await save() }
             }
 
             if showsReset {
-                Section {
-                    Button("settings.masterPassword.reset", role: .destructive) {
+                SettingsCard {
+                    Button(role: .destructive) {
                         Task { await reset() }
+                    } label: {
+                        Text("settings.masterPassword.reset")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
                     }
                 }
             }
         }
-        .navigationTitle("settings.masterPassword")
-        #if os(iOS) || targetEnvironment(macCatalyst)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .overlay {
+            if isSaving { ProgressView() }
+        }
         .task {
             passwordAlreadySet = (try? await environment.masterPassword.isSet()) ?? false
         }
@@ -976,56 +1004,6 @@ private struct MasterPasswordSettingsView: View {
         } catch {
             failureReason = error.localizedDescription
             showFailureAlert = true
-        }
-    }
-}
-
-// MARK: - Backup
-
-private struct BackupSettingsView: View {
-    let environment: AppEnvironment
-    @State private var passphrase = ""
-    @State private var status = ""
-    @State private var isExporting = false
-
-    var body: some View {
-        Form {
-            Section {
-                SecureField("settings.backup.passphrase", text: $passphrase)
-                Button("settings.backup.export") {
-                    Task { await export() }
-                }
-                .disabled(isExporting || passphrase.isEmpty)
-            } footer: {
-                Text("settings.backup.format.footer")
-            }
-
-            if !status.isEmpty {
-                Section {
-                    Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .navigationTitle("settings.backup")
-        #if os(iOS) || targetEnvironment(macCatalyst)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-    }
-
-    private func export() async {
-        status = ""
-        isExporting = true
-        defer { isExporting = false }
-        do {
-            _ = try await environment.backups.exportBackup(
-                passphrase: passphrase,
-                purpose: .fullBackup
-            )
-            status = String(localized: "settings.backup.exported")
-        } catch {
-            status = error.localizedDescription
         }
     }
 }
@@ -1105,6 +1083,9 @@ struct PaywallView: View {
             .navigationTitle("paywall.nav")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #if !targetEnvironment(macCatalyst)
+            .toolbarBackground(paywallBackground, for: .navigationBar)
+            #endif
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1114,6 +1095,9 @@ struct PaywallView: View {
             .task {
                 await loadProductAndTier()
             }
+            #if targetEnvironment(macCatalyst)
+            .frame(minWidth: 520, minHeight: 620)
+            #endif
         }
     }
 

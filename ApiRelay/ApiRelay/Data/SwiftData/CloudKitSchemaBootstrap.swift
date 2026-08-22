@@ -8,7 +8,7 @@ import SwiftData
 /// `APIRELAY_CLOUDKIT_SCHEMA_BOOTSTRAP=1` 可强制再跑。
 /// Production 侧仍须在 Console 再 Deploy 一次。
 enum CloudKitSchemaBootstrap {
-    private static let defaultsKey = "ApiRelay.cloudKitSchemaBootstrap.v2"
+    private static let defaultsKey = "ApiRelay.cloudKitSchemaBootstrap.v3"
 
     @MainActor
     static func runIfNeeded(container: ModelContainer) {
@@ -24,6 +24,7 @@ enum CloudKitSchemaBootstrap {
         do {
             try seedAPIKeyOptionalFields(in: context)
             try seedAccountAndToolNotes(in: context)
+            try seedAvatarFields(in: context)
             try seedDeferredSyncedTypes(in: context)
             try context.save()
             UserDefaults.standard.set(true, forKey: defaultsKey)
@@ -40,6 +41,7 @@ enum CloudKitSchemaBootstrap {
         }
         for tool in try context.fetch(FetchDescriptor<ConsumerTool>()) {
             if tool.notes == nil { tool.notes = "schemaBootstrap" }
+            tool.updatedAt = Date()
         }
     }
 
@@ -49,7 +51,9 @@ enum CloudKitSchemaBootstrap {
         if keys.isEmpty {
             let account = UpstreamAccount(
                 platform: "openai",
-                displayName: "[Schema Bootstrap — deletable]"
+                displayName: "[Schema Bootstrap — deletable]",
+                avatarSymbol: "sparkles",
+                avatarColor: "blue"
             )
             context.insert(account)
             let key = APIKeyRecord(
@@ -62,7 +66,9 @@ enum CloudKitSchemaBootstrap {
                 lastVerifiedAt: now,
                 lastCheckedAt: now,
                 lastCheckNote: "schemaBootstrap",
-                secretLength: 8
+                secretLength: 8,
+                avatarSymbol: "key.fill",
+                avatarColor: "accent"
             )
             context.insert(key)
             return
@@ -75,6 +81,26 @@ enum CloudKitSchemaBootstrap {
             if key.lastCheckedAt == nil { key.lastCheckedAt = now }
             if key.lastCheckNote == nil { key.lastCheckNote = "schemaBootstrap" }
             key.updatedAt = now
+        }
+    }
+
+    /// 只写引导用的假记录，避免把用户条目标成「已自定义头像」。
+    private static func seedAvatarFields(in context: ModelContext) throws {
+        let marker = "Schema Bootstrap"
+        for account in try context.fetch(FetchDescriptor<UpstreamAccount>())
+        where account.displayName.contains(marker) && account.avatarSymbol == nil {
+            account.avatarSymbol = "sparkles"
+            account.avatarColor = "blue"
+        }
+        for key in try context.fetch(FetchDescriptor<APIKeyRecord>())
+        where key.displayName.contains(marker) && key.avatarSymbol == nil {
+            key.avatarSymbol = "key.fill"
+            key.avatarColor = "accent"
+        }
+        for tool in try context.fetch(FetchDescriptor<ConsumerTool>())
+        where tool.name.contains(marker) && tool.avatarSymbol == nil {
+            tool.avatarSymbol = "laptopcomputer"
+            tool.avatarColor = "indigo"
         }
     }
 

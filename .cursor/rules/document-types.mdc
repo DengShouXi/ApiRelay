@@ -1,0 +1,14 @@
+---
+description: 声明可打开的文档类型时，必须同时写原地打开，并接上导入。
+globs: ApiRelay/ApiRelay/Info.plist
+alwaysApply: false
+---
+
+# 文档类型与原地打开
+
+`Info.plist` 里只要有 `CFBundleDocumentTypes` / `UTExportedTypeDeclarations`：
+
+- MUST 同时有 `LSSupportsOpeningDocumentsInPlace = YES`。本工程是 Mac Catalyst，写成 `NO` 会编不过；缺省则 iPhone 会警告「supports opening files but doesn't declare in place」。
+- MUST 有对应的 `onOpenURL`（或等价入口）把文件送进导入流程。只登记类型、不接打开，等于从文件 App 点了没反应。
+- MUST NOT 为此加 `UISupportsDocumentBrowser`，除非真的做了文档浏览器。
+- MUST NOT 把这条写进宪法。

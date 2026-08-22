@@ -7,6 +7,8 @@ alwaysApply: true
 
 明文只允许存在于三处：**Keychain**、**单次操作的局部作用域**、**剪贴板（限时）**。
 
+末四位等密钥片段 MUST NOT 写入 SwiftData / CloudKit，也 MUST NOT 出现在未过门闩的列表或详情。去重在本机对 Keychain 明文做相等比较，MUST NOT 为此存储哈希。
+
 ## 绝对禁止
 
 ```swift

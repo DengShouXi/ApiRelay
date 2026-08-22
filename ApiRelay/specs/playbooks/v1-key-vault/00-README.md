@@ -1,8 +1,8 @@
 # V1 — 密钥保险库 Playbook
 
 **大阶段分支**：`v1`  
-**当前小迭代**：**`v1.13` 已关账**（上架材料 T063–T066 + 上架前收口；**未**执行 T062）→ 下一步 [`10-verify.md`](./10-verify.md)  
-**上架目标**：Stage1 验收后 App Store **1.0.0**（tag `release/1.0.0`）  
+**当前小迭代**：**`v1.13` 已关账**；仓库侧 T062 已打 tag `release/1.0.0`。上架后修 bug → [`../热修-save.md`](../热修-save.md)（`v1.13.1`），不要盖 `v1.13`。  
+**上架目标**：Stage1 App Store **1.0.0**（tag `release/1.0.0` 已打；ASC 提交由产品负责人在网页完成）  
 台账：[BRANCHES.md](../BRANCHES.md) · 测试：[ApiRelayTests/README.md](../../../ApiRelayTests/README.md) · 中文入口：[重要说明/阶段1-密钥库.md](../重要说明/阶段1-密钥库.md)
 
 记法：`v1.N` = Stage1 小迭代（开发用分支；商店发布才打 `release/1.0.0` tag）。
@@ -27,6 +27,7 @@ P01…P12 实现小迭代（各 P0N → P0N-save → v1.N）
 | [`20-push.md`](./20-push.md) | 确认 `main` / `release/1.0.0` / 台账后才能开 V2 |
 | [`30-create-next-branch.md`](./30-create-next-branch.md) | 创建大阶段 tip `v2`（不建 `v2.1`） |
 | [`40-checkout-next-branch.md`](./40-checkout-next-branch.md) | 切到 `v2` 并打开 Stage2 README |
+| [`../热修-save.md`](../热修-save.md) | 上架后 / 关账后修 bug：开 `v1.13.1` 并上传；不开 `release/*` 分支 |
 
 **职责分割**：P08 = 安全审查 T056–T061；P13 = 商店材料 T063–T066；T062 = 仅发布动作。  
 **Checkpoint 2b（T014b）** 已在 `v1.9` 关闭，是同步硬门槛，不是「未 Deploy 不得写 Phase 3」。

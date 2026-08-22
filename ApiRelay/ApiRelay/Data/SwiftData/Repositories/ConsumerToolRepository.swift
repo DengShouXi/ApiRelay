@@ -26,20 +26,26 @@ actor ConsumerToolRepository {
     }
 
     @discardableResult
-    func insert(_ draft: ConsumerToolDraft) throws -> UUID {
+    func insert(_ draft: ConsumerToolDraft, id: UUID? = nil) throws -> UUID {
         let trimmed = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= 48 else {
             throw ApiRelayError.validationFailed(field: "name", reason: "required_1_to_48")
         }
-        let id = UUID()
+        let id = id ?? UUID()
         let trimmedNotes = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let now = Date()
+        let sortOrder = draft.sortOrder > 0 ? draft.sortOrder : (try nextSortOrder())
         let model = ConsumerTool(
             id: id,
             name: trimmed,
             iconSymbol: draft.iconSymbol,
+            avatarSymbol: AvatarChoice.stored(symbol: draft.avatarSymbol, color: draft.avatarColor).0,
+            avatarColor: AvatarChoice.stored(symbol: draft.avatarSymbol, color: draft.avatarColor).1,
             isPreset: draft.isPreset,
             notes: (trimmedNotes?.isEmpty == false) ? trimmedNotes : nil,
-            sortOrder: draft.sortOrder
+            createdAt: now,
+            updatedAt: now,
+            sortOrder: sortOrder
         )
         modelContext.insert(model)
         try modelContext.save()
@@ -61,7 +67,34 @@ actor ConsumerToolRepository {
         if let value = patch.isHidden { model.isHidden = value }
         if let value = patch.notes { model.notes = value.isEmpty ? nil : value }
         if let value = patch.sortOrder { model.sortOrder = value }
+        if patch.updatesAvatar {
+            let stored = AvatarChoice.stored(symbol: patch.avatarSymbol, color: patch.avatarColor)
+            model.avatarSymbol = stored.0
+            model.avatarColor = stored.1
+        }
+        let touchesContent = patch.name != nil
+            || patch.iconSymbol != nil
+            || patch.isHidden != nil
+            || patch.notes != nil
+            || patch.updatesAvatar
+        if touchesContent {
+            model.updatedAt = Date()
+        }
         try modelContext.save()
+    }
+
+    /// 按给定顺序重写 `sortOrder`（0…n-1）。不碰 `updatedAt`。
+    func reorder(orderedIds: [UUID]) throws {
+        for (index, id) in orderedIds.enumerated() {
+            guard let model = try fetchModel(id: id) else { continue }
+            model.sortOrder = index
+        }
+        try modelContext.save()
+    }
+
+    private func nextSortOrder() throws -> Int {
+        let models = try modelContext.fetch(FetchDescriptor<ConsumerTool>())
+        return (models.map(\.sortOrder).max() ?? -1) + 1
     }
 
     /// 移入回收站（默认保留 30 天）。回收站期间保留 KeyAssignment。
@@ -96,6 +129,11 @@ actor ConsumerToolRepository {
         try modelContext.save()
     }
 
+    /// FR-061：全量清除时预置项一并物理删除（用户销毁全部数据，不是单条删除）。
+    func deleteAllRecords() throws {
+        try modelContext.deleteAllRecords(ConsumerTool.self)
+    }
+
     private func fetchModel(id: UUID) throws -> ConsumerTool? {
         var descriptor = FetchDescriptor<ConsumerTool>(
             predicate: #Predicate { $0.id == id }
@@ -113,9 +151,12 @@ actor ConsumerToolRepository {
             isHidden: model.isHidden,
             notes: model.notes,
             createdAt: model.createdAt,
+            updatedAt: model.updatedAt,
             sortOrder: model.sortOrder,
             deletedAt: model.deletedAt,
-            purgeAfter: model.purgeAfter
+            purgeAfter: model.purgeAfter,
+            avatarSymbol: model.avatarSymbol,
+            avatarColor: model.avatarColor
         )
     }
 }

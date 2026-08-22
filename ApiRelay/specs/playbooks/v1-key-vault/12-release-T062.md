@@ -77,4 +77,4 @@ grep -n "MARKETING_VERSION" ApiRelay/ApiRelay.xcodeproj/project.pbxproj
 
 1. 打开 [`20-push.md`](./20-push.md) 做大阶段收尾核对。  
 2. 再 [`30-create-next-branch.md`](./30-create-next-branch.md) 创建 **`v2`** tip（不要预建 `v2.1`）。  
-3. 审核被拒时：按拒审项开热修小迭代（如 `v1.13.1` 或新 `v1.14`），**不要**假装已进 Stage2。
+3. 审核被拒或上架后修 bug：打开 [`../热修-save.md`](../热修-save.md)（例：`v1.13.1`），**不要**盖掉 `v1.13`，**不要**开 `release/*` 分支，**不要**假装已进 Stage2。

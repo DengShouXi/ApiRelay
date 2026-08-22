@@ -17,6 +17,7 @@
 | `v1.11` | [`phases/P11-save.md`](./phases/P11-save.md) |
 | `v1.12` | [`phases/P12-save.md`](./phases/P12-save.md) |
 | `v1.13` | [`phases/P13-save.md`](./phases/P13-save.md) |
+| 上架后热修（例 `v1.13.1`） | [`../热修-save.md`](../热修-save.md) |
 
 大阶段线：`v1`。测试：`ApiRelayTests/V1/Phase0N_*/`。
 
@@ -26,6 +27,7 @@
 |------|------|
 | Stage1 总验收 | [`10-verify.md`](./10-verify.md) |
 | T062 发布（须授权） | [`12-release-T062.md`](./12-release-T062.md) |
+| 上架后修 bug 保存并上传 | [`../热修-save.md`](../热修-save.md) |
 | 大阶段收尾 | [`20-push.md`](./20-push.md) |
 | 创建 `v2` tip | [`30-create-next-branch.md`](./30-create-next-branch.md) |
 | 切到 Stage2 | [`40-checkout-next-branch.md`](./40-checkout-next-branch.md) |

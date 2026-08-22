@@ -96,11 +96,13 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 | IV. 跨平台复用 | Business + Data 100% 共享；UI 分平台适配 | ✅ Pass |
 | V. 故障隔离 | 刷新结果**按账号**返回；单平台失败不影响其他平台与保管功能 | ✅ Pass |
 | VI. 向下兼容 | additive-only schema；阶段三三个扩展点均为枚举加值或新增实体 | ✅ Pass |
-| VII. 密钥安全 | Keychain only；剪贴板为条件许可（显式动作+门闩+限时清除+风险披露）；iCloud 钥匙串同步已获宪法明许 | ⚠️ **见下方说明** |
+| VII. 密钥安全 | Keychain only；列表不展示密钥片段；去重为本机 Keychain 相等比较；剪贴板为条件许可；iCloud 钥匙串同步已获宪法明许 | ⚠️ **见下方说明** |
 | VIII. 身份确认门闩 | 应用层 `LAContext`；查看与复制**共用一个门闩**；自动刷新不触发门闩 | ⚠️ **见下方说明** |
 | IX. 数据真实性 | 未知一律 nil 且显式标注，禁止以 0 代替；平台数字与本产品估算分字段存储 | ✅ Pass |
 | 平台体验标准 | SwiftUI 系统组件、Dynamic Type、Dark Mode | ✅ Pass |
-| **无障碍**（v2.2.0 新增） | Dynamic Type；VoiceOver 标签；掩码位不读完整明文；门闩后明文区可逐字符朗读（FR-059） | ✅ Pass（T060） |
+| **设置列表行**（v2.4.0 新增） | 仅子页行显示 〉；顺序 `标题　当前值　ⓘ　〉`；本页控件无 〉 | ✅ Pass |
+| **界面呈现**（v2.5.0 新增） | 设置下一层推入；购买/确认用 sheet；本页控件不另开界面 | ✅ Pass |
+| **无障碍**（v2.2.0 新增；v2.6.0 列表不读片段） | Dynamic Type；VoiceOver 标签；列表/详情不朗读密钥片段；门闩后明文区可逐字符朗读（FR-059） | ✅ Pass（T060） |
 | **本地化**（v2.1.0 新增） | **开发语言为英语** + `zh-Hans` 附加；String Catalog + 语义化 key；Apple 官方译名；法律文本人工双语 | ✅ Pass（T005a / T059a / T059b） |
 | 稳定性与兼容 | iOS 18.0 / macOS 15.0；Swift 6；async/await；`DiagnosticsReporting` hook | ✅ Pass（T002） |
 | 安全要求 | HTTPS、gitignore 敏感文件 | ✅ Pass |

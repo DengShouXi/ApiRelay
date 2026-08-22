@@ -85,3 +85,15 @@ extension ApiRelayError: LocalizedError {
         }
     }
 }
+
+extension ApiRelayError {
+    /// 明文完全相同（FR-057）时 `reason` 为 `possible_duplicate:<uuid>`。
+    var possibleDuplicateKeyId: UUID? {
+        guard case .validationFailed(let field, let reason) = self, field == "secret" else {
+            return nil
+        }
+        let prefix = "possible_duplicate:"
+        guard reason.hasPrefix(prefix) else { return nil }
+        return UUID(uuidString: String(reason.dropFirst(prefix.count)))
+    }
+}

@@ -50,6 +50,11 @@ actor KeyAssignmentRepository {
         try modelContext.save()
     }
 
+    /// FR-061：清空本仓库上下文中的全部指派。
+    func deleteAllRecords() throws {
+        try modelContext.deleteAllRecords(KeyAssignment.self)
+    }
+
     func assignmentKind(keyId: UUID) throws -> AssignmentKind {
         let tools = try fetchConsumerToolIDs(keyId: keyId)
         switch tools.count {

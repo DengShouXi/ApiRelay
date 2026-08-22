@@ -11,6 +11,9 @@ final class UpstreamAccount {
     var hasManagementCredential: Bool = false
     /// 可选备注（非密文）。
     var notes: String?
+    /// 用户在编辑里选的头像；nil = 跟设置默认 / 平台预置。
+    var avatarSymbol: String?
+    var avatarColor: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var sortOrder: Int = 0
@@ -27,6 +30,8 @@ final class UpstreamAccount {
         customBaseURL: String? = nil,
         hasManagementCredential: Bool = false,
         notes: String? = nil,
+        avatarSymbol: String? = nil,
+        avatarColor: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         sortOrder: Int = 0,
@@ -40,6 +45,8 @@ final class UpstreamAccount {
         self.customBaseURL = customBaseURL
         self.hasManagementCredential = hasManagementCredential
         self.notes = notes
+        self.avatarSymbol = avatarSymbol
+        self.avatarColor = avatarColor
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.sortOrder = sortOrder

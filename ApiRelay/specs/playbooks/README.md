@@ -8,7 +8,8 @@
 
 `plan.N`（规划）· `v{阶段}.{小迭代}`（产品）—— **开发里程碑全是分支**；商店发布才打 `release/N.0.0` tag。
 
-**每个小阶段写完 → 必须用对应 `P0N-save.md` 打分支并上传**（规划 `plan.3` 也一样）。
+**每个小阶段写完 → 必须用对应 `P0N-save.md` 打分支并上传**（规划 `plan.3` 也一样）。  
+**已关账 / 已上架后的修 bug → [`热修-save.md`](./热修-save.md)**（例：`v1.13.1`）；`release/*` 只当 tag，不要建成分支。
 
 **禁止**再新建旧名 `v0.0.N` / `v0.1.N` / `v0.2.N` / `v0.3.N`（现行名见 [BRANCHES.md](./BRANCHES.md)）。
 
@@ -52,5 +53,6 @@ P13-save → v1.13 + tip v1
 |------|------|
 | `P0N-某某.md` | 写/实现 |
 | `P0N-save.md` | 备注（英→中）+ commit + `git push -u origin v1.N`（或 `plan.N` / `v2.N` / `v3.N`） |
+| [`热修-save.md`](./热修-save.md) | 已关账 / 上架后修 bug：开 `v1.N.M`、更新台账、push；不盖冻结 tip |
 
 测试：`ApiRelay/ApiRelayTests/V*/Phase*/`。临时调试：`DebugScratch/`（不上传）。

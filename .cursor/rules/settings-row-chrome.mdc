@@ -1,0 +1,12 @@
+---
+description: 设置行 〉/ⓘ 与推入/盖层。权威在 Spec Kit 宪法，本文件只作提醒。
+alwaysApply: true
+---
+
+# 设置行与呈现
+
+权威条文：`ApiRelay/.specify/memory/constitution.md` → Platform Experience Standards → **设置列表行**、**界面呈现**。
+
+- 只有推进去另一整页的行才画 〉，走 `settingsDisclosureRow`。顺序：`标题　当前值　ⓘ　〉`。
+- 设置下一层用导航推入；购买/确认/选文件用 sheet 或对话框；本页控件不另开界面。
+- MUST NOT 在本文件另写一套与宪法冲突的细则。

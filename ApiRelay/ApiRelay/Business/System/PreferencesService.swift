@@ -36,13 +36,45 @@ actor PreferencesService: PreferencesServing {
             defaultGrouping: device.defaultGrouping,
             assignPickerFilter: device.assignPickerFilter,
             lastWindowWidth: device.lastWindowWidth,
-            lastWindowHeight: device.lastWindowHeight
+            lastWindowHeight: device.lastWindowHeight,
+            platformSectionSort: device.platformSectionSort,
+            consumerSectionSort: device.consumerSectionSort,
+            defaultKeyAvatarSymbol: nonempty(device.defaultKeyAvatarSymbol),
+            defaultKeyAvatarColor: nonempty(device.defaultKeyAvatarColor),
+            defaultCustomAccountAvatarSymbol: nonempty(device.defaultCustomAccountAvatarSymbol),
+            defaultCustomAccountAvatarColor: nonempty(device.defaultCustomAccountAvatarColor),
+            defaultCustomToolAvatarSymbol: nonempty(device.defaultCustomToolAvatarSymbol),
+            defaultCustomToolAvatarColor: nonempty(device.defaultCustomToolAvatarColor)
         )
+    }
+
+    private func nonempty(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     func update(_ patch: PreferencesPatch) async throws {
         // FR-060：外观/默认视角/窗口 → DevicePreferences；其余 → UserPreferences
-        try await userRepo.update(patch)
-        try await deviceRepo.update(patch)
+        if patch.writesUserPreferences {
+            try await userRepo.update(patch)
+        }
+        if patch.writesDevicePreferences {
+            try await deviceRepo.update(patch)
+        }
+    }
+
+    /// 界面写入 CloudKit 同步的 UserPreferences 时，MUST NOT 在 MainActor 上 `await update`。
+    /// SwiftUI `.modelContainer` 的 mainContext 与 `@ModelActor` save 互相等待，会卡住整窗转圈。
+    /// `Task.detached`：工程开了 NonisolatedNonsendingByDefault，普通 `Task {}` 仍会继承 MainActor。
+    nonisolated func persist(_ patch: PreferencesPatch) {
+        Task.detached {
+            try? await self.update(patch)
+        }
+    }
+
+    /// FR-061：清空同步偏好与本机偏好；下次 `load` 会重建默认值。
+    func purgeAllRecordsForErase() async throws {
+        try await userRepo.deleteAllRecords()
+        try await deviceRepo.deleteAllRecords()
     }
 }

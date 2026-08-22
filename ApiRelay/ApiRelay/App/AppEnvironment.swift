@@ -13,10 +13,13 @@ final class AppEnvironment: ObservableObject {
     let clipboard: SecureClipboard
     let vault: KeyVaultService
     let consumerTools: ConsumerToolService
+    let trashBatch: RecentlyDeletedBatchService
     let entitlements: EntitlementService
     let preferences: PreferencesService
     let backups: SecureBackupService
+    let backupPassphrase: BackupPassphraseService
     let dataLifecycle: DataLifecycleService
+    let cloudSync: CloudSyncService
 
     /// 本机外观（DevicePreferences）；驱动根视图 `preferredColorScheme`。
     @Published private(set) var appearance: AppearancePreference = .system
@@ -47,6 +50,11 @@ final class AppEnvironment: ObservableObject {
             entitlements: entitlements
         )
         self.consumerTools = ConsumerToolService(modelContainer: modelContainer, gate: gate)
+        self.trashBatch = RecentlyDeletedBatchService(
+            vault: self.vault,
+            consumerTools: self.consumerTools,
+            gate: gate
+        )
         Task {
             await entitlements.startListening()
             // 启动时纠偏：以 StoreKit currentEntitlements 为准，清掉脏的本地 unlimited 快照。
@@ -59,11 +67,18 @@ final class AppEnvironment: ObservableObject {
             keychain: keychain,
             modelContainer: modelContainer
         )
+        self.backupPassphrase = BackupPassphraseService(keychain: keychain)
         self.dataLifecycle = DataLifecycleService(
             gate: gate,
             keychain: keychain,
-            modelContainer: modelContainer
+            modelContainer: modelContainer,
+            vault: self.vault,
+            consumerTools: self.consumerTools,
+            preferences: self.preferences,
+            entitlements: entitlements
         )
+        let monitor = CloudKitSyncMonitor(mirroringEnabled: AppSchema.isCloudKitMirroringEnabled)
+        self.cloudSync = CloudSyncService(monitor: monitor)
         Task { await self.refreshAppearance() }
     }
 

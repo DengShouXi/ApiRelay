@@ -24,7 +24,15 @@ actor UserPreferencesRepository {
             defaultGrouping: .byPlatform,
             assignPickerFilter: .allowShared,
             lastWindowWidth: nil,
-            lastWindowHeight: nil
+            lastWindowHeight: nil,
+            platformSectionSort: .nameAscending,
+            consumerSectionSort: .nameAscending,
+            defaultKeyAvatarSymbol: nil,
+            defaultKeyAvatarColor: nil,
+            defaultCustomAccountAvatarSymbol: nil,
+            defaultCustomAccountAvatarColor: nil,
+            defaultCustomToolAvatarSymbol: nil,
+            defaultCustomToolAvatarColor: nil
         )
     }
 
@@ -60,5 +68,10 @@ actor UserPreferencesRepository {
         modelContext.insert(created)
         try modelContext.save()
         return created
+    }
+
+    /// FR-061：删除安全偏好单例；下次 `loadOrCreate` 会写入默认值。
+    func deleteAllRecords() throws {
+        try modelContext.deleteAllRecords(UserPreferences.self)
     }
 }

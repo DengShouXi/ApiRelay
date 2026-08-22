@@ -7,7 +7,7 @@ struct KeyRecordDTO: Identifiable, Sendable {
     let accountId: UUID              // → 上游平台账号（API 提供方）
     let consumerToolIds: [UUID]      // → 使用方工具，多对多；空数组 = 未分配
     let displayName: String
-    let maskedHint: String?          // 仅掩码片段，不足以还原明文
+    let maskedHint: String?          // CloudKit 遗留；仓库映射恒为 nil，界面 MUST NOT 展示
     let origin: KeyOrigin            // manualEntry(V1) / providerIssued、receivedFromTransfer(V2) / relayIssued(V3)
     let providerKeyRef: String?
     let lifecycle: KeyLifecycle      // active / revokedUpstream / softDeleted
@@ -17,7 +17,11 @@ struct KeyRecordDTO: Identifiable, Sendable {
     let spendLimit: Decimal?
     let notes: String?               // 可选备注（非密文）
     let secretAvailable: Bool        // 本机 Keychain 是否有对应明文
+    /// 本机 Keychain 读出的明文字符数，仅供详情画点。MUST NOT 写入 SwiftData / CloudKit。
+    let secretLength: Int?
     let sortOrder: Int               // 分区内手动排序；越小越靠前
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 // MARK: - 密钥健康度
@@ -167,6 +171,17 @@ struct PreferencesDTO: Sendable {
     var assignPickerFilter: AssignPickerFilter
     var lastWindowWidth: Double?
     var lastWindowHeight: Double?
+    /// 按平台：上游账号分区排序（本机，FR-064）。
+    var platformSectionSort: SectionSortPreference
+    /// 按使用方：使用方分区排序（本机，FR-064）。
+    var consumerSectionSort: SectionSortPreference
+    /// 本机默认头像（空 = 内置）。MUST NOT 写入 UserPreferences。
+    var defaultKeyAvatarSymbol: String?
+    var defaultKeyAvatarColor: String?
+    var defaultCustomAccountAvatarSymbol: String?
+    var defaultCustomAccountAvatarColor: String?
+    var defaultCustomToolAvatarSymbol: String?
+    var defaultCustomToolAvatarColor: String?
 }
 
 enum AppearancePreference: String, Sendable {
@@ -178,6 +193,49 @@ enum GroupingMode: String, Sendable {
     case byConsumer
 }
 
+/// 按平台 / 按使用方中间栏的分区排序规则（FR-064）。自定义无方向。
+enum SectionSortCriterion: String, Sendable, CaseIterable {
+    case name
+    case createdAt
+    case updatedAt
+    case custom
+}
+
+struct SectionSortPreference: Sendable, Equatable {
+    var criterion: SectionSortCriterion
+    /// 名称 / 时间的升序；`custom` 时忽略。
+    var ascending: Bool
+
+    nonisolated init(criterion: SectionSortCriterion, ascending: Bool) {
+        self.criterion = criterion
+        self.ascending = ascending
+    }
+
+    nonisolated static let nameAscending = SectionSortPreference(criterion: .name, ascending: true)
+
+    nonisolated var usesDirection: Bool { criterion != .custom }
+
+    nonisolated static func naturalDefault(for criterion: SectionSortCriterion) -> SectionSortPreference {
+        switch criterion {
+        case .name: return SectionSortPreference(criterion: .name, ascending: true)
+        case .createdAt: return SectionSortPreference(criterion: .createdAt, ascending: false)
+        case .updatedAt: return SectionSortPreference(criterion: .updatedAt, ascending: false)
+        case .custom: return SectionSortPreference(criterion: .custom, ascending: true)
+        }
+    }
+
+    /// 可见项的 `sortOrder` 有重复时，视为尚未写过自定义顺序。
+    nonisolated static func needsCustomSeed(sortOrders: [Int]) -> Bool {
+        guard sortOrders.count >= 2 else { return false }
+        return Set(sortOrders).count != sortOrders.count
+    }
+
+    nonisolated static func parse(criterionRaw: String, ascending: Bool) -> SectionSortPreference {
+        let criterion = SectionSortCriterion(rawValue: criterionRaw) ?? .name
+        return SectionSortPreference(criterion: criterion, ascending: ascending)
+    }
+}
+
 /// 「按使用方 → 添加已有密钥」弹窗的候选范围（本机偏好，不同步）。
 enum AssignPickerFilter: String, Sendable {
     /// 一钥一用：只列出尚未指派给任何使用方的密钥。
@@ -187,7 +245,7 @@ enum AssignPickerFilter: String, Sendable {
 }
 
 /// 局部更新；未设置的字段保持原值。
-/// 实现 MUST：`appearance` / `defaultGrouping` / `assignPickerFilter` / 窗口尺寸 → `DevicePreferences`；
+/// 实现 MUST：`appearance` / `defaultGrouping` / `assignPickerFilter` / 窗口尺寸 / 分区排序 → `DevicePreferences`；
 /// 其余安全相关字段 → `UserPreferences`（FR-060）。
 struct PreferencesPatch: Sendable {
     var appLockEnabled: Bool? = nil
@@ -208,6 +266,46 @@ struct PreferencesPatch: Sendable {
     var assignPickerFilter: AssignPickerFilter? = nil
     var lastWindowWidth: Double? = nil
     var lastWindowHeight: Double? = nil
+    var platformSectionSort: SectionSortPreference? = nil
+    var consumerSectionSort: SectionSortPreference? = nil
+    var defaultKeyAvatarSymbol: String? = nil
+    var defaultKeyAvatarColor: String? = nil
+    var defaultCustomAccountAvatarSymbol: String? = nil
+    var defaultCustomAccountAvatarColor: String? = nil
+    var defaultCustomToolAvatarSymbol: String? = nil
+    var defaultCustomToolAvatarColor: String? = nil
+
+    nonisolated var writesUserPreferences: Bool {
+        appLockEnabled != nil
+            || autoLockSeconds != nil
+            || revealPolicy != nil
+            || clipboardClearSeconds != nil
+            || clipboardLocalOnly != nil
+            || hideInAppSwitcher != nil
+            || refreshIntervalMinutes != nil
+            || displayCurrency != nil
+            || usdToDisplayRate != nil
+            || notifyLowBalance != nil
+            || notifyKeyRevoked != nil
+            || notifyWeeklyDigest != nil
+            || lowBalanceThreshold != nil
+    }
+
+    nonisolated var writesDevicePreferences: Bool {
+        appearance != nil
+            || defaultGrouping != nil
+            || assignPickerFilter != nil
+            || lastWindowWidth != nil
+            || lastWindowHeight != nil
+            || platformSectionSort != nil
+            || consumerSectionSort != nil
+            || defaultKeyAvatarSymbol != nil
+            || defaultKeyAvatarColor != nil
+            || defaultCustomAccountAvatarSymbol != nil
+            || defaultCustomAccountAvatarColor != nil
+            || defaultCustomToolAvatarSymbol != nil
+            || defaultCustomToolAvatarColor != nil
+    }
 }
 
 // MARK: - 门闩与剪贴板
@@ -243,6 +341,11 @@ enum BackupPurpose: String, Sendable {
     case transfer     // V2：交付他人。导入方 MUST 据此展示消费责任与不可撤回的告知
 }
 
+enum BackupFileProtection: Equatable, Sendable {
+    case passphraseProtected
+    case unprotected
+}
+
 // MARK: - Keychain Service
 
 /// Keychain Service 分类，对应 `KeychainStoring` 的 service 参数。
@@ -250,6 +353,7 @@ enum KeychainService: Sendable {
     case keys      // WhenUnlocked + synchronizable；Service = com.apirelay.keychain.keys
     case admin     // AfterFirstUnlock + synchronizable；Service = com.apirelay.keychain.admin
     case masterpw  // WhenUnlockedThisDeviceOnly + 不同步；Service = com.apirelay.keychain.masterpw（FR-038）
+    case backuppw  // WhenUnlockedThisDeviceOnly + 不同步；Service = com.apirelay.keychain.backuppw
 }
 
 // MARK: - 用量刷新
@@ -258,4 +362,56 @@ enum RefreshOutcome: Sendable {
     case success(fetchedAt: Date)
     case partiallyUnsupported(note: CapabilityNote)
     case failed(ApiRelayError)
+}
+
+// MARK: - iCloud 同步状态（元数据走 CloudKit；明文走钥匙串，无进度）
+
+enum CloudAccountState: Sendable, Equatable {
+    case signedIn
+    case signedOut
+    case restricted
+    case temporarilyUnavailable
+    case unknown
+}
+
+enum CloudSyncActivity: Sendable, Equatable {
+    case idle
+    case settingUp
+    case exporting
+    case importing
+}
+
+struct CloudSyncStatusDTO: Sendable, Equatable {
+    var account: CloudAccountState
+    var cloudKitUserRecordName: String?
+    var mirroringEnabled: Bool
+    var activity: CloudSyncActivity
+    var lastSuccessAt: Date?
+    var lastFailureMessage: String?
+
+    static let placeholder = CloudSyncStatusDTO(
+        account: .unknown,
+        cloudKitUserRecordName: nil,
+        mirroringEnabled: false,
+        activity: .idle,
+        lastSuccessAt: nil,
+        lastFailureMessage: nil
+    )
+
+    /// 系统不提供 Apple ID 邮箱；编号供两台设备对照是否同一套 iCloud。
+    var shortCloudIdentity: String? {
+        guard let cloudKitUserRecordName, !cloudKitUserRecordName.isEmpty else { return nil }
+        let compact = cloudKitUserRecordName.replacingOccurrences(of: "-", with: "")
+        let prefix = compact.prefix(8).uppercased()
+        return prefix.isEmpty ? nil : String(prefix)
+    }
+}
+
+enum CloudSyncNowOutcome: Sendable, Equatable {
+    case uploaded(Date)
+    case nothingToUpload(lastSuccess: Date?)
+    case timedOut
+    case unavailable
+    case localOnly
+    case failed(String)
 }

@@ -29,14 +29,15 @@ actor UpstreamAccountRepository {
     }
 
     @discardableResult
-    func insert(_ draft: UpstreamAccountDraft) throws -> UUID {
+    func insert(_ draft: UpstreamAccountDraft, id: UUID? = nil) throws -> UUID {
         let trimmed = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= 64 else {
             throw ApiRelayError.validationFailed(field: "displayName", reason: "required_1_to_64")
         }
-        let id = UUID()
+        let id = id ?? UUID()
         let now = Date()
         let trimmedNotes = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sortOrder = draft.sortOrder > 0 ? draft.sortOrder : (try nextSortOrder())
         let model = UpstreamAccount(
             id: id,
             platform: draft.platform,
@@ -46,8 +47,13 @@ actor UpstreamAccountRepository {
             notes: (trimmedNotes?.isEmpty == false) ? trimmedNotes : nil,
             createdAt: now,
             updatedAt: now,
-            sortOrder: draft.sortOrder
+            sortOrder: sortOrder
         )
+        if draft.avatarSymbol != nil || draft.avatarColor != nil {
+            let stored = AvatarChoice.stored(symbol: draft.avatarSymbol, color: draft.avatarColor)
+            model.avatarSymbol = stored.0
+            model.avatarColor = stored.1
+        }
         modelContext.insert(model)
         try modelContext.save()
         return id
@@ -80,8 +86,36 @@ actor UpstreamAccountRepository {
         if let value = patch.hasManagementCredential { model.hasManagementCredential = value }
         if let value = patch.notes { model.notes = value.isEmpty ? nil : value }
         if let value = patch.sortOrder { model.sortOrder = value }
-        model.updatedAt = Date()
+        if patch.updatesAvatar {
+            let stored = AvatarChoice.stored(symbol: patch.avatarSymbol, color: patch.avatarColor)
+            model.avatarSymbol = stored.0
+            model.avatarColor = stored.1
+        }
+        let touchesContent = patch.platform != nil
+            || patch.displayName != nil
+            || patch.customPlatformName != nil
+            || patch.customBaseURL != nil
+            || patch.hasManagementCredential != nil
+            || patch.notes != nil
+            || patch.updatesAvatar
+        if touchesContent {
+            model.updatedAt = Date()
+        }
         try modelContext.save()
+    }
+
+    /// 按给定顺序重写 `sortOrder`（0…n-1）。不碰 `updatedAt`（自定义拖拽不是「上次修改」）。
+    func reorder(orderedIds: [UUID]) throws {
+        for (index, id) in orderedIds.enumerated() {
+            guard let model = try fetchModel(id: id) else { continue }
+            model.sortOrder = index
+        }
+        try modelContext.save()
+    }
+
+    private func nextSortOrder() throws -> Int {
+        let models = try modelContext.fetch(FetchDescriptor<UpstreamAccount>())
+        return (models.map(\.sortOrder).max() ?? -1) + 1
     }
 
     /// 移入回收站（默认保留 30 天）。
@@ -111,6 +145,11 @@ actor UpstreamAccountRepository {
         try modelContext.save()
     }
 
+    /// FR-061：清空本仓库上下文中的全部上游账号（含回收站）。
+    func deleteAllRecords() throws {
+        try modelContext.deleteAllRecords(UpstreamAccount.self)
+    }
+
     private func fetchModel(id: UUID) throws -> UpstreamAccount? {
         var descriptor = FetchDescriptor<UpstreamAccount>(
             predicate: #Predicate { $0.id == id }
@@ -132,7 +171,9 @@ actor UpstreamAccountRepository {
             updatedAt: model.updatedAt,
             sortOrder: model.sortOrder,
             deletedAt: model.deletedAt,
-            purgeAfter: model.purgeAfter
+            purgeAfter: model.purgeAfter,
+            avatarSymbol: model.avatarSymbol,
+            avatarColor: model.avatarColor
         )
     }
 }

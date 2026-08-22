@@ -89,10 +89,19 @@ final class SwiftDataRepositoryTests: XCTestCase {
     }
 
     func testPresetCatalogCL003() {
-        XCTAssertEqual(PresetCatalog.platforms.count, 8)
-        XCTAssertEqual(PresetCatalog.consumerTools.count, 9)
-        XCTAssertTrue(PresetCatalog.consumerTools.map(\.name).contains("VS Code"))
+        let names = PresetCatalog.consumerTools.map(\.name)
+        XCTAssertEqual(PresetCatalog.platforms.map(\.id), [
+            "openai", "anthropic", "google", "openrouter", "deepseek",
+            "zhipu", "alibaba-bailian", "volcengine", "siliconflow",
+        ])
+        XCTAssertEqual(PresetCatalog.platform(id: "anthropic")?.displayName, "Anthropic")
+        XCTAssertEqual(names, [
+            "VS Code", "Cursor", "Claude Code", "Codex", "Cline",
+            "OpenCode", "Trae", "Cherry Studio", "Zed", "Continue",
+        ])
+        XCTAssertFalse(names.contains("Roo Code"))
         XCTAssertNotNil(PresetCatalog.platform(id: "deepseek"))
+        XCTAssertNotNil(PresetCatalog.platform(id: "zhipu"))
         XCTAssertEqual(PresetCatalog.platform(id: "custom")?.id, "custom")
     }
 

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// 本机界面偏好（local，不同步）。appearance / defaultGrouping / assignPickerFilter 只允许出现在此实体。
+/// 本机界面偏好（local，不同步）。外观 / 默认视角 / 指派筛选 / 分区排序只允许出现在此实体。
 @Model
 final class DevicePreferences {
     static let singletonID = UUID(uuidString: "00000000-0000-4000-8000-000000000011")!
@@ -13,6 +13,19 @@ final class DevicePreferences {
     var assignPickerFilter: String = AssignPickerFilter.allowShared.rawValue
     var lastWindowWidth: Double?
     var lastWindowHeight: Double?
+    /// 按平台中间栏分区排序（FR-064）。
+    var platformSectionSortCriterion: String = SectionSortCriterion.name.rawValue
+    var platformSectionSortAscending: Bool = true
+    /// 按使用方中间栏分区排序（FR-064）。
+    var consumerSectionSortCriterion: String = SectionSortCriterion.name.rawValue
+    var consumerSectionSortAscending: Bool = true
+    /// 本机默认头像（空 = 用内置）。仅影响未单独覆盖的条目。
+    var defaultKeyAvatarSymbol: String = ""
+    var defaultKeyAvatarColor: String = ""
+    var defaultCustomAccountAvatarSymbol: String = ""
+    var defaultCustomAccountAvatarColor: String = ""
+    var defaultCustomToolAvatarSymbol: String = ""
+    var defaultCustomToolAvatarColor: String = ""
 
     init(
         id: UUID = DevicePreferences.singletonID,

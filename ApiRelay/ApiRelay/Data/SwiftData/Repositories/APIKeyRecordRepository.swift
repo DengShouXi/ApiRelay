@@ -33,27 +33,29 @@ actor APIKeyRecordRepository {
     }
 
     @discardableResult
-    func insert(_ draft: KeyRecordDraft) throws -> UUID {
+    func insert(_ draft: KeyRecordDraft, id: UUID? = nil) throws -> UUID {
         let trimmed = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= 64 else {
             throw ApiRelayError.validationFailed(field: "displayName", reason: "required_1_to_64")
         }
-        let id = UUID()
+        let id = id ?? UUID()
         let now = Date()
         let sortOrder = draft.sortOrder > 0 ? draft.sortOrder : (try nextSortOrder(in: draft.accountId))
         let model = APIKeyRecord(
             id: id,
             accountId: draft.accountId,
             displayName: trimmed,
-            maskedHint: draft.maskedHint,
+            maskedHint: nil,
             origin: draft.origin,
             providerKeyRef: draft.providerKeyRef,
             spendLimit: draft.spendLimit,
             notes: draft.notes,
             createdAt: now,
             updatedAt: now,
-            secretLength: draft.secretLength,
-            sortOrder: sortOrder
+            secretLength: nil,
+            sortOrder: sortOrder,
+            avatarSymbol: AvatarChoice.stored(symbol: draft.avatarSymbol, color: draft.avatarColor).0,
+            avatarColor: AvatarChoice.stored(symbol: draft.avatarSymbol, color: draft.avatarColor).1
         )
         modelContext.insert(model)
         try modelContext.save()
@@ -71,7 +73,6 @@ actor APIKeyRecordRepository {
             }
             model.displayName = trimmed
         }
-        if let value = patch.maskedHint { model.maskedHint = value }
         if let value = patch.lifecycle { model.lifecycle = value.rawValue }
         if let value = patch.spendLimit { model.spendLimit = value }
         if let value = patch.notes { model.notes = value.isEmpty ? nil : value }
@@ -80,8 +81,12 @@ actor APIKeyRecordRepository {
         if let value = patch.healthState { model.healthState = value.rawValue }
         if let value = patch.lastCheckedAt { model.lastCheckedAt = value }
         if let value = patch.lastCheckNote { model.lastCheckNote = value }
-        if let value = patch.secretLength { model.secretLength = value }
         if let value = patch.sortOrder { model.sortOrder = value }
+        if patch.updatesAvatar {
+            let stored = AvatarChoice.stored(symbol: patch.avatarSymbol, color: patch.avatarColor)
+            model.avatarSymbol = stored.0
+            model.avatarColor = stored.1
+        }
         model.updatedAt = Date()
         try modelContext.save()
     }
@@ -136,22 +141,44 @@ actor APIKeyRecordRepository {
         try modelContext.save()
     }
 
-    /// 弱重复：同账号、相同末 4 位掩码、相同 secretLength（FR-057）。
-    /// - Parameter excludingId: 编辑换密时排除自身，避免误报重复。
-    func findWeakDuplicate(
-        accountId: UUID,
-        last4: String,
-        length: Int,
-        excludingId: UUID? = nil
-    ) throws -> UUID? {
-        let all = try modelContext.fetch(FetchDescriptor<APIKeyRecord>())
-        return all.first {
-            $0.accountId == accountId
-                && $0.lifecycle != KeyLifecycle.softDeleted.rawValue
-                && $0.maskedHint == last4
-                && $0.secretLength == length
-                && $0.id != excludingId
-        }?.id
+    /// FR-061：清空本仓库上下文中的全部密钥（含回收站），避免另开 ModelContext 删库后本 actor 仍读到旧对象。
+    func deleteAllRecords() throws {
+        try modelContext.deleteAllRecords(APIKeyRecord.self)
+    }
+
+    /// 清空升级前写入的末四位 / 长度。CloudKit 字段保留（不可删），值 MUST 为 nil。
+    func clearStoredSecretFragments() throws {
+        let models = try modelContext.fetch(FetchDescriptor<APIKeyRecord>())
+        var changed = false
+        for model in models {
+            guard model.maskedHint != nil || model.secretLength != nil else { continue }
+            model.maskedHint = nil
+            model.secretLength = nil
+            model.updatedAt = Date()
+            changed = true
+        }
+        if changed {
+            try modelContext.save()
+        }
+    }
+
+    /// 仅测试：读取是否仍残留末四位 / 长度。
+    func storedSecretFragments(id: UUID) throws -> (hint: String?, length: Int?) {
+        guard let model = try fetchModel(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        return (model.maskedHint, model.secretLength)
+    }
+
+    /// 仅测试：写入升级前残留的末四位，供 `clearStoredSecretFragments` 验收。
+    func plantLegacySecretFragments(id: UUID, hint: String, length: Int) throws {
+        guard let model = try fetchModel(id: id) else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        model.maskedHint = hint
+        model.secretLength = length
+        model.updatedAt = Date()
+        try modelContext.save()
     }
 
     func clearDeletionMarks(id: UUID) throws {
@@ -186,7 +213,7 @@ actor APIKeyRecordRepository {
             accountId: model.accountId,
             consumerToolIds: toolIDs,
             displayName: model.displayName,
-            maskedHint: model.maskedHint,
+            maskedHint: nil,
             origin: origin,
             providerKeyRef: model.providerKeyRef,
             lifecycle: lifecycle,
@@ -200,7 +227,10 @@ actor APIKeyRecordRepository {
             spendLimit: model.spendLimit,
             notes: model.notes,
             secretAvailable: false,
-            sortOrder: model.sortOrder
+            secretLength: nil,
+            sortOrder: model.sortOrder,
+            avatarSymbol: model.avatarSymbol,
+            avatarColor: model.avatarColor
         )
     }
 }

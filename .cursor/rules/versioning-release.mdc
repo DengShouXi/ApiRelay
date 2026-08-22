@@ -1,11 +1,12 @@
 ---
-description: Stage→App Store N.0.0；分支 plan.N / v1.N；废止 DC-013 捆发
+description: Stage→App Store N.0.0；分支 plan.N / v1.N；上架后热修 v1.N.M；release/* 只允许当 tag
 alwaysApply: true
 ---
 
 # 版本、分支与上架
 
-权威细则见 `ApiRelay/specs/playbooks/BRANCHES.md` 与 `ApiRelay/specs/ROADMAP.md`。
+权威细则见 `ApiRelay/specs/playbooks/BRANCHES.md` 与 `ApiRelay/specs/ROADMAP.md`。  
+上架后热修的保存并上传提示词：`ApiRelay/specs/playbooks/热修-save.md`。
 
 ## 商店版本（产品阶段完成才升主版本）
 
@@ -15,27 +16,49 @@ alwaysApply: true
 | Stage 2 用量/关系图验收通过 | **2.0.0** | `release/2.0.0` |
 | Stage 3 中转验收通过 | **3.0.0** | `release/3.0.0` |
 
-- 阶段内热修：`N.0.1`、`N.0.2`…  
+- 商店热修号：`N.0.1`、`N.0.2`…（这是 `MARKETING_VERSION`，**不是** Git 分支名）。  
+- Git 热修分支：`v{阶段}.{小迭代}.{热修}`（例：`v1.13.1`）。  
 - **MUST NOT** 再采用已废止的 DC-013（「V1 不单独上架、与 V2 捆发」）。  
 - 上架节奏由产品负责人决定；无强制「尽快首发」要求。小迭代照常 push；**只有阶段验收通过才打 `release/*` tag 并提交商店**。
 
 ## Git 分支命名
 
 ```text
-plan.N     规划小迭代（旧名 v0.0.N）
-plan       规划 tip（旧名 v0.0）
-v1 / v1.N  Stage 1 大阶段 tip / 小迭代（旧名 v0.1 / v0.1.N）
-v2 / v2.N  Stage 2
-v3 / v3.N  Stage 3
-main       稳定可发布（阶段上架后合并）
+plan.N                 规划小迭代（旧名 v0.0.N）
+plan                   规划 tip（旧名 v0.0）
+v1 / v1.N              Stage 1 大阶段 tip / 小迭代（旧名 v0.1 / v0.1.N）
+v1.N.M                 Stage 1 上架后或关账后热修（例：v1.13.1）
+v2 / v2.N / v2.N.M     Stage 2（同上）
+v3 / v3.N / v3.N.M     Stage 3
+main                   稳定可发布（阶段上架后合并）
+release/N.0.0          仅上架 tag，MUST NOT 建成分支
 ```
 
 - 小迭代里程碑用 **分支**，不用 tag。  
+- `release/N.0.0` 是贴在某次提交上的**固定名牌**（tag），不是一条可以继续 commit 的线。  
+- **MUST NOT** 创建 `release/1.0.0` 或 `release/1.0.1` **分支**（会与已有 tag 撞名）。  
+- **MUST NOT** 把已冻结的 `v1.13` 改名为 `release/1.0.0`。  
 - **MUST NOT** 再新建 `v0.0.N` / `v0.1.N` / `v0.2.N` / `v0.3.N` 作为现行操作名。  
 - 规格目录 `specs/001-key-vault/` 等是**文档路径**，不是 Git 分支名。  
 - 历史远程分支 `v0.*` 可保留；台账用旧→新对照，不强制 rename。
 
 ## Agent 操作
 
-写完小阶段 → 打开对应 `P0N-save.md` → 更新 `BRANCHES.md` → commit → `git push -u origin <新名分支>`。  
-合并回大阶段 tip（`plan` / `v1` / `v2` / `v3`）按各 save 文件推荐步骤执行。
+用户说「提交 / 保存 / 上传 / 保存并上传」且改动已确认可入库时，**先判断走哪份 save，不要问用户再解释一遍分支策略**：
+
+### A. 规划或产品小阶段（对应 P0N 尚未关账）
+
+打开对应 `P0N-save.md` → 更新 `BRANCHES.md` → commit → `git push -u origin <小迭代分支>`。  
+合并回大阶段 tip（`plan` / `v1` / `v2` / `v3`）按该 save 文件执行。
+
+### B. 已关账小迭代上的修 bug / 上架后热修（当前默认）
+
+打开并执行 `ApiRelay/specs/playbooks/热修-save.md`。
+
+- 从冻结 tip（例：`v1.13`）开 `v1.13.1`，**不要**在 `v1.13` 上继续 commit。  
+- 更新 `BRANCHES.md`（英→中）。  
+- push `v1.13.1`；fast-forward 大阶段 tip `v1`。  
+- 默认**不要** push 冻结的 `v1.13`、**不要**动 `main`、**不要**改 `MARKETING_VERSION`、**不要**打新 tag。  
+- **不要**开 `P0N-save.md` 冒充新 Phase。
+
+用户不必自己写 FR、不必自己改 `BRANCHES.md`、不必自己起分支名。未听到「提交 / 保存 / 上传」前 MUST NOT commit。

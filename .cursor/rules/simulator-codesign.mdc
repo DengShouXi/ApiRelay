@@ -1,0 +1,49 @@
+---
+description: agent 的 xcodebuild 必须用独立 DerivedData 并带模拟器签名，否则会污染 Xcode 的构建缓存。
+alwaysApply: true
+---
+
+# agent 跑 xcodebuild 的两条硬约束
+
+## 一、MUST 用独立 DerivedData
+
+agent 的每一次 `xcodebuild`（build / test / 只是「看编过没」）MUST 加：
+
+```text
+-derivedDataPath /tmp/ApiRelayAgentDD
+```
+
+不加就会和 Xcode 抢同一份缓存，后果有两个，都很难查：
+
+1. Xcode 下一次 Run 认为产物是新的、**跳过重编**改过的 `.swift`。
+2. Swift 增量编译的 `Objects-normal/arm64/ApiRelay-primary.priors` 里存着**上一次真正编译时的诊断**。文件被判定「无需重编」时，编译器直接**重放**这份缓存 —— 于是 Issue 列表里的黄标**行号、列号、源码片段全部冻结在改动之前**，源码改成什么样都不会变。
+
+冻结黄标的识别特征（满足任一条就是缓存重放，MUST NOT 再改业务代码）：
+
+- 黄标钉在 `}`、空行这类不可能报错的位置；
+- 多次构建后行:列一个字节都不变，而源码明明改过；
+- 警告文本里引用的代码**在当前文件里已经搜不到了**。
+
+排查与清除：
+
+```bash
+DD=~/Library/Developer/Xcode/DerivedData/<Proj>-<hash>
+# 1. 看编出来的真实诊断（干净的 .dia 只有约 268 字节、无警告字符串）
+strings "$DD/Build/Intermediates.noindex/ApiRelay.build/Debug-*/ApiRelay.build/Objects-normal/arm64/CloudKitSyncMonitor.dia" | grep "async' operations"
+# 2. 看 priors 里是否还留着旧源码里的符号
+grep -a "<已删掉的函数名>" "$DD"/Build/Intermediates.noindex/**/Objects-normal/arm64/*.priors
+# 3. .dia 干净但 Xcode 仍报 → 缓存重放，整份删掉（纯缓存，会自动重建）
+rm -rf "$DD"
+```
+
+`.dia` 干净 = 源码没问题。此时 **Product → Clean Build Folder 未必够**（清不掉 `Index.noindex` 与部分 priors），直接删整个 DerivedData 目录。
+
+## 二、iOS 模拟器 MUST 带本地签名
+
+```text
+CODE_SIGN_IDENTITY="-" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES
+```
+
+不带签名写出的包会让下一次 Run 被 SpringBoard 拒绝（`FBSOpenApplicationServiceErrorDomain` / POSIX 163）。只做「编过没」时优先编 Mac Catalyst，不要无签名编 iPhone 模拟器。
+
+已经写出未签名包时：告诉用户 **Product → Clean Build Folder** 再 Run。这不是界面 bug，MUST NOT 为此改设置页或宪法，也 MUST NOT 去关模拟器里的 iCloud / CA Event 日志。

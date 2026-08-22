@@ -27,31 +27,45 @@ enum PresetCatalog: Sendable {
     nonisolated static let toolCustomSymbol = "app"
 
     /// 每次访问按当前语言解析显示名（勿用 `static let` 冻住首次语言）。
+    /// 顺序全球唯一，不随语言变：西方厂家英文名；中国厂家中文界面用中文名（DeepSeek 除外）。
     nonisolated static var platforms: [Platform] {
         [
             Platform(id: "openai", displayName: "OpenAI", iconSymbol: "sparkles"),
-            Platform(id: "anthropic", displayName: "Claude", iconSymbol: "bubble.left.and.bubble.right"),
+            Platform(id: "anthropic", displayName: "Anthropic", iconSymbol: "bubble.left.and.bubble.right"),
             Platform(id: "google", displayName: "Google", iconSymbol: "globe"),
             Platform(id: "openrouter", displayName: "OpenRouter", iconSymbol: "arrow.triangle.branch"),
             Platform(id: "deepseek", displayName: "DeepSeek", iconSymbol: "waveform"),
+            Platform(id: "zhipu", displayName: String(localized: "preset.platform.zhipu"), iconSymbol: "brain.head.profile"),
             Platform(id: "alibaba-bailian", displayName: String(localized: "preset.platform.alibabaBailian"), iconSymbol: "cloud"),
             Platform(id: "volcengine", displayName: String(localized: "preset.platform.volcengine"), iconSymbol: "bolt.fill"),
             Platform(id: "siliconflow", displayName: String(localized: "preset.platform.siliconflow"), iconSymbol: "cpu"),
         ]
     }
 
-    /// CL-003 定稿。
+    /// CL-003 定稿。Roo Code 已退出预置，用户已建项不删除。
     nonisolated static let consumerTools: [Tool] = [
-        Tool(name: "VS Code", iconSymbol: "chevron.left.forwardslash.chevron.right"),
+        Tool(name: "VS Code", iconSymbol: "curlybraces.square"),
         Tool(name: "Cursor", iconSymbol: "cursorarrow"),
+        Tool(name: "Claude Code", iconSymbol: "text.bubble"),
+        Tool(name: "Codex", iconSymbol: "book.closed"),
+        Tool(name: "Cline", iconSymbol: "hammer"),
         Tool(name: "OpenCode", iconSymbol: "terminal"),
         Tool(name: "Trae", iconSymbol: "sparkles"),
-        Tool(name: "Cline", iconSymbol: "hammer"),
-        Tool(name: "Roo Code", iconSymbol: "bird"),
         Tool(name: "Cherry Studio", iconSymbol: "leaf"),
         Tool(name: "Zed", iconSymbol: "z.square"),
         Tool(name: "Continue", iconSymbol: "arrow.right.circle"),
     ]
+
+    /// VS Code 旧符号（三截 `</>`）。存量若仍存此值则回填为 `curlybraces.square`。
+    nonisolated static let retiredVSCodeSymbol = "chevron.left.forwardslash.chevron.right"
+
+    /// 仅迁移 VS Code 族上的废止符号，不覆盖用户自选的其他图标。
+    nonisolated static func isRetiredVSCodeSymbol(_ stored: String, toolName: String) -> Bool {
+        guard stored == retiredVSCodeSymbol else { return false }
+        return toolName == "VS Code"
+            || toolName.hasPrefix("VS Code · ")
+            || toolName.hasPrefix("VS Code - ")
+    }
 
     nonisolated static func platform(id: String) -> Platform? {
         if id == customPlatformID {

@@ -1,6 +1,53 @@
 <!--
-Sync Impact Report（最新：v2.2.0 → v2.3.0）
+Sync Impact Report（最新：v2.5.0 → v2.6.0）
 ==========================================
+Version change: 2.5.0 → 2.6.0 (MINOR: VII 去重改为本机 Keychain 相等比较，禁止末位片段入同步库与未过门闩界面；无原则删除)
+
+Modified principles / requirements:
+  - VII. 密钥安全
+      * 去重 MUST 在本机对 Keychain 明文做相等比较，MUST NOT 把末位片段或字符长度写入
+        SwiftData / CloudKit / 导出物，也 MUST NOT 在未过门闩的界面展示。
+  - 无障碍
+      * 列表与详情 MUST NOT 展示或朗读密钥的任何字符片段。
+
+Templates / downstream sync:
+  - `.cursor/rules/key-security.mdc`
+  - `specs/001-key-vault/spec.md`（FR-002、FR-057、DC-025）
+  - `specs/001-key-vault/data-model.md`
+  - `specs/001-key-vault/contracts/module-interfaces.md`
+  - `specs/001-key-vault/quickstart.md`
+  - `specs/001-key-vault/plan.md` Constitution Check
+
+Follow-up TODOs: none
+
+历史记录
+========
+Version change: 2.4.0 → 2.5.0 (MINOR: Platform Experience 新增「界面呈现」，无原则删除或重定义)
+
+Modified principles / requirements:
+  - Platform Experience Standards
+      * 新增「界面呈现」：设置下一层用导航推入；一次性任务用 sheet/对话框；本页控件不另开界面。
+
+Templates / downstream sync:
+  - `.cursor/rules/settings-row-chrome.mdc`
+  - `specs/playbooks/重要说明/索引.md`
+  - `specs/001-key-vault/plan.md` Constitution Check
+
+Follow-up TODOs: none
+
+Version change: 2.3.0 → 2.4.0 (MINOR: Platform Experience 新增「设置列表行」，无原则删除或重定义)
+
+Modified principles / requirements:
+  - Platform Experience Standards
+      * 新增「设置列表行」：仅子页行显示 〉；顺序为 标题　当前值　ⓘ　〉。
+
+Templates / downstream sync:
+  - `.cursor/rules/settings-row-chrome.mdc`（改为指向本条，不再另立准则）
+  - `specs/playbooks/重要说明/索引.md`
+  - `specs/001-key-vault/plan.md` Constitution Check 增一行
+
+Follow-up TODOs: none
+
 Version change: 2.2.0 → 2.3.0 (MINOR: 开发纪律与发布拓扑对齐，无安全/架构原则删除或重定义)
 
 Modified principles / requirements:
@@ -14,8 +61,6 @@ Templates / downstream sync:
 
 Follow-up TODOs: none
 
-历史记录
-========
 Version change: 2.1.0 → 2.2.0 (MINOR: 新增章节与补充条款)
 
 Modified principles:
@@ -146,8 +191,9 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
 - 明文 MUST NOT 在界面层（View/ViewModel）长期持有或作为 `@Published` 属性持久化；交付路径中的
   临时持有 MUST NOT 超过单次操作生命周期。
 - **明文派生物**（哈希、指纹、校验和、任何由明文单向计算得到的值）MUST NOT 写入 CloudKit、
-  SwiftData 或导出物。需要比对或去重时，MUST 改用**不足以缩小暴力搜索空间**的信息
-  （如上游平台 + 末 4 位 + 字符长度），MUST NOT 存储全量哈希。
+  SwiftData 或导出物。密钥的末位片段、字符长度亦 MUST NOT 写入上述位置或出现在未过门闩的界面。
+  需要比对或去重时，MUST 在本机对 Keychain 已有明文做相等比较（该读取 MUST NOT 触发门闩，
+  因明文未交给用户），MUST NOT 存储全量哈希或任何足以缩小暴力搜索空间的派生物。
 
 **Rationale**: 密钥泄露是不可逆安全事故，Keychain 是 Apple 平台唯一经系统级加密保护的存储方案。
 但绝对禁令若使产品主流程无法成立，就会被实现阶段以更差的方式绕过。剪贴板与 iCloud 同步改为
@@ -206,6 +252,39 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
   Dynamic Type 和 Dark Mode。
 - 第三方 UI 库引入 MUST 通过上述 Apple Native First 原则的评估。
 
+### 设置列表行 (Settings List Rows)
+
+设置列表 MUST 用分组卡片；每一行的行尾只表达一种动作，不得混用。
+
+- **只有**会推进去另一整页（`NavigationLink`）的行 MUST 显示披露指示符 〉。此类行 MUST 复用
+  `settingsDisclosureRow`，MUST NOT 手写一条能进子页却不画 〉 的行。
+- 本页即可完成的控件（菜单、开关、步进器）、点一下即执行的操作、以及弹层（非推入导航）
+  MUST NOT 显示 〉。
+- 子页行从左到右 MUST 为：`图标　标题　当前值（可空）　ⓘ　〉`。〉 MUST 在最右。ⓘ MUST 在 〉
+  左侧；点 ⓘ MUST 只出示说明，MUST NOT 进入下一页。
+- 本页控件行从左到右 MUST 为：`图标　标题　ⓘ　控件`。控件在最右，无 〉。
+
+**Rationale**: 同一设置页里「有的子页有 〉、有的没有」会让用户无法预判点按结果。与系统设置对齐：
+〉 只表示还能进去；ⓘ 是说明，不是导航。
+
+### 界面呈现 (Presentation)
+
+打开下一级内容 MUST 按任务类型选择呈现方式，MUST NOT 为了视觉「看起来都一样」而只用一种。
+
+- **设置层级的下一页**（选项列表、表单、用户还要返回继续改设置）MUST 用导航推入
+  （`NavigationLink` / 导航栈）。此类行 MUST 显示 〉；关闭用系统「返回」，MUST NOT 用「取消」关掉整页设置。
+- **一次性任务**（购买、危险操作确认、系统文件选取）MUST 盖在当前界面上（sheet、
+  `confirmationDialog`、系统面板）。此类行 MUST NOT 显示 〉。关掉后 MUST 回到原来的设置页，
+  MUST NOT 把设置页从导航栈清掉。
+- **本页即可完成**（菜单、开关、步进器）MUST NOT 打开新界面。
+- 设置子页在 iPhone 与 Mac 上 MUST 使用与设置首页相同的分组底与卡片；MUST NOT 在 Mac Catalyst 上
+  用会漂在白底中间的裸 `Form` / `List` 充当设置子页。
+- 一次性任务的 sheet 在 iPhone 与 Mac 上 MUST 是系统 sheet，并有明确关闭入口；MUST NOT 改成推入
+  导航来「对齐」子页。
+
+**Rationale**: 〉 表示还能进入一层设置；盖层表示做完就关。呈现方式与行尾信号必须一致，
+不能把付费墙推进设置层级，也不能把备份表单改成盖在设置上的多层 sheet。
+
 ### 本地化 (Localization)
 
 产品面向全球上架，界面语言为**英语与简体中文两种**。
@@ -231,7 +310,7 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
 - 全部界面 MUST 支持 Dynamic Type，MUST NOT 使用固定字号或固定高度容纳文本。
 - 全部可交互元素 MUST 有 VoiceOver 标签；仅靠颜色传达的状态（如失效标记）MUST 同时有文字或形状区分。
 - **密钥明文的朗读规则**（本条修正了一处方向性错误）：
-  - 列表与详情中的**掩码位** MUST NOT 让 VoiceOver 读出完整明文。
+  - 列表与详情 MUST NOT 展示或朗读密钥的任何字符片段（含末四位）。
   - 通过门闩后的**明文展示区** MAY 被 VoiceOver 读出，且 MUST 提供**逐字符朗读**
     （密钥是随机字符串，连读无法辨识）。
   - MUST NOT 一概禁止 VoiceOver 读出明文——那会使视障用户完全无法使用本产品。
@@ -305,9 +384,28 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
 **Rationale**: 这些不是「以后再优化」的选项，而是只有一次机会的选择。把它们集中登记，是为了避免
 它们被当成普通工程配置在实现阶段随手决定。
 
-**Version**: 2.3.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-05
+**Version**: 2.6.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-21
 
 <!--
+v2.6.0（MINOR，密钥列表不展示片段）：
+  - VII：去重改为本机 Keychain 相等比较；禁止末位片段 / 长度写入同步库或未过门闩界面。
+  - 无障碍：列表与详情不展示、不朗读任何密钥字符片段。
+  - 无既有原则被删除或重定义，故为 MINOR。
+  - Sync Impact：key-security.mdc、spec FR-002/FR-057、data-model、module-interfaces、quickstart、plan.md。
+
+v2.5.0（MINOR，界面呈现）：
+  - Platform Experience Standards 下新增「界面呈现 (Presentation)」。
+    设置下一层推入；一次性任务 sheet/对话框；本页控件不另开界面。
+  - 无既有原则被删除或重定义，故为 MINOR。
+  - Sync Impact：settings-row-chrome.mdc、playbooks 中文索引、plan.md Constitution Check。
+
+v2.4.0（MINOR，设置列表行）：
+  - Platform Experience Standards 下新增「设置列表行 (Settings List Rows)」。
+    仅 NavigationLink 子页显示 〉；顺序 标题　当前值　ⓘ　〉。
+  - 无既有原则被删除或重定义，故为 MINOR。
+  - Sync Impact：`.cursor/rules/settings-row-chrome.mdc` 改为指向本条；
+    playbooks 中文索引、`specs/001-key-vault/plan.md` Constitution Check 已同步。
+
 v2.3.0（MINOR，开发纪律与发布拓扑对齐）：
   - Development Discipline：功能分支命名与 `main` / `release/N.0.0` 对齐
     playbooks（Stage N → App Store N.0.0；废止 DC-013 捆发）。

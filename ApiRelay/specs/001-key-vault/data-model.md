@@ -122,12 +122,15 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 | displayName | String | ✅ | 1…64 字符，非空。**允许同平台多账号** |
 | customBaseURL | String? | ✅ | 自定义平台必填；预置平台可选覆写 |
 | hasManagementCredential | Bool | ✅ | 冗余标记，默认 false。V2 才使用 |
+| notes | String? | ✅ | 可选备注 |
+| avatarSymbol | String? | ✅ | 用户覆盖的 SF Symbol；nil = 跟设置默认 / 平台预置 |
+| avatarColor | String? | ✅ | 底色标记；与 `avatarSymbol` 同进同出 |
 | createdAt / updatedAt | Date | ✅ | `updatedAt` 为 LWW 冲突依据 |
-| sortOrder | Int | ✅ | 列表排序，默认 0 |
+| sortOrder | Int | ✅ | 列表排序，默认 0；自定义分区顺序（FR-064） |
 
 **预置上游平台清单**（内置常量，随应用更新扩充，不持久化为用户数据）：
 
-`openai` · `anthropic` · `google` · `openrouter` · `deepseek` · `alibaba-bailian` ·
+`openai` · `anthropic` · `google` · `openrouter` · `deepseek` · `zhipu` · `alibaba-bailian` ·
 `volcengine` · `siliconflow` · `custom`
 
 用户 MUST 能通过 `custom` + `customPlatformName` + `customBaseURL` 自行添加任何未预置的平台
@@ -143,12 +146,14 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 | id | UUID | ✅ | 主键；同时是 Keychain Account |
 | accountId | UUID | ✅ | → `UpstreamAccount.id` |
 | displayName | String | ✅ | 1…64 字符，去首尾空白后非空 |
-| maskedHint | String? | ✅ | 供列表展示的掩码片段（如末 4 位）。**MUST NOT 存足以还原明文的内容** |
+| maskedHint | String? | ✅ | CloudKit 遗留字段（不可删）。**MUST 保持 nil**；禁止存末位等密钥片段。列表不读此字段 |
 | origin | String | ✅ | `manualEntry`（V1）/ `providerIssued`、`receivedFromTransfer`（V2）/ `relayIssued`（V3）。V1 只可写 `manualEntry` |
 | providerKeyRef | String? | ✅ | 平台侧标识（OpenRouter `hash`、OpenAI/Claude `api_key_id`），用于关联用量 |
 | lifecycle | String | ✅ | `active` / `revokedUpstream` / `softDeleted` |
 | spendLimit | Decimal? | ✅ | 平台支持时的消费上限（FR-009） |
 | notes | String? | ✅ | 备注 |
+| avatarSymbol | String? | ✅ | 用户覆盖的 SF Symbol；nil = 跟设置里的密钥默认 |
+| avatarColor | String? | ✅ | 底色标记；与 `avatarSymbol` 同进同出 |
 | createdAt / updatedAt | Date | ✅ | — |
 | deletedAt | Date? | ✅ | 移入回收站的时间（FR-006 / DC-029） |
 | purgeAfter | Date? | ✅ | 永久清除截止时间；移入回收站时写 `deletedAt + 30 天`。到期由启动巡检物理清除 |
@@ -156,7 +161,7 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 | **healthState** | String | ✅ | `unknown`（默认） / `valid` / `invalid` / `indeterminate`。见下方专节（FR-052、FR-055） |
 | **lastCheckedAt** | Date? | ✅ | 最近一次**主动检测**的时间。nil = 从未检测 |
 | **lastCheckNote** | String? | ✅ | 不可判定时的原因文案键（如 `rateLimited`、`networkUnavailable`、`probeUnsupported`），供 UI 呈现可读原因 |
-| **secretLength** | Int? | ✅ | 明文字符长度。仅用于 FR-057 的弱重复比对，**MUST NOT** 与 `maskedHint` 之外的任何信息组合成可还原明文的材料 |
+| **secretLength** | Int? | ✅ | CloudKit 遗留字段（不可删）。**MUST 保持 nil**；禁止存明文字符长度 |
 
 **验证规则**
 
@@ -165,9 +170,9 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 - `providerKeyRef` 在同一 `accountId` 内应唯一；因 CloudKit 无唯一约束，冲突时以 `updatedAt` 较新者
   为准并记录一次冲突提示。
 - 明文 MUST 在写入前去除首尾空白，MUST 拒绝含空格、制表符或换行的内容（FR-056）。
-  `secretLength` 记录的是**规范化之后**的长度。
-- 新增时若同一 `accountId` 下存在 `maskedHint` 与 `secretLength` 都相同的记录，MUST 提示可能重复
-  （FR-057）。**MUST NOT 存储明文哈希或任何其他派生物**（宪法 VII）。
+  `secretLength` 不再写入。
+- 新增或换密时若同一 `accountId` 下本机 Keychain 已有完全相同的明文，MUST 提示可能重复
+  （FR-057）。本机暂无明文的记录不参与比对。**MUST NOT 存储明文哈希、末位片段或任何其他派生物**（宪法 VII）。
 
 #### ⚠️ 健康度为何独立于 `lifecycle`（FR-055，V1 必须预留）
 
@@ -224,17 +229,19 @@ softDeleted ──┬─→ active              (用户恢复；清 deletedAt / 
 
 **术语警告**：本产品有**两类平台**，不可混淆。`ConsumerTool` 是**消费端**
 （VS Code、Cursor、OpenCode、Trae…），`UpstreamAccount.platform` 是**上游 API 提供方**
-（OpenAI、Claude、DeepSeek、火山引擎…）。见 spec.md 术语表。
+（OpenAI、Anthropic、DeepSeek、智谱 AI、火山引擎…）。见 spec.md 术语表。
 
 | 字段 | 类型 | 同步 | 约束 |
 |------|------|------|------|
 | id | UUID | ✅ | 主键 |
 | name | String | ✅ | 1…48 字符，非空。用户可自定义新增（FR-007a） |
-| iconSymbol | String? | ✅ | SF Symbol 名称 |
+| iconSymbol | String? | ✅ | 预置/目录 SF Symbol 名称 |
+| avatarSymbol | String? | ✅ | 用户覆盖的头像；nil = 预置工具跟目录，自建工具跟设置默认 |
+| avatarColor | String? | ✅ | 底色标记；与 `avatarSymbol` 同进同出 |
 | isPreset | Bool | ✅ | 是否来自内置预置清单，默认 false |
 | isHidden | Bool | ✅ | 预置项可被隐藏而非删除，默认 false |
-| createdAt | Date | ✅ | — |
-| sortOrder | Int | ✅ | 默认 0 |
+| createdAt / updatedAt | Date | ✅ | `updatedAt` 为资料变更时间（改名/备注/图标）；调整 `sortOrder` MUST NOT 改写（FR-064） |
+| sortOrder | Int | ✅ | 默认 0；自定义分区顺序（FR-064） |
 
 预置清单对应 spec CL-003；预置项 MUST 可被用户重命名或隐藏，用户 MUST 能自定义新增任意名称
 （FR-007a）。**预置清单是内置常量而非用户数据**，随应用更新扩充；用户新增的项 `isPreset = false`，
@@ -381,6 +388,11 @@ DeepSeek 仅支持本实体、不支持 `UsageSnapshot` 的按密钥拆分——
 | appearance | String | ❌ | `system` / `light` / `dark`（FR-021） |
 | defaultGrouping | String | ❌ | `byPlatform` / `byConsumer`（FR-008） |
 | lastWindowWidth / lastWindowHeight | Double? | ❌ | Mac 窗口尺寸记忆，iOS 不使用 |
+| platformSectionSortCriterion / Ascending | String / Bool | ❌ | 按平台分区排序（FR-064）；默认 `name` + 升序 |
+| consumerSectionSortCriterion / Ascending | String / Bool | ❌ | 按使用方分区排序（FR-064）；默认 `name` + 升序 |
+| defaultKeyAvatarSymbol / Color | String | ❌ | 本机密钥默认头像；空 = 内置紫钥匙 |
+| defaultCustomAccountAvatarSymbol / Color | String | ❌ | 本机「自定义平台」默认头像；空 = 内置建筑 |
+| defaultCustomToolAvatarSymbol / Color | String | ❌ | 本机自建使用方默认头像；空 = 内置电脑 |
 
 **为何不同步**（FR-060、DC-021）：外观与默认视角是**每台设备各自的选择**。「在 Mac 上切成深色
 导致 iPhone 也变深色」是用户并不想要的联动；窗口尺寸更是与 iPhone 无关。
@@ -473,8 +485,8 @@ RefreshHealth                                                [UserDefaults]
 - `EntitlementSnapshot`（StoreKit 为真相源）
 - `RefreshHealth`（UserDefaults，本机 UI 状态）
 - 内存中的临时明文
-- **任何明文派生物**（哈希、指纹、校验和）——宪法 VII 明令禁止。这是 FR-057 放弃哈希去重、
-  改用「平台 + 末 4 位 + 长度」弱比对的原因。
+- **任何明文派生物**（哈希、指纹、校验和）以及密钥末位片段、字符长度——宪法 VII 明令禁止写入
+  CloudKit / SwiftData / 导出物。这是 FR-057 改为本机 Keychain 相等比较、不存末四位的原因。
 
 ### 同步与否的判据
 
@@ -507,9 +519,10 @@ SwiftData 自动生成 CloudKit record type；**禁止**手动混用 `CKRecord` 
 | `alibaba-bailian` | ⚠️ 待调研 | ⚠️ 待调研 | ⚠️ 待调研 | 待定 |
 | `volcengine` | ⚠️ 待调研 | ⚠️ 待调研 | ⚠️ 待调研 | 待定 |
 | `siliconflow` | ⚠️ 待调研 | ⚠️ 待调研 | ⚠️ 待调研 | 待定 |
+| `zhipu` | ⚠️ 待调研 | ⚠️ 待调研 | ⚠️ 待调研 | 待定 |
 | `custom` | ❌ | ❌ | ❌ | — |
 
-标 ⚠️ 的四个平台在 **V1 只需支持密钥保管**（保管不需要知道任何平台能力）。
+标 ⚠️ 的平台在 **V1 只需支持密钥保管**（保管不需要知道任何平台能力）。
 其接口能力属 **V2 的调研任务**，未调研完成前其能力矩阵 MUST 全部标记为不支持，
 界面如实呈现为「该平台能力未接入」——**MUST NOT 呈现为功能故障或数据为零**（宪法 IX）。
 
@@ -633,6 +646,7 @@ App 启动 → ModelContainer 初始化 → 自动 lightweight migration
 
 ## 变更记录
 
+- 2026-08-21：预置上游平台扩至 9 家 + `custom`（新增 `zhipu`）；清单顺序固定为 OpenAI → Anthropic → Google → OpenRouter → DeepSeek → 智谱 → 阿里百炼 → 火山引擎 → 硅基流动。显示名：Anthropic 不再用模型名 Claude；中国厂家中文界面用中文名（DeepSeek 除外）。
 - 2026-08-04（晚，第二次修订）：
   - **指派关系改为多对多**（DC-011）。移除 `APIKeyRecord.consumerToolId`，新增中间表
     `KeyAssignment`。连带写入「共享密钥的用量不可摊分」这一统计口径约束（§3.3a）。

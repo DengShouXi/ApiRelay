@@ -13,5 +13,43 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<!-- 声明了备份文档类型就必须声明是否原地打开。Mac Catalyst 只允许 YES；导入用安全作用域读取，不把明文写回原文件。 -->
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>ApiRelay Encrypted Backup</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.apirelay.backup</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.apirelay.backup</string>
+			<key>UTTypeDescription</key>
+			<string>ApiRelay Encrypted Backup</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>apirelaybackup</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

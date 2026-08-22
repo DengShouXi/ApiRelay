@@ -35,6 +35,53 @@ Business/System/     权益、偏好、备份、调度、通知
 
 ## 并发
 
-工程默认 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`。
-`KeychainStore` 与所有 `PlatformAdapting` 实现 MUST 显式声明为 `actor`，
-否则 Keychain 与网络会被拖到主线程。
+工程默认 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`，并开了
+`NonisolatedNonsendingByDefault`。`KeychainStore` 与所有 `PlatformAdapting`
+实现 MUST 显式声明为 `actor`，否则 Keychain 与网络会被拖到主线程。
+
+### 主线程不得等待同步库 SwiftData 写入
+
+`UserPreferences` 等 `syncedModels` 走 CloudKit 配置。窗口还挂着
+`.modelContainer`（SwiftUI `mainContext`），仓库又是 `@ModelActor`。
+
+界面（MainActor）若 `await` `preferences.update` / `modelContext.save()`：
+主线程等 save，save 要回主线程合并 → **整窗转圈、点了没反应**。
+本机 `DevicePreferences` 不走这条路径，外观切换看起来「正常」。
+
+- 勾选/开关先改本地 `@State`。
+- 同步库写入走 `PreferencesService.persist`（内部 `Task.detached`），MUST NOT
+  在 MainActor 上 `await update`。
+- 工程开了 `NonisolatedNonsendingByDefault`：普通 `Task {}` 仍继承 MainActor，
+  **不够**；必须 `Task.detached`。
+- MUST NOT 把「转圈」先当成点按热区、ⓘ、门闩或控制台 CloudKit 噪音。
+
+卡住时按这个顺序查，不要猜 UI：
+
+1. 主线程是否在等 CloudKit/SwiftData save（最常见）
+2. `Task {}` 是否其实还在 MainActor
+3. 两个 `ModelContext` 抢同一容器（`.modelContainer` + `@ModelActor`）
+4. 布局约束死循环（窗口 FAULT，不是 ProgressView）
+5. 才查门闩 / `LAContext` / 页面 overlay 转圈
+
+### 超时用 task group，不要在同步方法里起 `Task`
+
+工程默认 `MainActor` + Approachable Concurrency。在 `actor` 的**同步**方法里写 `Task { sleep; self.foo() }`，Xcode 会把闭包当成 MainActor，对 `foo` 插入隐式 `await`，报 `No 'async' operations occur within 'await' expression`（行上可以没有 `await`）。Swift [#75002](https://github.com/swiftlang/swift/issues/75002) 有同类误报。`@concurrent` / `Task.detached` 只是绕开，不是长期方案。
+
+长期做法（WWDC23 *Beyond the basics of structured concurrency*、[Donny Wals 超时赛跑](https://www.donnywals.com/implementing-task-timeout-with-swift-concurrency/)）：在已经是 `async` 的函数里用 `withTaskGroup` 让 `Task.sleep` 和事件赛跑。`CloudKitSyncMonitor.waitForCloudActivity` 已按此写。MUST NOT 在同步 actor 方法里再起超时 `Task`。
+
+```swift
+// ❌ 同步方法里 unstructured Task → 本工程必黄
+Task { try? await Task.sleep(for: t); self.handleTimeout(id) }
+
+// ✅ async 函数里 structured race（sleep 只捕获 Sendable 的 Duration）
+let sleepFor = slice
+await withTaskGroup(of: Race.self) { group in
+    group.addTask { try? await Task.sleep(for: sleepFor); return .tick }
+    group.addTask { .event(await self.nextWaiterEvent(id)) }
+    let first = await group.next()!
+    group.cancelAll()
+    return first
+}
+```
+
+通知回调 → actor 仍用 `Task { await self.refreshAccount() }`（callee 本身是 async）。源码已改仍黄、且行号一动不动：那是增量编译缓存重放，删 DerivedData，见 `simulator-codesign.mdc`。键盘/触感控制台不是这条警告。

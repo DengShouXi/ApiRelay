@@ -31,7 +31,22 @@ final class ConsumerToolIconBackfillTests: XCTestCase {
         try await tools.ensurePresetsSeeded()
         let list = try await tools.tools(includeHidden: true)
         let tool = try XCTUnwrap(list.first { $0.id == id })
-        XCTAssertEqual(tool.iconSymbol, "chevron.left.forwardslash.chevron.right")
+        XCTAssertEqual(tool.iconSymbol, "curlybraces.square")
+    }
+
+    func testEnsurePresetsSeededReplacesRetiredVSCodeSymbol() async throws {
+        let repo = ConsumerToolRepository(modelContainer: container)
+        let id = try await repo.insert(
+            ConsumerToolDraft(
+                name: "VS Code · 电脑 1",
+                iconSymbol: PresetCatalog.retiredVSCodeSymbol,
+                isPreset: false
+            )
+        )
+        try await tools.ensurePresetsSeeded()
+        let list = try await tools.tools(includeHidden: true)
+        let tool = try XCTUnwrap(list.first { $0.id == id })
+        XCTAssertEqual(tool.iconSymbol, "curlybraces.square")
     }
 
     func testEnsurePresetsSeededDoesNotOverwriteExistingIcon() async throws {

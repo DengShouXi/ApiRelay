@@ -119,4 +119,9 @@ actor EntitlementService: EntitlementServing {
     private static func canonicalize(_ tier: EntitlementTier) -> EntitlementTier {
         tier == .relay ? .unlimitedKeys : tier
     }
+
+    /// FR-061：清本地权益快照；不吊销 StoreKit。
+    func purgeLocalSnapshotForErase() async throws {
+        try await snapshot.deleteAllRecords()
+    }
 }

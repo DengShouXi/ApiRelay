@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 /// KeychainStoring 的 actor 实现。
-/// 三类 Service（keys / admin / masterpw），各配不同的 accessible 与 synchronizable 策略。
+/// 四类 Service（keys / admin / masterpw / backuppw），各配不同的 accessible 与 synchronizable 策略。
 ///
 /// **MUST NOT 设置 `kSecAttrAccessControl`**——它与 `kSecAttrSynchronizable` 互斥（errSecParam）。
 /// 门闩统一在应用层实现（research §1）。
@@ -14,6 +14,8 @@ actor KeychainStore: KeychainStoring {
 
     /// 主密码条目的固定 account（singleton）。
     static let masterPasswordAccount = UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
+    /// 备份口令条目的固定 account（singleton）。明文仅用于加密备份文件。
+    static let backupPassphraseAccount = UUID(uuidString: "00000000-0000-4000-8000-000000000002")!
 
     private let accessGroup: String?
     /// 单元测试宿主常缺 iCloud Keychain entitlement；为 true 时全部 Service 不写 synchronizable。
@@ -31,6 +33,7 @@ actor KeychainStore: KeychainStoring {
         case .keys:     return "com.apirelay.keychain.keys"
         case .admin:    return "com.apirelay.keychain.admin"
         case .masterpw: return "com.apirelay.keychain.masterpw"
+        case .backuppw: return "com.apirelay.keychain.backuppw"
         }
     }
 
@@ -38,7 +41,7 @@ actor KeychainStore: KeychainStoring {
         switch service {
         case .keys:     return kSecAttrAccessibleWhenUnlocked
         case .admin:    return kSecAttrAccessibleAfterFirstUnlock
-        case .masterpw: return kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        case .masterpw, .backuppw: return kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         }
     }
 
@@ -46,7 +49,7 @@ actor KeychainStore: KeychainStoring {
         if disableSynchronizableForTesting { return false }
         switch service {
         case .keys, .admin: return true
-        case .masterpw:     return false
+        case .masterpw, .backuppw: return false
         }
     }
 

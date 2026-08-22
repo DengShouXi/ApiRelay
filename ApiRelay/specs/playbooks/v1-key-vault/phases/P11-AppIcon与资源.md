@@ -92,6 +92,7 @@
 | `google` | `globe` | 搜索/云 |
 | `openrouter` | `arrow.triangle.branch` | 路由 |
 | `deepseek` | `waveform` | 推理/信号 |
+| `zhipu` | `brain.head.profile` | 研究/认知 |
 | `alibaba-bailian` | `cloud` | 云厂商 |
 | `volcengine` | `bolt.fill` | 火山/算力 |
 | `siliconflow` | `cpu` | 算力聚合 |

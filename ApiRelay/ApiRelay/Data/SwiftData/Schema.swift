@@ -1,5 +1,6 @@
 import CloudKit
 import Foundation
+import os
 import SwiftData
 
 /// SwiftData 双配置 + 迁移骨架。
@@ -10,6 +11,17 @@ enum AppSchema: Sendable {
     nonisolated static let cloudKitContainerID = "iCloud.com.apirelay.ApiRelay"
     /// 与 entitlements `com.apple.security.application-groups` 一致。
     nonisolated static let appGroupID = "group.com.apirelay.shared"
+
+    /// 这次进程是否真的挂上了 CloudKit mirroring。回退本机库时为 false，界面不得再写「已在云同步」。
+    private nonisolated static let mirroringFlag = OSAllocatedUnfairLock(initialState: false)
+
+    nonisolated static var isCloudKitMirroringEnabled: Bool {
+        mirroringFlag.withLock { $0 }
+    }
+
+    nonisolated static func setCloudKitMirroringEnabled(_ enabled: Bool) {
+        mirroringFlag.withLock { $0 = enabled }
+    }
 
     nonisolated static let syncedModels: [any PersistentModel.Type] = [
         UpstreamAccount.self,
@@ -51,23 +63,29 @@ enum AppSchema: Sendable {
     static func makeProductionContainer() throws -> ModelContainer {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         if isTesting {
+            setCloudKitMirroringEnabled(false)
             return try makeInMemoryContainer()
         }
         #if DEBUG
         let forceCloudKit = ProcessInfo.processInfo.environment["APIRELAY_CLOUDKIT"] == "1"
         if !forceCloudKit {
+            setCloudKitMirroringEnabled(false)
             return try makeLocalDiskContainer()
         }
         #endif
         // 模拟器未登录 iCloud 时强开 CloudKit 只会刷 CKAccountStatusNoAccount。
         if !isICloudAccountAvailable() {
             print("[ApiRelay] No iCloud account; using local SwiftData store")
+            setCloudKitMirroringEnabled(false)
             return try makeLocalDiskContainer()
         }
         do {
-            return try makeCloudKitContainer()
+            let container = try makeCloudKitContainer()
+            setCloudKitMirroringEnabled(true)
+            return container
         } catch {
             // 容器未在 Portal 勾选、或首次签名未完成时不阻断启动。
+            setCloudKitMirroringEnabled(false)
             return try makeLocalDiskContainer()
         }
     }
@@ -94,6 +112,7 @@ enum AppSchema: Sendable {
 
     /// 无 CloudKit 的本机持久化双配置（开发期 / 无付费账号回退）。
     nonisolated static func makeLocalDiskContainer() throws -> ModelContainer {
+        setCloudKitMirroringEnabled(false)
         try ensureAppGroupStoreDirectory()
         let group = ModelConfiguration.GroupContainer.identifier(appGroupID)
         let synced = ModelConfiguration(
@@ -140,6 +159,7 @@ enum AppSchema: Sendable {
 
     /// 单元测试 / Preview：双配置均内存、无 CloudKit。
     nonisolated static func makeInMemoryContainer() throws -> ModelContainer {
+        setCloudKitMirroringEnabled(false)
         let synced = ModelConfiguration(
             "synced",
             schema: syncedSchema,
@@ -171,5 +191,19 @@ enum AppMigrationPlan: SchemaMigrationPlan {
 
     nonisolated static var stages: [MigrationStage] {
         []
+    }
+}
+
+extension ModelContext {
+    /// 逐条物理删除（CloudKit 需要对象级 tombstone；批量 delete 不会同步）。
+    /// `nonisolated`：仓库是 `@ModelActor`，「清除全部数据」在自定义 actor 上跑，不能被默认 MainActor 挡住。
+    nonisolated func deleteAllRecords<T: PersistentModel>(_ type: T.Type) throws {
+        let items = try fetch(FetchDescriptor<T>())
+        for item in items {
+            delete(item)
+        }
+        if hasChanges {
+            try save()
+        }
     }
 }

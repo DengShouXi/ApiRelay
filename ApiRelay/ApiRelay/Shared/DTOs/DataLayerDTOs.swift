@@ -15,6 +15,8 @@ struct UpstreamAccountDTO: Identifiable, Sendable {
     let sortOrder: Int
     let deletedAt: Date?
     let purgeAfter: Date?
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 struct UpstreamAccountDraft: Sendable {
@@ -24,6 +26,8 @@ struct UpstreamAccountDraft: Sendable {
     var customBaseURL: String?
     var notes: String? = nil
     var sortOrder: Int = 0
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 struct UpstreamAccountPatch: Sendable {
@@ -34,6 +38,9 @@ struct UpstreamAccountPatch: Sendable {
     var hasManagementCredential: Bool? = nil
     var notes: String? = nil
     var sortOrder: Int? = nil
+    var updatesAvatar: Bool = false
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 // MARK: - Consumer tool
@@ -46,9 +53,12 @@ struct ConsumerToolDTO: Identifiable, Sendable {
     let isHidden: Bool
     let notes: String?
     let createdAt: Date
+    let updatedAt: Date
     let sortOrder: Int
     let deletedAt: Date?
     let purgeAfter: Date?
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 struct ConsumerToolDraft: Sendable {
@@ -57,6 +67,8 @@ struct ConsumerToolDraft: Sendable {
     var isPreset: Bool = false
     var notes: String? = nil
     var sortOrder: Int = 0
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 struct ConsumerToolPatch: Sendable {
@@ -65,6 +77,9 @@ struct ConsumerToolPatch: Sendable {
     var isHidden: Bool? = nil
     var notes: String? = nil
     var sortOrder: Int? = nil
+    var updatesAvatar: Bool = false
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 // MARK: - Key record persistence helpers
@@ -72,13 +87,15 @@ struct ConsumerToolPatch: Sendable {
 struct KeyRecordDraft: Sendable {
     var accountId: UUID
     var displayName: String
-    var maskedHint: String?
+    var maskedHint: String? = nil    // 忽略；插入时恒为 nil
     var origin: KeyOrigin = .manualEntry
     var providerKeyRef: String?
     var spendLimit: Decimal?
     var notes: String?
-    var secretLength: Int?
+    var secretLength: Int? = nil     // 忽略；插入时恒为 nil
     var sortOrder: Int = 0
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 typealias KeyDraft = KeyRecordDraft
@@ -93,7 +110,10 @@ struct KeyEditDraft: Sendable {
     var notes: String? = nil
     var accountDisplayName: String
     var platform: String
+    var customPlatformName: String? = nil
     var customBaseURL: String? = nil
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 struct KeyRecordPatch: Sendable {
@@ -109,6 +129,9 @@ struct KeyRecordPatch: Sendable {
     var lastCheckNote: String? = nil
     var secretLength: Int? = nil
     var sortOrder: Int? = nil
+    var updatesAvatar: Bool = false
+    var avatarSymbol: String? = nil
+    var avatarColor: String? = nil
 }
 
 typealias KeyPatch = KeyRecordPatch

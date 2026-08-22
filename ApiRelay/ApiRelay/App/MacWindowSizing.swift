@@ -36,6 +36,14 @@ final class MacWindowSizingAppDelegate: NSObject, UIApplicationDelegate {
             guard let windowScene = scene as? UIWindowScene else { continue }
             windowScene.sizeRestrictions?.minimumSize = CGSize(width: 720, height: 480)
             windowScene.sizeRestrictions?.maximumSize = CGSize(width: 12_000, height: 12_000)
+            #if targetEnvironment(macCatalyst)
+            // 去掉中栏+右栏共用的系统总顶栏（窗口标题会横跨两栏）。
+            if let titlebar = windowScene.titlebar {
+                titlebar.titleVisibility = .hidden
+                titlebar.toolbar = nil
+                titlebar.separatorStyle = .none
+            }
+            #endif
         }
     }
 }

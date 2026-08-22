@@ -64,7 +64,7 @@ struct KeyRecordDTO: Identifiable, Sendable {
     let accountId: UUID              // → 上游平台账号（API 提供方）
     let consumerToolIds: [UUID]      // → 使用方工具，多对多；空数组 = 未分配
     let displayName: String
-    let maskedHint: String?          // 仅掩码片段，不足以还原明文
+    let maskedHint: String?          // CloudKit 遗留；映射恒为 nil，界面 MUST NOT 展示
     let origin: KeyOrigin            // manualEntry(V1) / providerIssued、receivedFromTransfer(V2) / relayIssued(V3)
     let providerKeyRef: String?
     let lifecycle: KeyLifecycle      // active / revokedUpstream / softDeleted
@@ -73,6 +73,7 @@ struct KeyRecordDTO: Identifiable, Sendable {
     let purgeAfter: Date?            // 永久清除截止；UI 用以展示剩余天数
     let spendLimit: Decimal?
     let secretAvailable: Bool        // 本机 Keychain 是否有对应明文
+    let secretLength: Int?           // 本机读出的长度，仅供 UI 画点；不入库
 }
 
 /// 密钥主动检测结果（US10）。与 lifecycle 分立，见 FR-055。
@@ -211,6 +212,8 @@ struct PreferencesDTO: Sendable {
     var defaultGrouping: GroupingMode
     var lastWindowWidth: Double?
     var lastWindowHeight: Double?
+    var platformSectionSort: SectionSortPreference
+    var consumerSectionSort: SectionSortPreference
 }
 
 enum AppearancePreference: String, Sendable {
@@ -223,7 +226,7 @@ enum GroupingMode: String, Sendable {
 }
 
 /// 局部更新；未设置的字段保持原值。
-/// 实现 MUST：`appearance` / `defaultGrouping` / 窗口尺寸 → `DevicePreferences`；
+/// 实现 MUST：`appearance` / `defaultGrouping` / 窗口尺寸 / 默认头像 → `DevicePreferences`；
 /// 其余安全相关字段 → `UserPreferences`（FR-060）。
 struct PreferencesPatch: Sendable {
     var appLockEnabled: Bool?
@@ -243,6 +246,8 @@ struct PreferencesPatch: Sendable {
     var defaultGrouping: GroupingMode?
     var lastWindowWidth: Double?
     var lastWindowHeight: Double?
+    var platformSectionSort: SectionSortPreference?
+    var consumerSectionSort: SectionSortPreference?
 }
 ```
 
@@ -301,13 +306,24 @@ enum AutomatedSecretPurpose: Sendable {
 }
 ```
 
+批量入口见 `RecentlyDeletedBatchServing`（FR-006a）：整批一次 `confirmMandatory`；恢复前预检免费额度，超出则整批拒绝；先处理账号（级联其下回收站密钥），再处理未被覆盖的密钥与使用方。
+
+### 3.1b RecentlyDeletedBatchServing — 回收站批量（FR-006a）
+
+```swift
+protocol RecentlyDeletedBatchServing: Actor {
+    func restore(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome
+    func permanentlyDelete(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome
+}
+```
+
 **契约要点**
 
 - `revealSecret` MUST 在返回前完成门闩（`RevealGateServing`）。UI 层 MUST NOT 直接访问 Keychain。
 - `revealSecret` 返回的 `String` 由调用方在使用后立即释放；MUST NOT 存为 `@Published`（宪法 VII）。
 - `createKey` MUST 先校验配额（`quotaExceededFreeTier`）再写入；MUST 执行 FR-056 规范化
-  （去首尾空白、拒绝空白符）与 FR-057 弱重复提示（同账号末 4 位 + `secretLength`；
-  MUST NOT 存明文哈希）。
+  （去首尾空白、拒绝空白符）与 FR-057 重复提示（同账号下本机 Keychain 明文完全相同；
+  MUST NOT 存明文哈希或末位片段）。该比对读取 MUST NOT 触发门闩。
 - `copySecretToClipboard` 内部串联门闩 → Keychain 读取 → `ClipboardServing.write`，
   UI 层 MUST NOT 自行拼装这三步；对 `softDeleted` MUST 拒绝。
 - `deleteKey` MUST NOT 删除 Keychain；`permanentlyDeleteKey` / `purgeExpiredDeletedKeys` 才删。
@@ -476,6 +492,19 @@ protocol DataLifecycleServing: Sendable {
     func eraseAllUserData() async throws
 }
 
+protocol CloudSyncServing: Actor {
+    func snapshot() async -> CloudSyncStatusDTO
+    /// 催元数据：等到本次 CloudKit 导入/导出结束，或确认本机无待传。
+    /// 密钥明文经 iCloud 钥匙串同步，本方法 MUST NOT 声称已在对面设备可取出。
+    func requestMetadataSync() async -> CloudSyncNowOutcome
+}
+```
+
+**`CloudSyncServing` 契约要点**：账号状态用 `CKAccountStatus`，MUST NOT 把本机库回充当「已在云同步」。
+界面可展示 CloudKit 用户编号供两台设备对照，MUST NOT 声称能显示 Apple ID 邮箱。
+「立即同步」成功只表示**本机元数据已提交或无待传**；MUST NOT 等待或伪造钥匙串进度。
+
+```swift
 enum BackupPurpose: String, Sendable {
     case fullBackup   // V1：自用备份
     case transfer     // V2：交付他人。导入方 MUST 据此展示消费责任与不可撤回的告知
