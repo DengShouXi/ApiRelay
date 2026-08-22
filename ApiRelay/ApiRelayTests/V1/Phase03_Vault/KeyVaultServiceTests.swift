@@ -178,7 +178,11 @@ final class KeyVaultServiceTests: XCTestCase {
         XCTAssertEqual(keys.count, 1)
         XCTAssertEqual(keys[0].displayName, "Key New")
         XCTAssertNil(keys[0].maskedHint)
-        XCTAssertEqual(keys[0].secretLength, "sk-new-secret-bbbb".count)
+        // 换密文后本机有明文，但 DTO MUST NOT 暴露真实长度。
+        XCTAssertTrue(keys[0].secretAvailable)
+        XCTAssertFalse(
+            Set(Mirror(reflecting: keys[0]).children.compactMap(\.label)).contains("secretLength")
+        )
         XCTAssertEqual(keys[0].notes, "team laptop")
         let revealed = try await vault.revealSecret(keyId: keyId, purpose: .display, masterPassword: nil)
         XCTAssertEqual(revealed, "sk-new-secret-bbbb")

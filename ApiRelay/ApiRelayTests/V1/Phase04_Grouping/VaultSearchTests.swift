@@ -162,7 +162,6 @@ final class VaultSearchTests: XCTestCase {
             spendLimit: nil,
             notes: notes,
             secretAvailable: true,
-            secretLength: 16,
             sortOrder: 0
         )
     }

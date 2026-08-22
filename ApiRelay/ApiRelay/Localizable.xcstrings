@@ -7516,7 +7516,6 @@
       }
     },
     "vault.secret.missing" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

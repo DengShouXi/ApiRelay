@@ -72,10 +72,14 @@ struct KeyRecordDTO: Identifiable, Sendable {
     let deletedAt: Date?             // 进回收站时间；非 softDeleted 时为 nil
     let purgeAfter: Date?            // 永久清除截止；UI 用以展示剩余天数
     let spendLimit: Decimal?
-    let secretAvailable: Bool        // 本机 Keychain 是否有对应明文
-    let secretLength: Int?           // 本机读出的长度，仅供 UI 画点；不入库
+    let secretAvailable: Bool        // 本机 Keychain 有无对应条目；由属性查询得出，不读明文
 }
+```
 
+遮罩点数由 `SecretMask.dotCount` 固定给出（12），**MUST NOT** 随明文长度变化；
+DTO 里也 MUST NOT 再出现 `secretLength` 一类可反推真实长度的字段（宪法 VII）。
+
+```swift
 /// 密钥主动检测结果（US10）。与 lifecycle 分立，见 FR-055。
 struct KeyHealthDTO: Sendable {
     let state: KeyHealthState        // unknown / valid / invalid / indeterminate

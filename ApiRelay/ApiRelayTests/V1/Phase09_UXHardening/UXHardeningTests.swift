@@ -21,7 +21,6 @@ final class UXHardeningTests: XCTestCase {
             spendLimit: nil,
             notes: nil,
             secretAvailable: false,
-            secretLength: nil,
             sortOrder: 0
         )
         let labels = Set(Mirror(reflecting: dto).children.compactMap(\.label))

@@ -16,9 +16,8 @@ struct KeyRecordDTO: Identifiable, Sendable {
     let purgeAfter: Date?            // 永久清除截止；UI 用以展示剩余天数
     let spendLimit: Decimal?
     let notes: String?               // 可选备注（非密文）
-    let secretAvailable: Bool        // 本机 Keychain 是否有对应明文
-    /// 本机 Keychain 读出的明文字符数，仅供详情画点。MUST NOT 写入 SwiftData / CloudKit。
-    let secretLength: Int?
+    /// 本机 Keychain 是否有对应条目。仅由属性查询得出，MUST NOT 由读取明文推导。
+    let secretAvailable: Bool
     let sortOrder: Int               // 分区内手动排序；越小越靠前
     var avatarSymbol: String? = nil
     var avatarColor: String? = nil

@@ -223,7 +223,6 @@ final class GroupingTests: XCTestCase {
             spendLimit: nil,
             notes: nil,
             secretAvailable: true,
-            secretLength: 16,
             sortOrder: 0
         )
     }

@@ -274,31 +274,33 @@ struct KeyDetailView: View {
         .padding(.vertical, 12)
     }
 
+    /// 遮罩点数由 `SecretMask` 固定给出，MUST NOT 依赖这条密钥的任何属性。
+    @ViewBuilder
     private func secretBrowseRow(_ key: KeyRecordDTO) -> some View {
-        Button {
-            onCopy(key.id)
-        } label: {
-            HStack(alignment: .firstTextBaseline) {
-                Text("vault.detail.secret")
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 12)
-                Text(secretDots(key))
-                    .font(.body.monospaced())
-                    .tracking(1.5)
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.trailing)
-                    .fixedSize(horizontal: false, vertical: true)
+        if key.secretAvailable {
+            Button {
+                onCopy(key.id)
+            } label: {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("vault.detail.secret")
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 12)
+                    Text(SecretMask.dots)
+                        .font(.body.monospaced())
+                        .tracking(1.5)
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("vault.a11y.secretHidden"))
+            .accessibilityHint(Text("vault.a11y.secretHidden.hint"))
+        } else {
+            browseRow("vault.detail.secret", value: String(localized: "vault.secret.missing"))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text("vault.a11y.secretHidden"))
-        .accessibilityHint(Text("vault.a11y.secretHidden.hint"))
-    }
-
-    private func secretDots(_ key: KeyRecordDTO) -> String {
-        String(repeating: "•", count: max(key.secretLength ?? 18, 8))
     }
 
     private func editTextRow(_ title: LocalizedStringKey, text: Binding<String>) -> some View {

@@ -532,19 +532,12 @@ actor KeyVaultService: KeyVaultServing {
         try await keysRepo.delete(id: id)
     }
 
+    /// 只回答「本机钥匙串里有没有这一条」。用属性查询（`listAccounts`）而非 `read`——
+    /// 列表刷新 MUST NOT 把明文读进内存，也 MUST NOT 由此得出明文长度。
     private func withSecretAvailability(_ records: [KeyRecordDTO]) async throws -> [KeyRecordDTO] {
+        let storedIds = Set((try? await keychain.listAccounts(service: .keys)) ?? [])
         var result: [KeyRecordDTO] = []
         for record in records {
-            let available: Bool
-            let length: Int?
-            do {
-                let secret = try await keychain.read(service: .keys, account: record.id)
-                available = true
-                length = secret.count
-            } catch {
-                available = false
-                length = nil
-            }
             result.append(KeyRecordDTO(
                 id: record.id,
                 accountId: record.accountId,
@@ -559,8 +552,7 @@ actor KeyVaultService: KeyVaultServing {
                 purgeAfter: record.purgeAfter,
                 spendLimit: record.spendLimit,
                 notes: record.notes,
-                secretAvailable: available,
-                secretLength: length,
+                secretAvailable: storedIds.contains(record.id),
                 sortOrder: record.sortOrder,
                 avatarSymbol: record.avatarSymbol,
                 avatarColor: record.avatarColor

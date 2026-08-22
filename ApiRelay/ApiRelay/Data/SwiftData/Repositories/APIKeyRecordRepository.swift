@@ -227,7 +227,6 @@ actor APIKeyRecordRepository {
             spendLimit: model.spendLimit,
             notes: model.notes,
             secretAvailable: false,
-            secretLength: nil,
             sortOrder: model.sortOrder,
             avatarSymbol: model.avatarSymbol,
             avatarColor: model.avatarColor
