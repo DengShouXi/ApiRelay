@@ -90,7 +90,6 @@ struct VaultHomeView: View {
     /// 本窗口记住的 Mac 栏宽；只存界面层，不进 iCloud。
     @SceneStorage("vault.macSidebarWidth") private var storedSidebarWidth = 200.0
     @SceneStorage("vault.macContentWidth") private var storedContentWidth = 340.0
-    @SceneStorage("vault.macSidebarHidden") private var macSidebarHidden = false
     @Environment(\.colorScheme) private var colorScheme
     /// 侧栏身份块下方那一行；未取到状态时显示「账号」。
     @State private var sidebarCloudAccount: CloudAccountState = .unknown
@@ -305,30 +304,23 @@ struct VaultHomeView: View {
                 storedSidebar: CGFloat(storedSidebarWidth),
                 storedContent: CGFloat(storedContentWidth),
                 containerWidth: geo.size.width,
-                twoColumn: usesTwoColumnMacShell,
-                sidebarHidden: macSidebarHidden
+                twoColumn: usesTwoColumnMacShell
             )
             HStack(spacing: 0) {
                 macSidebar
                     .frame(width: fitted.sidebar)
                     .frame(maxHeight: .infinity)
-                    .clipped()
-                    .opacity(macSidebarHidden ? 0 : 1)
-                    .allowsHitTesting(!macSidebarHidden)
-                    .accessibilityHidden(macSidebarHidden)
-                if !macSidebarHidden {
-                    MacColumnSplitter(
-                        displayedWidth: fitted.sidebar,
-                        width: macSidebarWidth,
-                        range: MacColumnLayout.sidebarRange,
-                        defaultWidth: MacColumnLayout.sidebarDefault,
-                        additionalMax: MacColumnLayout.maxSidebar(
-                            containerWidth: geo.size.width,
-                            contentWidth: fitted.content,
-                            twoColumn: usesTwoColumnMacShell
-                        )
+                MacColumnSplitter(
+                    displayedWidth: fitted.sidebar,
+                    width: macSidebarWidth,
+                    range: MacColumnLayout.sidebarRange,
+                    defaultWidth: MacColumnLayout.sidebarDefault,
+                    additionalMax: MacColumnLayout.maxSidebar(
+                        containerWidth: geo.size.width,
+                        contentWidth: fitted.content,
+                        twoColumn: usesTwoColumnMacShell
                     )
-                }
+                )
                 if usesTwoColumnMacShell {
                     macContentColumn
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -351,8 +343,6 @@ struct VaultHomeView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .animation(.easeInOut(duration: 0.2), value: macSidebarHidden)
-            .environment(\.macSidebarHidden, $macSidebarHidden)
         }
         .onChange(of: searchText) { _, _ in
             if let selectedKeyId, !visibleKeyIds.contains(selectedKeyId) {
@@ -372,19 +362,19 @@ struct VaultHomeView: View {
         selectedTab == .settings
     }
 
-    /// 钱迹式侧栏：上头居中身份；四项在剩余高度里垂直居中。选中靠字重和浅底。
+    /// 钱迹式侧栏：头像钉在顶；已登录到「按平台」空三行（84pt），四项之间空一行（28pt）。
     private var macSidebar: some View {
         VStack(spacing: 0) {
             macSidebarIdentity
-            Spacer(minLength: 28)
-            VStack(spacing: 16) {
+            VStack(spacing: 28) {
                 macSidebarRow(.byPlatform)
                 macSidebarRow(.byConsumer)
                 macSidebarRow(.trash)
                 macSidebarRow(.settings)
             }
+            .padding(.top, 84)
             .padding(.horizontal, 12)
-            Spacer(minLength: 28)
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(sidebarColumnBackground)
@@ -392,11 +382,6 @@ struct VaultHomeView: View {
         .onChange(of: showAccountPlaceholder) { _, presented in
             guard !presented else { return }
             Task { await refreshSidebarCloudAccount() }
-        }
-        .overlay(alignment: .topTrailing) {
-            MacSidebarToggleButton(isHidden: $macSidebarHidden)
-                .padding(.top, 8)
-                .padding(.trailing, 10)
         }
     }
 
@@ -410,7 +395,7 @@ struct VaultHomeView: View {
                     .font(.system(size: 48))
                     .foregroundStyle(.secondary)
                 Text(sidebarAccountCaption)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -444,26 +429,26 @@ struct VaultHomeView: View {
         return Button {
             selectedTab = tab
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: tab.systemImage)
-                    .font(.system(size: 24))
+                    .font(.subheadline)
                     .foregroundStyle(selected ? Color.primary : Color.secondary)
-                    .frame(width: 26, alignment: .center)
+                    .frame(width: 20, alignment: .center)
                 Text(tab.titleKey)
-                    .font(selected ? .title3.weight(.semibold) : .title3)
+                    .font(selected ? .subheadline.weight(.semibold) : .subheadline)
                     .foregroundStyle(selected ? Color.primary : Color.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12)
-            .frame(minHeight: 50)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(selected ? Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.06) : Color.clear)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(tab.titleKey))
@@ -495,13 +480,6 @@ struct VaultHomeView: View {
                 checkedItems: $trashCheckedItems,
                 visibleItems: $trashVisibleItems
             )
-            .overlay(alignment: .topLeading) {
-                if macSidebarHidden {
-                    MacSidebarToggleButton(isHidden: $macSidebarHidden)
-                        .padding(.leading, MacSidebarChrome.trafficLightLeading)
-                        .padding(.top, 8)
-                }
-            }
         case .settings:
             SettingsView(
                 environment: viewModel.environment,
@@ -576,9 +554,6 @@ struct VaultHomeView: View {
     private func macContentChromeBar(mode: GroupingMode) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                if macSidebarHidden {
-                    MacSidebarToggleButton(isHidden: $macSidebarHidden)
-                }
                 Text(mode == .byPlatform ? "vault.grouping.platform" : "vault.grouping.consumer")
                     .font(.headline)
                     .lineLimit(1)
@@ -599,8 +574,7 @@ struct VaultHomeView: View {
                         : Text("vault.consumer.add")
                 )
             }
-            .padding(.leading, macSidebarHidden ? MacSidebarChrome.trafficLightLeading : 16)
-            .padding(.trailing, 16)
+            .padding(.horizontal, 16)
             .frame(minHeight: 44)
             Divider()
         }
@@ -1690,9 +1664,19 @@ private struct VaultHomeAlertsModifier: ViewModifier {
             }
             .alert(viewModel.toastMessage ?? "", isPresented: Binding(
                 get: { viewModel.toastMessage != nil },
-                set: { if !$0 { viewModel.toastMessage = nil } }
+                set: {
+                    if !$0 {
+                        viewModel.toastMessage = nil
+                        viewModel.toastDetail = nil
+                    }
+                }
             )) {
-                Button("vault.toast.dismiss", role: .cancel) { viewModel.toastMessage = nil }
+                Button("vault.toast.dismiss", role: .cancel) {
+                    viewModel.toastMessage = nil
+                    viewModel.toastDetail = nil
+                }
+            } message: {
+                Text(viewModel.toastDetail ?? "")
             }
             .alert("vault.quota.exceeded.title", isPresented: $viewModel.showQuotaAlert) {
                 Button("vault.paywall.open") { showPaywall = true }

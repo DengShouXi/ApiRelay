@@ -22,6 +22,13 @@ final class MacWindowSizingAppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    /// 本 App 唯一的 `UIApplicationDelegate`，顺带承接退出前的剪贴板尽力清除。
+    /// Mac ⌘Q 会走到这里；进程随即消失，来不及 `await` `SecureClipboard`，故走同步的
+    /// `changeCount` 判定。强制退出与崩溃不会调用本方法，设置页已如实说明。
+    func applicationWillTerminate(_ application: UIApplication) {
+        ClipboardTerminationGuard.clearIfStillOursOnTerminate()
+    }
+
     private static var runsOnMacDesktop: Bool {
         #if targetEnvironment(macCatalyst)
         true

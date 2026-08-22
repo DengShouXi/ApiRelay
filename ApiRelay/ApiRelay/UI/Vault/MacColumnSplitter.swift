@@ -29,10 +29,8 @@ enum MacColumnLayout {
     }
 
     /// 大窗口保证详情约 360；720 宽的窗口按剩余空间降到下限，避免和窗口最小宽度打架。
-    static func detailMin(containerWidth: CGFloat, sidebarHidden: Bool = false) -> CGFloat {
-        let splitters = splitterThickness * (sidebarHidden ? 1 : 2)
-        let sidebarReserve = sidebarHidden ? 0 : sidebarMin
-        let available = containerWidth - sidebarReserve - contentMin - splitters
+    static func detailMin(containerWidth: CGFloat) -> CGFloat {
+        let available = containerWidth - sidebarMin - contentMin - splitterThickness * 2
         return min(detailMinIdeal, max(detailMinFloor, available))
     }
 
@@ -40,25 +38,8 @@ enum MacColumnLayout {
         storedSidebar: CGFloat,
         storedContent: CGFloat,
         containerWidth: CGFloat,
-        twoColumn: Bool,
-        sidebarHidden: Bool = false
+        twoColumn: Bool
     ) -> Fitted {
-        if sidebarHidden {
-            if twoColumn {
-                return Fitted(sidebar: 0, content: 0)
-            }
-            var content = clamp(storedContent, to: contentRange)
-            guard containerWidth > 0 else {
-                return Fitted(sidebar: 0, content: content)
-            }
-            let dMin = detailMin(containerWidth: containerWidth, sidebarHidden: true)
-            let budget = containerWidth - dMin - splitterThickness
-            if content > budget {
-                content = max(contentMin, budget)
-            }
-            return Fitted(sidebar: 0, content: content)
-        }
-
         var sidebar = clamp(storedSidebar, to: sidebarRange)
         var content = clamp(storedContent, to: contentRange)
         guard containerWidth > 0 else {
@@ -106,12 +87,10 @@ enum MacColumnLayout {
     }
 
     static func maxContent(containerWidth: CGFloat, sidebarWidth: CGFloat) -> CGFloat {
-        let hidden = sidebarWidth <= 0
-        let dMin = detailMin(containerWidth: containerWidth, sidebarHidden: hidden)
-        let splitters = splitterThickness * (hidden ? 1 : 2)
+        let dMin = detailMin(containerWidth: containerWidth)
         return min(
             contentMax,
-            max(contentMin, containerWidth - sidebarWidth - dMin - splitters)
+            max(contentMin, containerWidth - sidebarWidth - dMin - splitterThickness * 2)
         )
     }
 }

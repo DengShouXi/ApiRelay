@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSFaceIDUsageDescription</key>
-	<string>ApiRelay uses Face ID to confirm your identity before revealing your API key secrets.</string>
+	<string>ApiRelay uses Face ID to confirm your identity when unlocking the app and before revealing API key secrets.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<!-- Mac App Store / TestFlight 上传必填（错误 90242）。与商店草稿「开发者工具」一致。 -->

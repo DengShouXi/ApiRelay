@@ -201,6 +201,7 @@ struct SettingsView: View {
                                     if var current = self.prefs {
                                         current.revealPolicy = value
                                         self.prefs = current
+                                        environment.appPrivacy.applyLivePreferences(AppLockPreferences(current))
                                     }
                                     await refreshMasterPasswordStatus()
                                 }
@@ -267,7 +268,7 @@ struct SettingsView: View {
                                 seconds: prefs.autoLockSeconds,
                                 value: Binding(
                                     get: { prefs.autoLockSeconds },
-                                    set: { v in Task { await save(PreferencesPatch(autoLockSeconds: v)) } }
+                                    set: { persistPrivacyPatch(PreferencesPatch(autoLockSeconds: $0)) }
                                 ),
                                 range: 0...600,
                                 step: 30
@@ -682,18 +683,33 @@ struct SettingsView: View {
         Binding(
             get: { prefs?[keyPath: keyPath] ?? value },
             set: { newValue in
-                Task {
-                    var patch = PreferencesPatch()
-                    switch keyPath {
-                    case \.appLockEnabled: patch.appLockEnabled = newValue
-                    case \.clipboardLocalOnly: patch.clipboardLocalOnly = newValue
-                    case \.hideInAppSwitcher: patch.hideInAppSwitcher = newValue
-                    default: break
+                switch keyPath {
+                case \.appLockEnabled:
+                    persistPrivacyPatch(PreferencesPatch(appLockEnabled: newValue))
+                case \.hideInAppSwitcher:
+                    persistPrivacyPatch(PreferencesPatch(hideInAppSwitcher: newValue))
+                case \.clipboardLocalOnly:
+                    Task {
+                        var patch = PreferencesPatch()
+                        patch.clipboardLocalOnly = newValue
+                        await save(patch)
                     }
-                    await save(patch)
+                default:
+                    break
                 }
             }
         )
+    }
+
+    /// App 锁三项：先改内存再 persist，避免等 CloudKit save 卡住，并让遮罩/锁立即跟开关走。
+    private func persistPrivacyPatch(_ patch: PreferencesPatch) {
+        guard var current = prefs else { return }
+        if let value = patch.appLockEnabled { current.appLockEnabled = value }
+        if let value = patch.autoLockSeconds { current.autoLockSeconds = value }
+        if let value = patch.hideInAppSwitcher { current.hideInAppSwitcher = value }
+        prefs = current
+        environment.appPrivacy.applyLivePreferences(AppLockPreferences(current))
+        environment.preferences.persist(patch)
     }
 
     private func save(_ patch: PreferencesPatch) async {
@@ -706,6 +722,9 @@ struct SettingsView: View {
 
     private func reload() async {
         prefs = try? await environment.preferences.load()
+        if let prefs {
+            environment.appPrivacy.applyLivePreferences(AppLockPreferences(prefs))
+        }
     }
 
     private func refreshMasterPasswordStatus() async {
@@ -890,14 +909,27 @@ private struct MasterPasswordSettingsView: View {
     @State private var showFailureAlert = false
     @State private var showResetDoneAlert = false
     @State private var failureReason = ""
+    @State private var didAttemptSave = false
 
-    private var footerKey: LocalizedStringKey {
-        switch role {
-        case .setupForPolicy:
-            return "settings.policy.masterPassword.setupHint"
-        case .manage:
-            return "vault.masterPassword.disclosure"
+    private var evaluation: MasterPasswordPolicy.Evaluation {
+        MasterPasswordPolicy.evaluate(password: password, confirm: confirm)
+    }
+
+    private var highlightUnmetRules: Bool {
+        didAttemptSave && !evaluation.canSave
+    }
+
+    private var unmetRulesSummary: String {
+        var lines: [String] = []
+        if !evaluation.meetsMinimumLength {
+            lines.append(
+                String(localized: "settings.masterPassword.rule.length.unmet \(Int64(evaluation.trimmedLength))")
+            )
         }
+        if !evaluation.confirmMatches {
+            lines.append(String(localized: "settings.masterPassword.rule.match.unmet"))
+        }
+        return lines.joined(separator: "\n")
     }
 
     private var showsReset: Bool {
@@ -911,11 +943,24 @@ private struct MasterPasswordSettingsView: View {
                 SettingsCardDivider()
                 SettingsSecureField(title: "settings.masterPassword.confirm", text: $confirm)
             }
-            SettingsFooterNote(text: footerKey)
+
+            MasterPasswordRulesList(
+                evaluation: evaluation,
+                highlightUnmet: highlightUnmetRules
+            )
+
+            if highlightUnmetRules {
+                SettingsStatusBanner(text: unmetRulesSummary, isError: true)
+            }
+
+            SettingsFooterNote(text: "vault.masterPassword.disclosure")
+            if role == .setupForPolicy {
+                SettingsFooterNote(text: "settings.policy.masterPassword.setupHint")
+            }
 
             SettingsPrimaryButton(
                 title: "settings.masterPassword.save",
-                disabled: isSaving || password.isEmpty || confirm.isEmpty
+                disabled: isSaving
             ) {
                 Task { await save() }
             }
@@ -963,17 +1008,15 @@ private struct MasterPasswordSettingsView: View {
     }
 
     private func save() async {
-        guard password == confirm else {
-            failureReason = String(localized: "settings.masterPassword.mismatch")
-            showFailureAlert = true
-            return
-        }
+        didAttemptSave = true
+        guard evaluation.canSave else { return }
         isSaving = true
         defer { isSaving = false }
         do {
             try await environment.masterPassword.setPassword(password)
             password = ""
             confirm = ""
+            didAttemptSave = false
             passwordAlreadySet = true
             switch role {
             case .setupForPolicy:
@@ -982,6 +1025,8 @@ private struct MasterPasswordSettingsView: View {
                 await onChanged()
             }
             showSuccessAlert = true
+        } catch let ApiRelayError.validationFailed(_, reason) where reason == "too_short" {
+            didAttemptSave = true
         } catch {
             failureReason = error.localizedDescription
             showFailureAlert = true
@@ -997,6 +1042,7 @@ private struct MasterPasswordSettingsView: View {
             password = ""
             confirm = ""
             passwordAlreadySet = false
+            didAttemptSave = false
             await onChanged()
             showResetDoneAlert = true
         } catch ApiRelayError.authenticationCancelled {
@@ -1005,6 +1051,70 @@ private struct MasterPasswordSettingsView: View {
             failureReason = error.localizedDescription
             showFailureAlert = true
         }
+    }
+}
+
+private struct MasterPasswordRulesList: View {
+    var evaluation: MasterPasswordPolicy.Evaluation
+    var highlightUnmet: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("settings.masterPassword.rules.title")
+                .font(.subheadline.weight(.semibold))
+            ruleRow(
+                title: lengthRuleTitle,
+                isMet: evaluation.meetsMinimumLength,
+                isUnmetFailure: highlightUnmet && !evaluation.meetsMinimumLength
+            )
+            ruleRow(
+                title: String(localized: "settings.masterPassword.rule.match"),
+                isMet: evaluation.confirmMatches,
+                isUnmetFailure: highlightUnmet && !evaluation.confirmMatches
+            )
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: AppSymbols.Action.info)
+                    .font(.body)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 22, alignment: .center)
+                    .accessibilityHidden(true)
+                Text("settings.masterPassword.rule.charset")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var lengthRuleTitle: String {
+        if highlightUnmet && !evaluation.meetsMinimumLength {
+            return String(localized: "settings.masterPassword.rule.length.unmet \(Int64(evaluation.trimmedLength))")
+        }
+        return String(localized: "settings.masterPassword.rule.length")
+    }
+
+    private func ruleRow(title: String, isMet: Bool, isUnmetFailure: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: isMet ? AppSymbols.Action.checked : AppSymbols.Action.unchecked)
+                .font(.body)
+                .foregroundStyle(isUnmetFailure ? Color.red : (isMet ? Color.accentColor : Color.secondary))
+                .frame(width: 22, alignment: .center)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(isUnmetFailure ? Color.red : Color.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(
+            Text(isMet
+                 ? String(localized: "settings.masterPassword.rule.met")
+                 : String(localized: "settings.masterPassword.rule.unmet"))
+        )
     }
 }
 

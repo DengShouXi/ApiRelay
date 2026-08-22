@@ -13,6 +13,86 @@
     "%lld" : {
 
     },
+    "appLock.coverTitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication Required"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要身份确认"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter your app master password."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入应用主密码。"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is your app master password, not the iPhone passcode."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是应用主密码，不是 iPhone 锁屏密码。"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.incorrect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incorrect master password. This is not the iPhone passcode."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主密码不正确。这里要的不是 iPhone 锁屏密码。"
+          }
+        }
+      }
+    },
+    "appLock.unlock" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解锁"
+          }
+        }
+      }
+    },
     "biometry.faceID" : {
       "comment" : "Display name for Face ID biometric type",
       "extractionState" : "stale",
@@ -2375,13 +2455,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clear copied secrets from the clipboard automatically."
+            "value" : "After you copy a secret, the clipboard is cleared once this much time has passed. On iPhone and iPad the system does this for you, so it still happens even if you close the app. On Mac the system offers no such guarantee, so the app has to time it itself: it clears on schedule while the app is running, and also clears on a normal quit (⌘Q) — but not if the app is force-quit or crashes, in which case the secret stays on the clipboard."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自动清除剪贴板中复制的密钥。"
+            "value" : "复制密钥后，过了这个时长就清空剪贴板。iPhone、iPad 上这件事交给系统做，你就算关掉 App 也会照清。Mac 上系统不提供这个能力，只能由 App 自己计时；App 开着时会按时清除，正常退出（⌘Q）时也会顺手清掉，但强制退出或 App 崩溃时不会清，密钥会一直留在剪贴板里。"
           }
         }
       }
@@ -2793,6 +2873,134 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "可选加强验证；校验材料仅存本机、不同步。"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.rule.charset" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letters, numbers, and common symbols are allowed. Use the same password on iPhone and Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可用字母、数字、常见符号；手机和电脑输入同一串。"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.rule.length" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At least 4 characters"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "至少 4 个字符"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.rule.length.unmet %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not met: at least 4 characters (currently %lld)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未满足：至少 4 个字符（当前 %lld 位）"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.rule.match" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Both entries match"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两次输入一致"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.rule.match.unmet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not met: both entries must match"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未满足：两次输入一致"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.rule.met" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Met"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已满足"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.rule.unmet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not met"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未满足"
+          }
+        }
+      }
+    },
+    "settings.masterPassword.rules.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rules"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建规则"
           }
         }
       }
@@ -5106,6 +5314,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "软件名称"
+          }
+        }
+      }
+    },
+    "vault.copied.detail.ios %lld" : {
+      "comment" : "Shown after copying on iPhone/iPad, where the system enforces clipboard expiry",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The secret will be cleared from the clipboard in %lld seconds. This still happens even if you close the app."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥会在 %lld 秒后自动清除，即使你关掉 App 也会清。"
+          }
+        }
+      }
+    },
+    "vault.copied.detail.mac %lld" : {
+      "comment" : "Shown after copying on Mac, where clearing depends on the app still running",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The secret will be cleared from the clipboard in %lld seconds. If you quit the app before then, it may stay on the clipboard."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥会在 %lld 秒后自动清除。如果你在这之前退出 App，剪贴板里的内容可能会留着。"
           }
         }
       }
@@ -7692,38 +7934,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在同步"
-          }
-        }
-      }
-    },
-    "vault.sidebar.hide" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hide Sidebar"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "隐藏侧栏"
-          }
-        }
-      }
-    },
-    "vault.sidebar.show" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show Sidebar"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示侧栏"
           }
         }
       }

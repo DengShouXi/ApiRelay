@@ -26,6 +26,21 @@ final class PreferencesServiceTests: XCTestCase {
         XCTAssertEqual(device.appearance, .dark)
     }
 
+    func testAppLockFieldsPersist() async throws {
+        let container = try AppSchema.makeInMemoryContainer()
+        let sut = PreferencesService(modelContainer: container)
+        var patch = PreferencesPatch()
+        patch.appLockEnabled = true
+        patch.autoLockSeconds = 0
+        patch.hideInAppSwitcher = false
+        try await sut.update(patch)
+
+        let loaded = try await sut.load()
+        XCTAssertTrue(loaded.appLockEnabled)
+        XCTAssertEqual(loaded.autoLockSeconds, 0)
+        XCTAssertFalse(loaded.hideInAppSwitcher)
+    }
+
     func testRevealPolicyUpdateDoesNotTouchDeviceAppearance() async throws {
         let container = try AppSchema.makeInMemoryContainer()
         let sut = PreferencesService(modelContainer: container)

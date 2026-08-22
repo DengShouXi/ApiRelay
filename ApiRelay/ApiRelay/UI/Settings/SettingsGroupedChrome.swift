@@ -149,18 +149,10 @@ struct SettingsColumnScroll<Content: View>: View {
 struct SettingsMacChromeBar: View {
     var title: LocalizedStringKey
     var onBack: (() -> Void)? = nil
-    @Environment(\.macSidebarHidden) private var macSidebarHidden
-
-    private var showsSidebarReveal: Bool {
-        macSidebarHidden?.wrappedValue == true
-    }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                if let macSidebarHidden, showsSidebarReveal {
-                    MacSidebarToggleButton(isHidden: macSidebarHidden)
-                }
                 if let onBack {
                     Button(action: onBack) {
                         Label("settings.back", systemImage: AppSymbols.Action.chevronBackward)
@@ -176,8 +168,7 @@ struct SettingsMacChromeBar: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .padding(.leading, showsSidebarReveal ? MacSidebarChrome.trafficLightLeading : 16)
-            .padding(.trailing, 16)
+            .padding(.horizontal, 16)
             .frame(minHeight: 44)
             Divider()
         }

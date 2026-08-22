@@ -1,0 +1,25 @@
+---
+description: 模拟器系统日志是 Apple 已知问题，禁止当应用回归修。
+alwaysApply: true
+---
+
+# 模拟器控制台噪音
+
+别人也会遇到。触感缺库是 Apple 论坛 [FB18465343](https://developer.apple.com/forums/thread/812392)；键盘 `_UIRemoteKeyboardPlaceholderView` 约束是 UIKit 老 bug。主流方案是 **忽略**，不要改应用代码。
+
+每次 Run / 每次弹出键盘都会再打，这不是回归。`print("[ApiRelay] …")` 才是我们的日志。
+
+MUST NOT 为下表改业务代码、设置页、约束或宪法。用户贴这些日志时说明是模拟器噪音并停手。
+
+| 日志 | 是什么 |
+|---|---|
+| `hapticpatternlibrary.plist` / `CHHapticPattern` / `_UIKBFeedbackGenerator` | 模拟器没有 Taptic Engine |
+| `_UIRemoteKeyboardPlaceholderView` / `_UIKBCompatInputView` 约束冲突 | 系统键盘内部约束 |
+| `TUIKeyboardCandidateMultiplexer` | 系统键盘候选词 |
+| `Failed to send CA Event` / `FirstFramePresentationMetric` | 系统启动遥测 |
+| `Could not validate account info cache` | 系统账号缓存 |
+| `No iCloud account` / `CloudKitSchemaBootstrap skipped` | 模拟器未登录 iCloud（设计如此） |
+
+要安静控制台：Scheme 里的 `OS_ACTIVITY_MODE=disable` 只能挡一部分系统 `os_log`。`print("[ApiRelay] …")`、键盘约束、`hapticpatternlibrary.plist` 走 `print` / `NSLog`，**仍会出现**。Apple 对触感缺库的官方态度是已知问题、无推荐 workaround。MUST NOT 为消这些行再改业务代码。
+
+Issue 列表 `No 'async' operations occur within 'await' expression` 是另一件事（同 actor 误用 `await`，见 `architecture-boundaries.mdc`）。若行号一动不动、或钉在 `}` 上：那是增量编译缓存重放，删 DerivedData（见 `simulator-codesign.mdc`），不是再改超时逻辑。

@@ -27,6 +27,8 @@ final class VaultHomeViewModel: ObservableObject {
     @Published var avatarDefaults = AvatarPreferenceDefaults.builtIn
     @Published var errorMessage: String?
     @Published var toastMessage: String?
+    /// 提示弹窗的第二行说明。复制成功时装的是真实清除时长与该平台的清除边界。
+    @Published var toastDetail: String?
     @Published var showQuotaAlert = false
     @Published var needsMasterPassword = false
     @Published var copySecondsRemaining: Int?
@@ -84,6 +86,7 @@ final class VaultHomeViewModel: ObservableObject {
             avatarDefaults = .from(prefs)
         }
         toastMessage = nil
+        toastDetail = nil
         await refresh()
     }
 
@@ -571,8 +574,7 @@ final class VaultHomeViewModel: ObservableObject {
         needsMasterPassword = false
         do {
             try await vault.copySecretToClipboard(keyId: keyId, masterPassword: masterPassword)
-            copySecondsRemaining = 120
-            toastMessage = String(localized: "vault.copied.toast")
+            await announceCopied()
             return true
         } catch let ApiRelayError.validationFailed(_, reason)
             where reason == "required" || reason == "master_password_prompt_required"
@@ -587,6 +589,7 @@ final class VaultHomeViewModel: ObservableObject {
         } catch ApiRelayError.authenticationCancelled {
             return false
         } catch {
+            toastDetail = nil
             toastMessage = String(localized: "vault.copy.failed")
             return false
         }
@@ -595,11 +598,29 @@ final class VaultHomeViewModel: ObservableObject {
     func copyRevealedSecret(_ secret: String) async {
         do {
             try await vault.copyRevealedSecretToClipboard(secret)
-            copySecondsRemaining = 120
-            toastMessage = String(localized: "vault.copied.toast")
+            await announceCopied()
         } catch {
+            toastDetail = nil
             toastMessage = String(localized: "vault.copy.failed")
         }
+    }
+
+    /// 复制成功提示。剩余时长 MUST 取设置里的真实值，MUST NOT 写死；
+    /// Mac 与 iPhone 的清除边界不同，说明也分开写。
+    private func announceCopied() async {
+        let seconds = try? await environment.preferences.load().clipboardClearSeconds
+        copySecondsRemaining = seconds
+        toastMessage = String(localized: "vault.copied.toast")
+        toastDetail = Self.copiedDetail(seconds: seconds)
+    }
+
+    static func copiedDetail(seconds: Int?) -> String? {
+        guard let seconds else { return nil }
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        return String(localized: "vault.copied.detail.mac \(seconds)")
+        #else
+        return String(localized: "vault.copied.detail.ios \(seconds)")
+        #endif
     }
 
     func copy(keyId: UUID, masterPassword: String?) async {

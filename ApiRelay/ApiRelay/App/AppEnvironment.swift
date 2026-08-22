@@ -20,6 +20,7 @@ final class AppEnvironment: ObservableObject {
     let backupPassphrase: BackupPassphraseService
     let dataLifecycle: DataLifecycleService
     let cloudSync: CloudSyncService
+    let appPrivacy: AppPrivacyController
 
     /// 本机外观（DevicePreferences）；驱动根视图 `preferredColorScheme`。
     @Published private(set) var appearance: AppearancePreference = .system
@@ -79,6 +80,7 @@ final class AppEnvironment: ObservableObject {
         )
         let monitor = CloudKitSyncMonitor(mirroringEnabled: AppSchema.isCloudKitMirroringEnabled)
         self.cloudSync = CloudSyncService(monitor: monitor)
+        self.appPrivacy = AppPrivacyController(gate: gate, preferences: self.preferences)
         Task { await self.refreshAppearance() }
     }
 

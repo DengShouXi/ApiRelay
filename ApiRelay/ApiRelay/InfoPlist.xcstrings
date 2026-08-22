@@ -22,13 +22,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ApiRelay uses Face ID to confirm your identity before revealing your API key secrets."
+            "value" : "ApiRelay uses Face ID to confirm your identity when unlocking the app and before revealing API key secrets."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ApiRelay 在出示 API 密钥明文前，使用面容 ID 确认你的身份。"
+            "value" : "ApiRelay 在解锁应用以及出示 API 密钥明文前，使用面容 ID 确认你的身份。"
           }
         }
       }

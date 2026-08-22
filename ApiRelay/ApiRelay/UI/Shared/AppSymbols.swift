@@ -44,7 +44,6 @@ enum AppSymbols: Sendable {
         nonisolated static let help = "questionmark.circle"
         /// 系统设置式说明：单色 info，避免实心问号吃到主题色。
         nonisolated static let info = "info.circle"
-        nonisolated static let sidebarLeading = "sidebar.leading"
         /// 回收站选择模式：未勾 / 已勾。
         nonisolated static let unchecked = "circle"
         nonisolated static let checked = "checkmark.circle.fill"

@@ -19,7 +19,6 @@ final class AppSymbolsTests: XCTestCase {
         XCTAssertEqual(AppSymbols.Action.overflow, "ellipsis")
         XCTAssertEqual(AppSymbols.Action.reorderHandle, "line.3.horizontal")
         XCTAssertEqual(AppSymbols.Action.chevronBackward, "chevron.backward")
-        XCTAssertEqual(AppSymbols.Action.sidebarLeading, "sidebar.leading")
         XCTAssertEqual(AppSymbols.Action.unchecked, "circle")
         XCTAssertEqual(AppSymbols.Action.checked, "checkmark.circle.fill")
         XCTAssertEqual(AppSymbols.Key.default, "key.fill")

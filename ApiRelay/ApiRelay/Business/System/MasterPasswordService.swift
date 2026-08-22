@@ -2,6 +2,34 @@ import Foundation
 import Security
 import CommonCrypto
 
+/// 设密与校验共用的口令规则（CL-005：最短 4 位，不强制混搭）。
+/// 须 `nonisolated`：`MasterPasswordService` 是 actor，不能调默认 MainActor 的类型。
+enum MasterPasswordPolicy: Sendable {
+    nonisolated static let minimumLength = 4
+
+    struct Evaluation: Equatable, Sendable {
+        var trimmedLength: Int
+        var meetsMinimumLength: Bool
+        var confirmMatches: Bool
+
+        nonisolated var canSave: Bool { meetsMinimumLength && confirmMatches }
+    }
+
+    nonisolated static func trimmed(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated static func evaluate(password: String, confirm: String) -> Evaluation {
+        let passwordTrimmed = trimmed(password)
+        let confirmTrimmed = trimmed(confirm)
+        return Evaluation(
+            trimmedLength: passwordTrimmed.count,
+            meetsMinimumLength: passwordTrimmed.count >= minimumLength,
+            confirmMatches: passwordTrimmed == confirmTrimmed
+        )
+    }
+}
+
 protocol MasterPasswordServing: Actor {
     func isSet() async throws -> Bool
     func setPassword(_ password: String) async throws
@@ -31,8 +59,8 @@ actor MasterPasswordService: MasterPasswordServing {
     }
 
     func setPassword(_ password: String) async throws {
-        let trimmed = password.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 4 else {
+        let trimmed = MasterPasswordPolicy.trimmed(password)
+        guard trimmed.count >= MasterPasswordPolicy.minimumLength else {
             throw ApiRelayError.validationFailed(field: "masterPassword", reason: "too_short")
         }
         let salt = Self.randomSalt()
