@@ -52,10 +52,12 @@ ApiRelay/spec-kit-0.15.2/
 # Local throwaway experiments (never upload)
 ApiRelay/DebugScratch/
 
-# Store screenshots / screen recordings / icon sources (94 MB local asset shelf).
-# The screenshots actually submitted to App Store Connect are versioned under
-# ApiRelay/specs/playbooks/v1-key-vault/store-drafts/. 热修-save.md forbids committing this tree.
-ApiRelay_相关展览/
+# Local raw materials under ZL03 — keep the shelf README tracked;
+# ignore only the bulky asset folders (screenshots / recordings / icon exports).
+# Submitted store screenshots live under ApiRelay/specs/playbooks/.../store-drafts/.
+# 热修-save.md forbids committing these two trees.
+ZL03_原始素材/相关展示截图/
+ZL03_原始素材/icon素材/
 
 # CocoaPods
 #

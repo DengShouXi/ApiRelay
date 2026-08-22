@@ -32,7 +32,8 @@
 - 把 `v1.13` 改名为 `release/1.0.0`。  
 - 开 `v1.14` 来装这次修 bug（那是下一整块产品小迭代的名字，不是热修）。  
 - force push；移动已有 tag；未另授权就把 `main` 推到热修 tip。  
-- 把 `ApiRelay_相关展览/`、`DebugScratch/`、`build/`、密钥、`.env`、含真实密钥的截图加进提交。  
+- 把 `ZL03_原始素材/相关展示截图/`、`ZL03_原始素材/icon素材/`、`DebugScratch/`、`build/`、密钥、`.env`、含真实密钥的截图加进提交。
+  （`ZL03_原始素材/README.md` 可以入库；整棵素材二进制不要进。）  
 - 打开某个 `P0N-save.md` 冒充新 Phase。  
 - 改宪法 / `spec.md` / `ROADMAP.md`（决策没变就不动）。
 
