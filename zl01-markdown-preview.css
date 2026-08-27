@@ -1,0 +1,10 @@
+/* 仅高亮「当前哈希」落点（:target）。不要给所有 span[id] 常亮。
+ * 本机 Cursor 预览经常不吃这份 CSS；落点辨认以 10 里的 ▌ 为准。
+ */
+
+:target {
+  background-color: rgba(255, 196, 0, 0.55) !important;
+  outline: 2px solid #c98900 !important;
+  border-radius: 3px;
+  scroll-margin-top: 3rem;
+}
