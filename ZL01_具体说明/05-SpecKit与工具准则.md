@@ -9,6 +9,8 @@
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+[← 返回 00 · 从这里开始](./00-从这里开始.md)
+
 <h2 id="toc">目录</h2>
 
 - [§1 · 两套闸门](#two-guardrails)
@@ -57,7 +59,7 @@ ApiRelay/
 | 产品与工程铁律 | [`constitution.md`](../ApiRelay/.specify/memory/constitution.md) |
 | 写规格模板 | [`templates/`](../ApiRelay/.specify/templates/) |
 | 阶段 / 需求正文 | [`04-设计与规格.md`](./04-设计与规格.md) |
-| 分支上传 / 开发顺序 | [`07-开发流程.md`](./07-开发流程.md)、[`08-分支与流程.md`](./08-分支与流程.md) |
+| 计划 / 开发 / 上传 | [`07-计划流程.md`](./07-计划流程.md)、[`08-开发流程.md`](./08-开发流程.md)、[`09-上传流程.md`](./09-上传流程.md) |
 | Spec Kit 命令实体 | [`../ApiRelay/.github/agents/`](../ApiRelay/.github/agents/) |
 | Cursor 纪律 | [`06-AI铁律清单.md`](./06-AI铁律清单.md) |
 
