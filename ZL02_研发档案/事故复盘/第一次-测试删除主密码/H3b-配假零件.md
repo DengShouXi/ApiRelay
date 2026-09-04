@@ -19,7 +19,7 @@
 
 ## 改哪些文件
 
-全部在 `ApiRelay/ApiRelay/Shared/Fakes/`（同步文件夹，**不必**改 `pbxproj`）：
+全部在 `ApiRelay/ApiRelay/DebugSupport/Fakes/`（同步文件夹，**不必**改 `pbxproj`）：
 
 | # | 文件 | 认的协议 |
 |---|---|---|

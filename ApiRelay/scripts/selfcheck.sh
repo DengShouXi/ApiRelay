@@ -117,11 +117,11 @@ fi
 # ─────────────────────────────────────────────
 echo ""
 echo "【报告 5】各层代码量"
-for d in App UI Business Data Shared; do
+for d in App UI Business Data Shared DebugSupport; do
     if [ -d "$SRC/$d" ]; then
         n=$(find "$SRC/$d" -name "*.swift" | wc -l | tr -d ' ')
         l=$(find "$SRC/$d" -name "*.swift" -exec cat {} + 2>/dev/null | wc -l | tr -d ' ')
-        printf "     %-10s %3s 个文件  %6s 行\n" "$d" "$n" "$l"
+        printf "     %-12s %3s 个文件  %6s 行\n" "$d" "$n" "$l"
     fi
 done
 tn=$(find "$TESTS" -name "*.swift" 2>/dev/null | wc -l | tr -d ' ')

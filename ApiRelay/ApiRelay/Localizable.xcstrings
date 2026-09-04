@@ -1492,13 +1492,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Applies when you return to the app after being away. 0 means lock only when leaving the app."
+            "value": "Requires “Require authentication to open” to be on. Counts from when you leave the app; returning after this many seconds locks again. 0 locks as soon as you leave. Brief system wake-ups while away do not reset the timer."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "离开一段时间再回到 App 时生效。0 表示仅在离开 App 时锁定。"
+            "value": "须先打开「打开 App 需要认证」。从离开 App 起算，超过此时长再回来会重新上锁。0 表示一离开就锁。离开期间系统短暂唤醒不会重置计时。"
           }
         }
       }
@@ -2821,13 +2821,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hide sensitive previews in the app switcher."
+            "value": "Covers the screen before the system takes the app-switcher snapshot. Open the switcher from the home screen a couple of times to verify; a quick flick can still race the snapshot on some OS versions."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在应用切换器中遮盖敏感预览。"
+            "value": "在系统截取多任务预览前盖住界面。请回主屏幕再进切换器多试几次确认；极快划出时个别系统版本仍可能偶发截到旧画面。"
           }
         }
       }

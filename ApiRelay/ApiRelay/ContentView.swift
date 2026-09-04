@@ -65,6 +65,10 @@ private struct PrivacyGatedVault: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
             privacy.handleWillResignActive()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIScene.willDeactivateNotification)) { _ in
+            // 比 willResignActive 更早一拍，减少切换器截到明文的竞态。
+            privacy.handleWillResignActive()
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             privacy.handleWillEnterForeground()
         }

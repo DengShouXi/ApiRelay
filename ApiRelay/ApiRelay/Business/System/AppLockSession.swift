@@ -42,12 +42,20 @@ struct AppLockPreferences: Equatable, Sendable {
 ///
 /// 首帧不得露出密钥列表：偏好尚未读出时 `blocksContent == true`。
 /// 自动锁定只在「打开 App 需要身份确认」开启时生效。
+///
+/// 自动锁计时：以**第一次**离开前台为准。系统在后台/切换器里偶尔会短暂拉起
+/// active 再 inactive（通知中心、刷新等）；若每次都重置离开时刻，会出现
+/// 「设了 30 秒、离开一分钟却不锁」。短于 `briefActiveThreshold` 的 active 不重置计时。
 struct AppLockSession: Equatable, Sendable {
+    /// 短于此时长的 active→inactive 视为闪断，不刷新 `lastLeftActiveAt`。
+    static let briefActiveThreshold: TimeInterval = 1.0
+
     private(set) var preferences: AppLockPreferences
     private(set) var isPreferencesReady: Bool
     private(set) var isSessionLocked: Bool
     private(set) var isInactive: Bool
     private(set) var lastLeftActiveAt: Date?
+    private(set) var lastBecameActiveAt: Date?
 
     static func unready() -> AppLockSession {
         AppLockSession(
@@ -55,7 +63,8 @@ struct AppLockSession: Equatable, Sendable {
             isPreferencesReady: false,
             isSessionLocked: false,
             isInactive: false,
-            lastLeftActiveAt: nil
+            lastLeftActiveAt: nil,
+            lastBecameActiveAt: nil
         )
     }
 
@@ -95,6 +104,12 @@ struct AppLockSession: Equatable, Sendable {
 
     mutating func noteWillResignActive(now: Date) {
         if !isInactive {
+            let wasBriefActive = lastBecameActiveAt
+                .map { now.timeIntervalSince($0) < Self.briefActiveThreshold } ?? false
+            if lastLeftActiveAt == nil || !wasBriefActive {
+                lastLeftActiveAt = now
+            }
+        } else if lastLeftActiveAt == nil {
             lastLeftActiveAt = now
         }
         isInactive = true
@@ -121,13 +136,20 @@ struct AppLockSession: Equatable, Sendable {
         }
     }
 
-    mutating func noteDidBecomeActive() {
+    mutating func noteDidBecomeActive(now: Date) {
         isInactive = false
+        lastBecameActiveAt = now
+        // 故意不在这里清 `lastLeftActiveAt`：系统闪断 active 时若清掉，
+        // 紧接着的 resign 会把离开时刻改成「刚才」，自动锁永远凑不满超时。
+        // 真正用完一次离开周期：由下次「非闪断」的 resign 覆写，或 `unlockSucceeded` 清空。
     }
 
     mutating func unlockSucceeded() {
         isSessionLocked = false
         lastLeftActiveAt = nil
+        // 解锁即视为已回到可交互前台。若仍标 inactive，hide 开关会继续
+        // `showsSnapshotCover` → 整页挡死且没有解锁按钮（needsUnlockPrompt 为 false）。
+        isInactive = false
     }
 
     private func normalized(_ prefs: AppLockPreferences) -> AppLockPreferences {

@@ -267,7 +267,8 @@ struct SettingsView: View {
                                     set: { persistSyncedPatch(PreferencesPatch(autoLockSeconds: $0)) }
                                 ),
                                 range: 0...600,
-                                step: 30
+                                step: 30,
+                                enabled: prefs.appLockEnabled
                             )
 
                             settingsDivider()
@@ -623,7 +624,8 @@ struct SettingsView: View {
         seconds: Int,
         value: Binding<Int>,
         range: ClosedRange<Int>,
-        step: Int
+        step: Int,
+        enabled: Bool = true
     ) -> some View {
         HStack(alignment: .center, spacing: 10) {
             settingsLeading(icon: icon, tint: tint, title: title)
@@ -641,6 +643,7 @@ struct SettingsView: View {
                 Stepper(title, value: value, in: range, step: step)
                     .labelsHidden()
                     .controlSize(.small)
+                    .disabled(!enabled)
             }
             .fixedSize(horizontal: true, vertical: false)
             .layoutPriority(1)
@@ -649,6 +652,8 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .opacity(enabled ? 1 : 0.45)
+        .allowsHitTesting(enabled)
     }
 
     private func settingsPickerRow<Selection: Hashable, Content: View>(

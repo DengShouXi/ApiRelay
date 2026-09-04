@@ -5,7 +5,12 @@ import UIKit
 #endif
 
 /// 把 `AppLockSession` 接到生命周期、门闩与切换器快照。
-/// UIKit 遮罩在 `willResignActive` 里同步盖上，避免 SwiftUI 还没提交就被系统拍照。
+///
+/// 两条进入路径：
+/// 1. **未锁**：回到前台直接进内容；UIKit 层只为多任务截屏短暂盖住，且不抢点击。
+/// 2. **已锁**：立刻拿掉截屏层 → 系统/按钮解锁 → `finishUnlockSucceeded` 后自动进内容。
+///
+/// UIKit 遮罩在 `willResignActive` / `sceneWillDeactivate` 里同步盖上，避免 SwiftUI 还没提交就被系统拍照。
 @MainActor
 final class AppPrivacyController: ObservableObject {
     @Published private(set) var session: AppLockSession = .unready()
@@ -30,6 +35,7 @@ final class AppPrivacyController: ObservableObject {
     private let enablesUnlockPrompt: Bool
     private var didStart = false
     private var cancelledCurrentLock = false
+    private var snapshotCoverTask: Task<Void, Never>?
 
     init(
         gate: any RevealGateServing,
@@ -54,7 +60,7 @@ final class AppPrivacyController: ObservableObject {
         session = next
         await refreshMasterPasswordAvailability()
         refreshBiometryAvailability()
-        syncSnapshotCover()
+        syncSnapshotCoverImmediately()
         promptUnlockIfNeeded()
     }
 
@@ -93,7 +99,7 @@ final class AppPrivacyController: ObservableObject {
             masterPasswordMissing = false
         }
         refreshBiometryAvailability()
-        syncSnapshotCover()
+        syncSnapshotCoverImmediately()
     }
 
     func reloadAfterErase() async {
@@ -102,25 +108,38 @@ final class AppPrivacyController: ObservableObject {
 
     func handleWillResignActive() {
         cancelledCurrentLock = false
+        snapshotCoverTask?.cancel()
+        snapshotCoverTask = nil
         var next = session
         next.noteWillResignActive(now: Date())
         session = next
-        syncSnapshotCover()
+        syncSnapshotCoverImmediately()
     }
 
     func handleWillEnterForeground() {
         var next = session
         next.noteWillEnterForeground(now: Date())
         session = next
-        syncSnapshotCover()
+        // 仍可能处于 inactive（切换器未结束）；遮罩去留跟 session，立即同步即可。
+        syncSnapshotCoverImmediately()
     }
 
     func handleDidBecomeActive() {
         var next = session
         next.noteWillEnterForeground(now: Date())
-        next.noteDidBecomeActive()
+        next.noteDidBecomeActive(now: Date())
         session = next
-        syncSnapshotCover()
+        if session.isSessionLocked {
+            // 路径 2：已锁 — 立刻拿掉 UIKit 截屏遮罩，把点击交给 SwiftUI 解锁层；
+            // 系统 Face ID / 点「解锁」成功后 finishUnlockSucceeded 自动进内容。
+            // MUST NOT 延迟摘罩：遮罩若还能点，会把解锁按钮挡死，表现为「解锁了进不去」。
+            snapshotCoverTask?.cancel()
+            snapshotCoverTask = nil
+            applySnapshotCover(shouldShow: false)
+        } else {
+            // 路径 1：未锁 — 直接进内容；截屏遮罩只为多任务预览，可略延迟摘且不可抢点击。
+            scheduleSnapshotCoverSyncAfterActivation()
+        }
         promptUnlockIfNeeded()
         // 主密码可能在别处（设置页、另一台设备）被清掉；生物识别也可能被系统关掉。
         Task {
@@ -308,14 +327,41 @@ final class AppPrivacyController: ObservableObject {
         session = next
         cancelledCurrentLock = false
         unlockError = nil
-        syncSnapshotCover()
+        snapshotCoverTask?.cancel()
+        snapshotCoverTask = nil
+        // 强制摘掉截屏层，确保解锁后立刻进入内容（路径 2）。
+        applySnapshotCover(shouldShow: false)
     }
 
-    private func syncSnapshotCover() {
+    private func syncSnapshotCoverImmediately() {
+        snapshotCoverTask?.cancel()
+        snapshotCoverTask = nil
+        applySnapshotCover(shouldShow: session.showsSnapshotCover)
+    }
+
+    /// 真正回到前台后再摘遮罩；若在延迟内又 inactive，则保持遮罩（切换器截屏窗口）。
+    private func scheduleSnapshotCoverSyncAfterActivation() {
+        if session.showsSnapshotCover {
+            syncSnapshotCoverImmediately()
+            return
+        }
+        snapshotCoverTask?.cancel()
+        snapshotCoverTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            guard !session.isInactive else {
+                applySnapshotCover(shouldShow: true)
+                return
+            }
+            applySnapshotCover(shouldShow: session.showsSnapshotCover)
+        }
+    }
+
+    private func applySnapshotCover(shouldShow: Bool) {
         #if canImport(UIKit)
         guard installsSnapshotCover else { return }
         guard !AppRuntime.isRunningTests else { return }
-        AppSwitcherSnapshotCover.sync(shouldShow: session.showsSnapshotCover)
+        AppSwitcherSnapshotCover.sync(shouldShow: shouldShow)
         #endif
     }
 }
@@ -326,7 +372,8 @@ enum AppSwitcherSnapshotCover {
     static let viewTag = 71_080_301
 
     static func sync(shouldShow: Bool) {
-        for window in allWindows() {
+        let windows = allWindows()
+        for window in windows {
             let existing = window.viewWithTag(viewTag)
             if shouldShow {
                 if let existing {
@@ -344,10 +391,18 @@ enum AppSwitcherSnapshotCover {
     }
 
     private static func allWindows() -> [UIWindow] {
-        UIApplication.shared.connectedScenes
+        var windows = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows)
             .filter { !$0.isHidden }
+        // 切后台瞬间部分窗口可能暂时 isHidden；至少保住 keyWindow。
+        if windows.isEmpty {
+            windows = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+                .filter(\.isKeyWindow)
+        }
+        return windows
     }
 }
 
@@ -357,8 +412,10 @@ private final class SnapshotCoverView: UIView {
         tag = AppSwitcherSnapshotCover.viewTag
         backgroundColor = .systemBackground
         autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        isUserInteractionEnabled = true
-        accessibilityViewIsModal = true
+        // 只挡系统截屏，不抢触摸。否则回到前台后会盖住 SwiftUI 解锁按钮，点了没反应。
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+        accessibilityElementsHidden = true
         accessibilityLabel = String(localized: "appLock.coverTitle")
 
         let image = UIImageView(image: UIImage(systemName: AppSymbols.Settings.appLock))
