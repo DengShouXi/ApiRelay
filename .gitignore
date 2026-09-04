@@ -1,6 +1,10 @@
 # macOS
 .DS_Store
 
+# Markdown Preview Enhanced generates this local configuration directory.
+# The project uses tools/cursor-dialog-navigation instead.
+.crossnote/
+
 # Xcode
 #
 # gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
