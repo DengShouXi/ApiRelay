@@ -49,7 +49,7 @@ final class KeychainStoreTests: XCTestCase {
             try skipIfMissingEntitlement(error)
         }
 
-        let production = KeychainStore(accessGroup: nil)
+        let production = KeychainStore(accessGroup: nil) // 自检豁免: 本用例专门验证测试条目在生产 Service 名下不可见，只读枚举、不写不删
         let productionAccounts = try await production.listAccounts(service: .keys)
         try await sut.delete(service: .keys, account: account)
 

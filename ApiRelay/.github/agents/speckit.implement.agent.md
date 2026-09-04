@@ -213,3 +213,5 @@ Report final status with summary of completed work.
 - [ ] Implementation validated against specification, plan, and test coverage
 - [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
 - [ ] Completion reported to user with summary of completed work
+- [ ] 已执行 `bash ApiRelay/scripts/selfcheck.sh`，红线项全部通过，输出已附在完成报告里
+- [ ] 已按 `.cursor/rules/implementation-closeout.mdc` 逐条回答收尾四问（外部资源 / 失败路径 / 接缝 / 文件粒度）

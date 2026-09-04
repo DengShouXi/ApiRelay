@@ -167,6 +167,9 @@ struct VaultHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
             selectedTab = .settings
         }
+        .onReceive(NotificationCenter.default.publisher(for: .newKey)) { _ in
+            beginNewKeyFromMenu()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .userDataDidErase)) { _ in
             selectedKeyId = nil
             selectedTrashItem = nil
@@ -1513,6 +1516,29 @@ struct VaultHomeView: View {
             return
         }
         showAddKeyFor = viewModel.accounts.first { $0.id == accountId }
+    }
+
+    /// 菜单栏 ⌘N /「添加密钥」：接到 `ApiRelayCommands` 发出的 `.newKey`。
+    /// 锁屏遮罩下忽略；无账号时改为新建账号（与空列表 CTA 一致）。
+    private func beginNewKeyFromMenu() {
+        guard !viewModel.environment.appPrivacy.session.blocksContent else { return }
+
+        if selectedTab == .settings || selectedTab == .trash {
+            selectedTab = .byPlatform
+        }
+
+        if viewModel.accounts.isEmpty {
+            showAddAccount = true
+            return
+        }
+
+        if let selectedKeyId,
+           let key = viewModel.allKeys.first(where: { $0.id == selectedKeyId }) {
+            beginAddKey(for: key.accountId)
+            return
+        }
+
+        beginAddKey(for: viewModel.accounts[0].id)
     }
 
     /// 「按使用方」下：弹出 sheet 选择已有密钥。
