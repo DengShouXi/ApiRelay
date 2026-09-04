@@ -98,5 +98,5 @@ private struct VaultRoot: View {
 
 #Preview {
     ContentView()
-        .environmentObject(AppEnvironment.bootstrap())
+        .environmentObject(AppEnvironment.makePreview())
 }

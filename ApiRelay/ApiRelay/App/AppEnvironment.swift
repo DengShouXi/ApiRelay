@@ -89,6 +89,91 @@ final class AppEnvironment: ObservableObject {
         Task { await self.refreshAppearance() }
     }
 
+    #if DEBUG
+    /// 预览 / 手工组装：全部依赖从外部注入（通常是 Fake*）。
+    init(
+        modelContainer: ModelContainer,
+        keychain: any KeychainStoring,
+        masterPassword: any MasterPasswordServing,
+        gate: any RevealGateServing,
+        clipboard: any ClipboardServing,
+        vault: any KeyVaultServing,
+        consumerTools: any ConsumerToolServing,
+        trashBatch: any RecentlyDeletedBatchServing,
+        entitlements: any EntitlementServing,
+        preferences: any PreferencesServing,
+        backups: any SecureBackupServing,
+        backupPassphrase: any BackupPassphraseServing,
+        dataLifecycle: any DataLifecycleServing,
+        cloudSync: any CloudSyncServing,
+        appPrivacy: AppPrivacyController
+    ) {
+        self.modelContainer = modelContainer
+        self.keychain = keychain
+        self.masterPassword = masterPassword
+        self.gate = gate
+        self.clipboard = clipboard
+        self.vault = vault
+        self.consumerTools = consumerTools
+        self.trashBatch = trashBatch
+        self.entitlements = entitlements
+        self.preferences = preferences
+        self.backups = backups
+        self.backupPassphrase = backupPassphrase
+        self.dataLifecycle = dataLifecycle
+        self.cloudSync = cloudSync
+        self.appPrivacy = appPrivacy
+        Task { await self.refreshAppearance() }
+    }
+
+    /// Xcode Preview：内存容器 + 全套 Fake，不碰真 Keychain / StoreKit / CloudKit。
+    static func makePreview() -> AppEnvironment {
+        let container: ModelContainer
+        do {
+            container = try AppSchema.makeInMemoryContainer()
+        } catch {
+            fatalError("Preview ModelContainer failed: \(error)")
+        }
+        let keychain = FakeKeychain()
+        let master = FakeMasterPassword()
+        let gate = FakeRevealGate()
+        let clipboard = FakeClipboard()
+        let entitlements = FakeEntitlements(tier: .unlimitedKeys)
+        let preferences = FakePreferences()
+        let vault = FakeKeyVault(seedPreviewSample: true)
+        let consumerTools = FakeConsumerTools(seedPreviewSample: true)
+        let trashBatch = FakeRecentlyDeletedBatch()
+        let backups = FakeSecureBackup()
+        let backupPassphrase = FakeBackupPassphrase()
+        let dataLifecycle = FakeDataLifecycle()
+        let cloudSync = FakeCloudSync()
+        let privacy = AppPrivacyController(
+            gate: gate,
+            preferences: preferences,
+            masterPassword: master,
+            installsSnapshotCover: false,
+            enablesUnlockPrompt: false
+        )
+        return AppEnvironment(
+            modelContainer: container,
+            keychain: keychain,
+            masterPassword: master,
+            gate: gate,
+            clipboard: clipboard,
+            vault: vault,
+            consumerTools: consumerTools,
+            trashBatch: trashBatch,
+            entitlements: entitlements,
+            preferences: preferences,
+            backups: backups,
+            backupPassphrase: backupPassphrase,
+            dataLifecycle: dataLifecycle,
+            cloudSync: cloudSync,
+            appPrivacy: privacy
+        )
+    }
+    #endif
+
     /// 从 DevicePreferences 重新读取外观并推到 UI（设置页改完后调用）。
     func refreshAppearance() async {
         guard let prefs = try? await preferences.load() else { return }

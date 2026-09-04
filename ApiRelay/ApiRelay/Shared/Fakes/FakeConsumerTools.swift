@@ -6,6 +6,13 @@ actor FakeConsumerTools: ConsumerToolServing {
     var journal = FakeJournal()
     private var toolsById: [UUID: ConsumerToolDTO] = [:]
 
+    /// Preview 用：预置一个使用方。
+    init(seedPreviewSample: Bool = false) {
+        guard seedPreviewSample else { return }
+        let id = UUID()
+        toolsById[id] = .fake(id: id, name: "Preview Cursor")
+    }
+
     func tools(includeHidden: Bool) async throws -> [ConsumerToolDTO] {
         try journal.record("tools")
         return toolsById.values

@@ -12,6 +12,25 @@ actor FakeKeyVault: KeyVaultServing {
     private var keysById: [UUID: KeyRecordDTO] = [:]
     private var secrets: [UUID: String] = [:]
 
+    /// Preview 用：预置一个账号 + 一把密钥（明文假值，仅内存）。
+    init(seedPreviewSample: Bool = false) {
+        guard seedPreviewSample else { return }
+        let accountId = UUID()
+        accountsById[accountId] = .fake(
+            id: accountId,
+            platform: "openai",
+            displayName: "Preview OpenAI"
+        )
+        let keyId = UUID()
+        keysById[keyId] = .fake(
+            id: keyId,
+            accountId: accountId,
+            displayName: "Preview Key",
+            secretAvailable: true
+        )
+        secrets[keyId] = "sk-preview-not-a-real-key"
+    }
+
     // MARK: - Accounts
 
     func accounts() async throws -> [UpstreamAccountDTO] {

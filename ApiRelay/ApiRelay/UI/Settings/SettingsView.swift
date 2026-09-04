@@ -1347,3 +1347,11 @@ struct PaywallView: View {
         }
     }
 }
+
+#if DEBUG
+#Preview("Settings") {
+    let environment = AppEnvironment.makePreview()
+    SettingsView(environment: environment, showsDismissButton: false)
+        .environmentObject(environment)
+}
+#endif

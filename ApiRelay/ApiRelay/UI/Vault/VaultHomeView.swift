@@ -4337,3 +4337,11 @@ extension View {
         modifier(VaultPossibleDuplicateAlert(existingName: existingName, onConfirm: onConfirm))
     }
 }
+
+#if DEBUG
+#Preview("Vault Home") {
+    let environment = AppEnvironment.makePreview()
+    VaultHomeView(viewModel: VaultHomeViewModel(environment: environment))
+        .environmentObject(environment)
+}
+#endif
