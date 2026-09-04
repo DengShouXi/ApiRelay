@@ -11,7 +11,7 @@ final class RevealGateTests: XCTestCase {
         let gate = RevealGate(masterPassword: master) { _, _ in
             flag.mark()
         }
-        try await gate.confirm(reason: "test", policy: .none)
+        try await gate.confirm(reason: "test", policy: .noVerification)
         XCTAssertFalse(flag.called)
     }
 

@@ -105,8 +105,3 @@ final class SecurityReviewTests: XCTestCase {
     }
 }
 
-extension RevealPolicy: CaseIterable {
-    public static var allCases: [RevealPolicy] {
-        [.biometricOrPasscode, .biometricOnly, .masterPassword, .none]
-    }
-}

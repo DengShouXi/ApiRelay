@@ -30,7 +30,7 @@ actor RevealGate: RevealGateServing {
 
     func confirm(reason: String, policy: RevealPolicy) async throws {
         switch policy {
-        case .none:
+        case .noVerification:
             return
         case .biometricOrPasscode:
             try await evaluate(reason: reason, policy: .deviceOwnerAuthentication)

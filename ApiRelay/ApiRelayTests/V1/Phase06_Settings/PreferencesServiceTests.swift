@@ -9,7 +9,7 @@ final class PreferencesServiceTests: XCTestCase {
         let sut = PreferencesService(modelContainer: container)
         let loaded = try await sut.load()
         XCTAssertEqual(loaded.clipboardClearSeconds, 120)
-        XCTAssertEqual(loaded.revealPolicy, .none)
+        XCTAssertEqual(loaded.revealPolicy, .noVerification)
         XCTAssertFalse(loaded.appLockEnabled)
         XCTAssertEqual(loaded.autoLockSeconds, 60)
         XCTAssertTrue(loaded.hideInAppSwitcher)

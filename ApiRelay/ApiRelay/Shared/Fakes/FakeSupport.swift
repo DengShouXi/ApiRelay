@@ -53,7 +53,7 @@ extension PreferencesDTO {
         PreferencesDTO(
             appLockEnabled: false,
             autoLockSeconds: 60,
-            revealPolicy: .none,
+            revealPolicy: .noVerification,
             clipboardClearSeconds: 120,
             clipboardLocalOnly: true,
             hideInAppSwitcher: true,

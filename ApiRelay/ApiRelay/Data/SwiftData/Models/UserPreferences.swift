@@ -9,7 +9,7 @@ final class UserPreferences {
     var id: UUID = UserPreferences.singletonID
     var appLockEnabled: Bool = false
     var autoLockSeconds: Int = 60
-    var revealPolicy: String = RevealPolicy.none.rawValue
+    var revealPolicy: String = RevealPolicy.noVerification.rawValue
     var clipboardClearSeconds: Int = 120
     var clipboardLocalOnly: Bool = false
     var hideInAppSwitcher: Bool = true
@@ -25,7 +25,7 @@ final class UserPreferences {
         id: UUID = UserPreferences.singletonID,
         appLockEnabled: Bool = false,
         autoLockSeconds: Int = 60,
-        revealPolicy: RevealPolicy = .none,
+        revealPolicy: RevealPolicy = .noVerification,
         clipboardClearSeconds: Int = 120,
         clipboardLocalOnly: Bool = false,
         hideInAppSwitcher: Bool = true,

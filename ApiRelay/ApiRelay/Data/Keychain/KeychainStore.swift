@@ -38,8 +38,16 @@ actor KeychainStore: KeychainStoring {
     init(
         accessGroup: String? = nil,
         disableSynchronizableForTesting: Bool = false,
-        servicePrefix: String = KeychainStore.productionServicePrefix
+        servicePrefix: String = KeychainStore.productionServicePrefix,
+        allowProductionNamespaceInTests: Bool = false
     ) {
+        if AppRuntime.isRunningTests,
+           servicePrefix == KeychainStore.productionServicePrefix,
+           !allowProductionNamespaceInTests {
+            preconditionFailure(
+                "KeychainStore: 测试禁止使用生产 servicePrefix。请用 KeychainStore.makeForTests()；仅只读回归用例可传 allowProductionNamespaceInTests: true。"
+            )
+        }
         self.accessGroup = accessGroup
         self.disableSynchronizableForTesting = disableSynchronizableForTesting
         self.servicePrefix = servicePrefix

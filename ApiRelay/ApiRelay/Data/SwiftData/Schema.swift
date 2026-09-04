@@ -61,7 +61,7 @@ enum AppSchema: Sendable {
     /// 需要联调同步时设环境变量 `APIRELAY_CLOUDKIT=1`。
     @MainActor
     static func makeProductionContainer() throws -> ModelContainer {
-        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let isTesting = AppRuntime.isRunningTests
         if isTesting {
             setCloudKitMirroringEnabled(false)
             return try makeInMemoryContainer()

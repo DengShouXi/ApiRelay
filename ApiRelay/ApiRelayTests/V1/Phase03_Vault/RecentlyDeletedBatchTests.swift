@@ -53,7 +53,7 @@ final class RecentlyDeletedBatchTests: XCTestCase {
         try await entitlement.update(tier: .free, source: "test")
         let prefs = UserPreferencesRepository(modelContainer: container)
         var patch = PreferencesPatch()
-        patch.revealPolicy = RevealPolicy.none
+        patch.revealPolicy = RevealPolicy.noVerification
         try await prefs.update(patch)
     }
 

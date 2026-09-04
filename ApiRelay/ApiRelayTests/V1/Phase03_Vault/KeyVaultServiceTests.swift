@@ -24,7 +24,7 @@ final class KeyVaultServiceTests: XCTestCase {
         try await entitlement.update(tier: .free, source: "test")
         let prefs = UserPreferencesRepository(modelContainer: container)
         var patch = PreferencesPatch()
-        patch.revealPolicy = .none
+        patch.revealPolicy = .noVerification
         try await prefs.update(patch)
     }
 
@@ -159,7 +159,7 @@ final class KeyVaultServiceTests: XCTestCase {
         )
         let prefs = UserPreferencesRepository(modelContainer: container)
         var patch = PreferencesPatch()
-        patch.revealPolicy = .none
+        patch.revealPolicy = .noVerification
         try await prefs.update(patch)
         let secret = try await vault.revealSecret(keyId: keyId, purpose: .display, masterPassword: nil)
         XCTAssertEqual(secret, "sk-gated-wwwwww")

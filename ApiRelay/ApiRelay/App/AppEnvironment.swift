@@ -27,7 +27,7 @@ final class AppEnvironment: ObservableObject {
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
-        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let isTesting = AppRuntime.isRunningTests
         // 正式路径：开启 keys/admin 的 iCloud 钥匙串同步；access group 与 entitlements 对齐。
         // 单测宿主常缺 sync entitlement → 关闭 synchronizable，避免 -34018。
         let keychain = KeychainStore(

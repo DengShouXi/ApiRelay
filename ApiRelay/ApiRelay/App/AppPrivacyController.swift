@@ -152,7 +152,7 @@ final class AppPrivacyController: ObservableObject {
     ///
     /// 主密码只是门闩、不是加密密钥，清掉它不会让任何已存明文变得读不出来。
     /// 验证方式落到 `.biometricOrPasscode`：用户刚刚已经过了这道验证，必定可用；
-    /// MUST NOT 落到 `.none`，那会顺手把「取出明文」的门闩也一并废掉。
+    /// MUST NOT 落到 `.noVerification`，那会顺手把「取出明文」的门闩也一并废掉。
     func recoverFromLostMasterPassword() async {
         guard !isRecovering, !isUnlocking else { return }
         isRecovering = true
@@ -198,7 +198,7 @@ final class AppPrivacyController: ObservableObject {
 
     private func promptUnlockIfNeeded(force: Bool = false) {
         guard enablesUnlockPrompt else { return }
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !AppRuntime.isRunningTests else { return }
         guard session.needsUnlockPrompt else { return }
         guard !usesMasterPasswordUnlock else { return }
         guard force || !cancelledCurrentLock else { return }
@@ -216,7 +216,7 @@ final class AppPrivacyController: ObservableObject {
             switch session.preferences.revealPolicy {
             case .masterPassword:
                 return
-            case .none:
+            case .noVerification:
                 // App 锁开着但验证方式为「不验证」时，仍须有一次身份确认，否则开关空转。
                 try await gate.confirmMandatory(reason: String(localized: "gate.unlockApp"))
             case .biometricOrPasscode, .biometricOnly:
@@ -252,7 +252,7 @@ final class AppPrivacyController: ObservableObject {
     private func syncSnapshotCover() {
         #if canImport(UIKit)
         guard installsSnapshotCover else { return }
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !AppRuntime.isRunningTests else { return }
         AppSwitcherSnapshotCover.sync(shouldShow: session.showsSnapshotCover)
         #endif
     }

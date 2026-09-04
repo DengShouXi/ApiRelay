@@ -236,7 +236,7 @@ struct SettingsView: View {
                                     // 重置后若仍卡在主密码档，回退验证方式，避免无法查看/复制。
                                     let stillSet = (try? await environment.masterPassword.isSet()) ?? false
                                     if !stillSet, self.prefs?.revealPolicy == .masterPassword {
-                                        persistSyncedPatch(PreferencesPatch(revealPolicy: RevealPolicy.none))
+                                        persistSyncedPatch(PreferencesPatch(revealPolicy: RevealPolicy.noVerification))
                                     }
                                 }
                             }
@@ -592,7 +592,7 @@ struct SettingsView: View {
             }
         case .masterPassword:
             return String(localized: "settings.policy.masterPassword")
-        case .none:
+        case .noVerification:
             return String(localized: "settings.policy.none")
         }
     }
@@ -798,7 +798,7 @@ private struct RevealPolicySettingsView: View {
                 )
                 SettingsCardDivider()
                 policyRow(
-                    .none,
+                    .noVerification,
                     title: "settings.policy.none",
                     detail: "settings.policy.none.detail"
                 )

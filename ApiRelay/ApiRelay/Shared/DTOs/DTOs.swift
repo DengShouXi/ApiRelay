@@ -309,11 +309,12 @@ struct PreferencesPatch: Sendable {
 
 // MARK: - 门闩与剪贴板
 
-enum RevealPolicy: String, Sendable {
+enum RevealPolicy: String, Sendable, CaseIterable {
     case biometricOrPasscode   // LAPolicy.deviceOwnerAuthentication
     case biometricOnly         // LAPolicy.deviceOwnerAuthenticationWithBiometrics
     case masterPassword        // 应用层主密码（FR-003 / FR-038）
-    case none                  // 不验证（默认）
+    /// 不验证（默认）。rawValue 固定为 `none`，兼容已写入 SwiftData / CloudKit 的旧值。
+    case noVerification = "none"
 }
 
 enum BiometryKind: Sendable {

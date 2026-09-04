@@ -205,7 +205,7 @@ final class AppPrivacyControllerTests: XCTestCase {
         appLock: Bool,
         hide: Bool,
         seconds: Int,
-        revealPolicy: RevealPolicy = .none,
+        revealPolicy: RevealPolicy = .noVerification,
         masterPassword: String? = nil
     ) async throws -> AppPrivacyController {
         try await makeHarness(
@@ -223,7 +223,7 @@ final class AppPrivacyControllerTests: XCTestCase {
         appLock: Bool,
         hide: Bool,
         seconds: Int,
-        revealPolicy: RevealPolicy = .none,
+        revealPolicy: RevealPolicy = .noVerification,
         masterPassword: String? = nil,
         deviceOwnerAuth: (@Sendable (String, LAPolicy) async throws -> Void)? = nil
     ) async throws -> Harness {

@@ -5,22 +5,22 @@ struct AppLockPreferences: Equatable, Sendable {
     var appLockEnabled: Bool
     var autoLockSeconds: Int
     var hideInAppSwitcher: Bool
-    /// App 锁跟「取出明文」同一套验证方式；`.none` 时仍走设备主人验证，避免开关空转。
-    var revealPolicy: RevealPolicy = .none
+    /// App 锁跟「取出明文」同一套验证方式；`.noVerification` 时仍走设备主人验证，避免开关空转。
+    var revealPolicy: RevealPolicy = .noVerification
 
     /// 与 `UserPreferences` 模型默认值一致。
     static let defaults = AppLockPreferences(
         appLockEnabled: false,
         autoLockSeconds: 60,
         hideInAppSwitcher: true,
-        revealPolicy: .none
+        revealPolicy: .noVerification
     )
 
     init(
         appLockEnabled: Bool,
         autoLockSeconds: Int,
         hideInAppSwitcher: Bool,
-        revealPolicy: RevealPolicy = .none
+        revealPolicy: RevealPolicy = .noVerification
     ) {
         self.appLockEnabled = appLockEnabled
         self.autoLockSeconds = autoLockSeconds

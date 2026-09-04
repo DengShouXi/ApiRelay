@@ -22,7 +22,7 @@ final class DataLifecycleTests: XCTestCase {
         let consumerTools = ConsumerToolService(modelContainer: container, gate: gate)
         let preferences = PreferencesService(modelContainer: container)
         var patch = PreferencesPatch()
-        patch.revealPolicy = .none
+        patch.revealPolicy = .noVerification
         patch.defaultKeyAvatarSymbol = "globe"
         patch.defaultKeyAvatarColor = "teal"
         try await UserPreferencesRepository(modelContainer: container).update(patch)

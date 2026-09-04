@@ -89,8 +89,13 @@ actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
     init(
         mirroringEnabled: Bool,
         containerIdentifier: String = AppSchema.cloudKitContainerID,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = AppRuntime.userDefaultsForCurrentRuntime()
     ) {
+        if AppRuntime.isRunningTests, defaults === UserDefaults.standard {
+            preconditionFailure(
+                "CloudKitSyncMonitor: 测试禁止使用 UserDefaults.standard。请注入 AppRuntime.userDefaultsForCurrentRuntime() 或独立 suite。"
+            )
+        }
         self.mirroringEnabled = mirroringEnabled
         self.containerIdentifier = containerIdentifier
         self.defaults = defaults
