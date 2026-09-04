@@ -7,6 +7,8 @@ protocol PreferencesServing: Actor {
     /// 同步偏好的非阻塞写入。界面与 MainActor 上的控制器 MUST 走这条，
     /// MUST NOT `await update`——那会让主线程干等 CloudKit/SwiftData 落盘。
     nonisolated func persist(_ patch: PreferencesPatch)
+    /// FR-061：清空同步偏好与本机偏好；下次 `load` 会重建默认值。
+    func purgeAllRecordsForErase() async throws
 }
 
 actor PreferencesService: PreferencesServing {

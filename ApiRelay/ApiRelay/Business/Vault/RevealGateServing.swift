@@ -8,5 +8,7 @@ protocol RevealGateServing: Actor {
     func confirmWithMasterPassword(reason: String, password: String) async throws
     /// 破坏性操作强制设备主人认证（忽略用户 revealPolicy）。
     func confirmMandatory(reason: String) async throws
-    func availableBiometry() -> BiometryKind
+    /// 选用主密码门闩前确认本机已设密。
+    func ensureMasterPasswordConfigured() async throws
+    nonisolated func availableBiometry() -> BiometryKind
 }

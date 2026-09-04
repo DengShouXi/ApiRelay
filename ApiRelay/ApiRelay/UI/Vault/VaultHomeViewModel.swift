@@ -36,9 +36,9 @@ final class VaultHomeViewModel: ObservableObject {
     private(set) var revealWasCancelled = false
 
     let environment: AppEnvironment
-    private let vault: KeyVaultService
+    private let vault: any KeyVaultServing
 
-    var environmentVault: KeyVaultService { vault }
+    var environmentVault: any KeyVaultServing { vault }
 
     init(environment: AppEnvironment) {
         self.environment = environment

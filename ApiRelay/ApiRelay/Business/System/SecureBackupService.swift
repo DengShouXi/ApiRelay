@@ -31,16 +31,16 @@ extension Notification.Name {
 }
 
 actor SecureBackupService: SecureBackupServing {
-    private let gate: RevealGate
-    private let keychain: KeychainStore
+    private let gate: RevealGateServing
+    private let keychain: KeychainStoring
     private let accounts: UpstreamAccountRepository
     private let keys: APIKeyRecordRepository
     private let tools: ConsumerToolRepository
     private let assignments: KeyAssignmentRepository
 
     init(
-        gate: RevealGate,
-        keychain: KeychainStore,
+        gate: RevealGateServing,
+        keychain: KeychainStoring,
         modelContainer: ModelContainer
     ) {
         self.gate = gate

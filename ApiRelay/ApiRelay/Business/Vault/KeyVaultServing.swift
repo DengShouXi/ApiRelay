@@ -46,6 +46,15 @@ protocol KeyVaultServing: Actor {
 
     /// 启动巡检：孤儿标记 + 过期回收站清除。
     func performStartupMaintenance() async throws
+
+    /// FR-061：物理删除本服务持有的账号 / 密钥 / 指派 / 安全偏好（含回收站）。
+    func purgeAllRecordsForErase() async throws
+    /// 批量恢复前先算额度。超出则整批拒绝，且 MUST 在门闩之前调用。
+    func preflightRestoreQuota(keyIds: [UUID], accountIds: [UUID]) async throws
+    /// 调用方 MUST 已完成 `confirmMandatory`。
+    func restoreDeletedAfterAuthentication(keyIds: [UUID], accountIds: [UUID]) async -> TrashBatchOutcome
+    /// 调用方 MUST 已完成 `confirmMandatory`。
+    func permanentlyDeleteDeletedAfterAuthentication(keyIds: [UUID], accountIds: [UUID]) async -> TrashBatchOutcome
 }
 
 extension KeyVaultServing {

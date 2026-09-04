@@ -12,10 +12,10 @@ protocol BackupPassphraseServing: Actor {
 actor BackupPassphraseService: BackupPassphraseServing {
     static let minimumLength = 4
 
-    private let keychain: KeychainStore
+    private let keychain: KeychainStoring
     private let account = KeychainStore.backupPassphraseAccount
 
-    init(keychain: KeychainStore) {
+    init(keychain: KeychainStoring) {
         self.keychain = keychain
     }
 

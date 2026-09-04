@@ -43,11 +43,11 @@ protocol RecentlyDeletedBatchServing: Actor {
 }
 
 actor RecentlyDeletedBatchService: RecentlyDeletedBatchServing {
-    private let vault: KeyVaultService
-    private let consumerTools: ConsumerToolService
-    private let gate: RevealGate
+    private let vault: KeyVaultServing
+    private let consumerTools: ConsumerToolServing
+    private let gate: RevealGateServing
 
-    init(vault: KeyVaultService, consumerTools: ConsumerToolService, gate: RevealGate) {
+    init(vault: KeyVaultServing, consumerTools: ConsumerToolServing, gate: RevealGateServing) {
         self.vault = vault
         self.consumerTools = consumerTools
         self.gate = gate

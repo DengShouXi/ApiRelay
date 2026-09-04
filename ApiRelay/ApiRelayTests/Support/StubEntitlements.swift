@@ -30,6 +30,10 @@ actor StubEntitlements: EntitlementServing {
         tier = .unlimitedKeys
     }
 
+    func startListening() {}
+
+    func purgeLocalSnapshotForErase() async throws {}
+
     #if DEBUG
     func debugOverride(tier: EntitlementTier?) async throws {
         self.tier = tier ?? .free

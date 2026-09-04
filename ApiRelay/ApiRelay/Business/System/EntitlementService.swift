@@ -7,6 +7,10 @@ protocol EntitlementServing: Actor {
     func refreshFromStore() async throws
     func restorePurchases() async throws
     func purchaseUnlimitedKeys() async throws
+    /// 监听 StoreKit `Transaction.updates`。
+    func startListening()
+    /// FR-061：清本地权益快照；不吊销 StoreKit。
+    func purgeLocalSnapshotForErase() async throws
     #if DEBUG
     func debugOverride(tier: EntitlementTier?) async throws
     #endif

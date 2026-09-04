@@ -11,22 +11,22 @@ extension Notification.Name {
 }
 
 actor DataLifecycleService: DataLifecycleServing {
-    private let gate: RevealGate
-    private let keychain: KeychainStore
+    private let gate: RevealGateServing
+    private let keychain: KeychainStoring
     private let modelContainer: ModelContainer
-    private let vault: KeyVaultService
-    private let consumerTools: ConsumerToolService
-    private let preferences: PreferencesService
-    private let entitlements: EntitlementService
+    private let vault: KeyVaultServing
+    private let consumerTools: ConsumerToolServing
+    private let preferences: PreferencesServing
+    private let entitlements: EntitlementServing
 
     init(
-        gate: RevealGate,
-        keychain: KeychainStore,
+        gate: RevealGateServing,
+        keychain: KeychainStoring,
         modelContainer: ModelContainer,
-        vault: KeyVaultService,
-        consumerTools: ConsumerToolService,
-        preferences: PreferencesService,
-        entitlements: EntitlementService
+        vault: KeyVaultServing,
+        consumerTools: ConsumerToolServing,
+        preferences: PreferencesServing,
+        entitlements: EntitlementServing
     ) {
         self.gate = gate
         self.keychain = keychain

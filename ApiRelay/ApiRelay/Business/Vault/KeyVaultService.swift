@@ -5,8 +5,8 @@ import Security
 actor KeyVaultService: KeyVaultServing {
     static let freeTierLimit = 3
 
-    private let keychain: KeychainStore
-    private let gate: RevealGate
+    private let keychain: KeychainStoring
+    private let gate: RevealGateServing
     private let clipboard: ClipboardServing
     private let accountsRepo: UpstreamAccountRepository
     private let keysRepo: APIKeyRecordRepository
@@ -15,8 +15,8 @@ actor KeyVaultService: KeyVaultServing {
     private let entitlements: EntitlementServing
 
     init(
-        keychain: KeychainStore,
-        gate: RevealGate,
+        keychain: KeychainStoring,
+        gate: RevealGateServing,
         clipboard: ClipboardServing,
         modelContainer: ModelContainer,
         entitlements: EntitlementServing

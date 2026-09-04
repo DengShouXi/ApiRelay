@@ -7,19 +7,19 @@ import Combine
 @MainActor
 final class AppEnvironment: ObservableObject {
     let modelContainer: ModelContainer
-    let keychain: KeychainStore
-    let masterPassword: MasterPasswordService
-    let gate: RevealGate
-    let clipboard: SecureClipboard
-    let vault: KeyVaultService
-    let consumerTools: ConsumerToolService
-    let trashBatch: RecentlyDeletedBatchService
-    let entitlements: EntitlementService
-    let preferences: PreferencesService
-    let backups: SecureBackupService
-    let backupPassphrase: BackupPassphraseService
-    let dataLifecycle: DataLifecycleService
-    let cloudSync: CloudSyncService
+    let keychain: any KeychainStoring
+    let masterPassword: any MasterPasswordServing
+    let gate: any RevealGateServing
+    let clipboard: any ClipboardServing
+    let vault: any KeyVaultServing
+    let consumerTools: any ConsumerToolServing
+    let trashBatch: any RecentlyDeletedBatchServing
+    let entitlements: any EntitlementServing
+    let preferences: any PreferencesServing
+    let backups: any SecureBackupServing
+    let backupPassphrase: any BackupPassphraseServing
+    let dataLifecycle: any DataLifecycleServing
+    let cloudSync: any CloudSyncServing
     let appPrivacy: AppPrivacyController
 
     /// 本机外观（DevicePreferences）；驱动根视图 `preferredColorScheme`。

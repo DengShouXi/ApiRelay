@@ -15,14 +15,21 @@ protocol ConsumerToolServing: Actor {
     func restoreTool(id: UUID) async throws
     func permanentlyDeleteTool(id: UUID) async throws
     func purgeExpiredDeletedTools() async throws
+
+    /// 调用方 MUST 已完成 `confirmMandatory`。
+    func restoreToolsAfterAuthentication(ids: [UUID]) async -> TrashBatchOutcome
+    /// 调用方 MUST 已完成 `confirmMandatory`。
+    func permanentlyDeleteToolsAfterAuthentication(ids: [UUID]) async -> TrashBatchOutcome
+    /// FR-061：物理删除本服务上下文中的使用方与指派（含回收站）。
+    func purgeAllRecordsForErase() async throws
 }
 
 actor ConsumerToolService: ConsumerToolServing {
     private let repo: ConsumerToolRepository
     private let assignments: KeyAssignmentRepository
-    private let gate: RevealGate
+    private let gate: RevealGateServing
 
-    init(modelContainer: ModelContainer, gate: RevealGate) {
+    init(modelContainer: ModelContainer, gate: RevealGateServing) {
         self.repo = ConsumerToolRepository(modelContainer: modelContainer)
         self.assignments = KeyAssignmentRepository(modelContainer: modelContainer)
         self.gate = gate

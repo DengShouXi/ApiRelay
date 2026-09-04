@@ -40,11 +40,11 @@ protocol MasterPasswordServing: Actor {
 }
 
 actor MasterPasswordService: MasterPasswordServing {
-    private let keychain: KeychainStore
+    private let keychain: KeychainStoring
     private let account = KeychainStore.masterPasswordAccount
     private(set) var calibratedIterations: UInt32
 
-    init(keychain: KeychainStore, calibratedIterations: UInt32? = nil) {
+    init(keychain: KeychainStoring, calibratedIterations: UInt32? = nil) {
         self.keychain = keychain
         self.calibratedIterations = calibratedIterations ?? Self.calibrateIterations()
     }
