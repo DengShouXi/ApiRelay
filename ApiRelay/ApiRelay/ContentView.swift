@@ -29,6 +29,7 @@ private struct PrivacyGatedVault: View {
                 showsUnlockChrome: privacy.session.needsUnlockPrompt,
                 usesMasterPassword: privacy.usesMasterPasswordUnlock,
                 masterPasswordMissing: privacy.masterPasswordMissing,
+                biometryUnavailableForUnlock: privacy.biometryUnavailableForUnlock,
                 isBusy: privacy.isUnlocking || privacy.isRecovering,
                 errorText: privacy.unlockError,
                 onUnlock: { privacy.requestUnlock() },
@@ -37,6 +38,9 @@ private struct PrivacyGatedVault: View {
                 },
                 onRecoverFromLostMasterPassword: {
                     Task { await privacy.recoverFromLostMasterPassword() }
+                },
+                onRecoverFromUnavailableBiometry: {
+                    Task { await privacy.recoverFromUnavailableBiometry() }
                 }
             )
             .opacity(privacy.session.blocksContent ? 1 : 0)

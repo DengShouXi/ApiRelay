@@ -14,12 +14,13 @@ final class SecureBackupTests: XCTestCase {
             secret: "sk-backup-export-1111"
         )
 
-        let data = try await env.backups.exportBackup(
+        let exported = try await env.backups.exportBackup(
             passphrase: "passphrase-1234",
             purpose: .fullBackup
         )
-        XCTAssertTrue(data.starts(with: SecureBackupFile.passphraseMagic))
-        XCTAssertGreaterThan(data.count, 64)
+        XCTAssertTrue(exported.data.starts(with: SecureBackupFile.passphraseMagic))
+        XCTAssertGreaterThan(exported.data.count, 64)
+        XCTAssertEqual(exported.keysWithoutSecretCount, 0)
     }
 
     func testExportImportRoundTripRestoresSecret() async throws {
@@ -34,7 +35,7 @@ final class SecureBackupTests: XCTestCase {
         let data = try await source.backups.exportBackup(
             passphrase: "passphrase-1234",
             purpose: .fullBackup
-        )
+        ).data
 
         let destination = try makeEnvironment()
         let summary = try await destination.backups.importBackup(
@@ -44,6 +45,7 @@ final class SecureBackupTests: XCTestCase {
         XCTAssertEqual(summary.accountCount, 1)
         XCTAssertEqual(summary.keyCount, 1)
         XCTAssertEqual(summary.skippedKeyCount, 0)
+        XCTAssertEqual(summary.keysWithoutSecretCount, 0)
         XCTAssertEqual(summary.purpose, .fullBackup)
 
         let restored = try await destination.keychain.read(service: .keys, account: keyId)
@@ -79,7 +81,7 @@ final class SecureBackupTests: XCTestCase {
         let data = try await source.backups.exportBackup(
             passphrase: "passphrase-1234",
             purpose: .fullBackup
-        )
+        ).data
 
         let destination = try makeEnvironment()
         let summary = try await destination.backups.importBackup(
@@ -106,7 +108,7 @@ final class SecureBackupTests: XCTestCase {
         let data = try await env.backups.exportBackup(
             passphrase: "passphrase-1234",
             purpose: .fullBackup
-        )
+        ).data
         do {
             _ = try await env.backups.importBackup(data: data, passphrase: "wrong-passphrase")
             XCTFail("expected incorrect passphrase")
@@ -127,7 +129,7 @@ final class SecureBackupTests: XCTestCase {
         let data = try await env.backups.exportBackup(
             passphrase: "passphrase-1234",
             purpose: .fullBackup
-        )
+        ).data
         let summary = try await env.backups.importBackup(
             data: data,
             passphrase: "passphrase-1234"
@@ -146,7 +148,7 @@ final class SecureBackupTests: XCTestCase {
             KeyDraft(accountId: accountId, displayName: "prod"),
             secret: "sk-backup-open-2222"
         )
-        let data = try await source.backups.exportBackup(passphrase: nil, purpose: .fullBackup)
+        let data = try await source.backups.exportBackup(passphrase: nil, purpose: .fullBackup).data
         let protection = try await source.backups.inspectProtection(data)
         XCTAssertEqual(protection, .unprotected)
         XCTAssertTrue(data.starts(with: SecureBackupFile.unprotectedMagic))
@@ -186,7 +188,7 @@ final class SecureBackupTests: XCTestCase {
             secret: "sk-backup-stored-3333"
         )
         let secret = try await store.plaintext()
-        let data = try await env.backups.exportBackup(passphrase: secret, purpose: .fullBackup)
+        let data = try await env.backups.exportBackup(passphrase: secret, purpose: .fullBackup).data
         let protection = try await env.backups.inspectProtection(data)
         XCTAssertEqual(protection, .passphraseProtected)
 
@@ -195,6 +197,36 @@ final class SecureBackupTests: XCTestCase {
         try await store.clear()
         let cleared = try await store.isSet()
         XCTAssertFalse(cleared)
+    }
+
+    /// 本机 Keychain 没有明文时，导出仍保留元信息，但 MUST 把「无明文」数出来；
+    /// 导入后也不能假装「密钥都齐了」。
+    func testExportImportSurfacesKeysWithoutSecret() async throws {
+        let source = try makeEnvironment()
+        let accountId = try await source.vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "Missing")
+        )
+        let keyId = try await source.vault.createKey(
+            KeyDraft(accountId: accountId, displayName: "orphan"),
+            secret: "sk-will-delete"
+        )
+        try await source.keychain.delete(service: .keys, account: keyId)
+
+        let exported = try await source.backups.exportBackup(
+            passphrase: "passphrase-1234",
+            purpose: .fullBackup
+        )
+        XCTAssertEqual(exported.keysWithoutSecretCount, 1)
+
+        let destination = try makeEnvironment()
+        let summary = try await destination.backups.importBackup(
+            data: exported.data,
+            passphrase: "passphrase-1234"
+        )
+        XCTAssertEqual(summary.keyCount, 1)
+        XCTAssertEqual(summary.keysWithoutSecretCount, 1)
+        let keys = try await destination.vault.keys(in: accountId)
+        XCTAssertEqual(keys.first?.secretAvailable, false)
     }
 
     private func makeEnvironment() throws -> (

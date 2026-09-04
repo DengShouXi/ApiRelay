@@ -177,6 +177,7 @@ struct BackupExportView: View {
     @State private var showUnprotectedConfirm = false
     @State private var exportDocument = EncryptedBackupDocument(data: Data())
     @State private var exportFilename = "ApiRelay-Backup"
+    @State private var pendingExportMissingSecretCount = 0
 
     private var exportDisabled: Bool {
         if isBusy { return true }
@@ -309,12 +310,13 @@ struct BackupExportView: View {
         isBusy = true
         defer { isBusy = false }
         do {
-            let data = try await environment.backups.exportBackup(
+            let result = try await environment.backups.exportBackup(
                 passphrase: passphrase,
                 purpose: .fullBackup
             )
+            pendingExportMissingSecretCount = result.keysWithoutSecretCount
             exportFilename = Self.backupFilenameStem()
-            exportDocument = EncryptedBackupDocument(data: data)
+            exportDocument = EncryptedBackupDocument(data: result.data)
             await Task.yield()
             showExporter = true
         } catch ApiRelayError.authenticationCancelled {
@@ -327,7 +329,14 @@ struct BackupExportView: View {
     private func handleExportResult(_ result: Result<URL, Error>) {
         switch result {
         case .success:
-            status = String(localized: "settings.backup.exported")
+            var message = String(localized: "settings.backup.exported")
+            if pendingExportMissingSecretCount > 0 {
+                message += "\n" + String(
+                    localized: "settings.backup.exported.missingSecret \(Int64(pendingExportMissingSecretCount))"
+                )
+            }
+            status = message
+            pendingExportMissingSecretCount = 0
         case .failure(let error):
             guard !BackupFileIO.isCancellation(error) else { return }
             status = error.localizedDescription
@@ -523,9 +532,15 @@ struct BackupImportView: View {
         do {
             let summary = try await environment.backups.importBackup(data: data, passphrase: passphrase)
             customPassphrase = ""
-            status = String(
+            var message = String(
                 localized: "settings.backup.imported \(Int64(summary.accountCount)) \(Int64(summary.keyCount)) \(Int64(summary.skippedKeyCount))"
             )
+            if summary.keysWithoutSecretCount > 0 {
+                message += "\n" + String(
+                    localized: "settings.backup.imported.missingSecret \(Int64(summary.keysWithoutSecretCount))"
+                )
+            }
+            status = message
             if incomingData != nil {
                 dismiss()
             }

@@ -100,7 +100,7 @@ final class SecurityReviewTests: XCTestCase {
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
         let backup = SecureBackupService(gate: gate, keychain: keychain, modelContainer: container)
-        let data = try await backup.exportBackup(passphrase: "passphrase-1234", purpose: .fullBackup)
+        let data = try await backup.exportBackup(passphrase: "passphrase-1234", purpose: .fullBackup).data
         XCTAssertTrue(data.starts(with: Data("ARBK1".utf8)))
     }
 }

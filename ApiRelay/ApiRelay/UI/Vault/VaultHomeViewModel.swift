@@ -561,8 +561,10 @@ final class VaultHomeViewModel: ObservableObject {
             revealWasCancelled = true
             return nil
         } catch ApiRelayError.secretMissingOnDevice {
+            errorMessage = String(localized: "error.secretMissingOnDevice")
             return nil
         } catch let ApiRelayError.keychainFailure(status) where status == -25300 {
+            errorMessage = String(localized: "error.secretMissingOnDevice")
             return nil
         } catch {
             errorMessage = error.localizedDescription
@@ -587,6 +589,14 @@ final class VaultHomeViewModel: ObservableObject {
             errorMessage = String(localized: "settings.policy.masterPassword.notConfigured")
             return false
         } catch ApiRelayError.authenticationCancelled {
+            return false
+        } catch ApiRelayError.secretMissingOnDevice {
+            toastDetail = nil
+            toastMessage = String(localized: "error.secretMissingOnDevice")
+            return false
+        } catch let ApiRelayError.keychainFailure(status) where status == -25300 {
+            toastDetail = nil
+            toastMessage = String(localized: "error.secretMissingOnDevice")
             return false
         } catch {
             toastDetail = nil

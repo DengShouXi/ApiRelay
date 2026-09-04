@@ -15,11 +15,14 @@ struct AppLockCoverView: View {
     var usesMasterPassword: Bool
     /// 策略要主密码但本机没有：此时 MUST NOT 再摆输入框，直接把恢复出口摆到主位。
     var masterPasswordMissing: Bool
+    /// 策略是「仅生物识别」但本机没有可用生物识别：同样把恢复出口摆到主位。
+    var biometryUnavailableForUnlock: Bool = false
     var isBusy: Bool
     var errorText: String?
     var onUnlock: () -> Void
     var onUnlockWithMasterPassword: (String) -> Void
     var onRecoverFromLostMasterPassword: () -> Void
+    var onRecoverFromUnavailableBiometry: () -> Void = {}
 
     @State private var masterPassword = ""
     @State private var showsRecoveryConfirm = false
@@ -124,11 +127,13 @@ struct AppLockCoverView: View {
 
     private var titleKey: LocalizedStringKey {
         if masterPasswordMissing { return "appLock.masterPassword.missing.title" }
+        if biometryUnavailableForUnlock { return "appLock.biometry.unavailable.title" }
         return usesMasterPassword ? "vault.masterPassword.title" : "appLock.coverTitle"
     }
 
     private var hintKey: LocalizedStringKey? {
         if masterPasswordMissing { return "appLock.masterPassword.missing.hint" }
+        if biometryUnavailableForUnlock { return "appLock.biometry.unavailable.hint" }
         return usesMasterPassword ? "appLock.masterPassword.hint" : nil
     }
 
@@ -146,6 +151,8 @@ struct AppLockCoverView: View {
         Button(unlockButtonTitle) {
             if masterPasswordMissing {
                 onRecoverFromLostMasterPassword()
+            } else if biometryUnavailableForUnlock {
+                onRecoverFromUnavailableBiometry()
             } else if usesMasterPassword {
                 submitMasterPassword()
             } else {
@@ -157,7 +164,9 @@ struct AppLockCoverView: View {
     }
 
     private var unlockButtonTitle: LocalizedStringKey {
-        masterPasswordMissing ? "appLock.masterPassword.missing.action" : "appLock.unlock"
+        if masterPasswordMissing { return "appLock.masterPassword.missing.action" }
+        if biometryUnavailableForUnlock { return "appLock.biometry.unavailable.action" }
+        return "appLock.unlock"
     }
 
     /// 忘了主密码就再也进不来，等于数据被自己锁死。这个出口 MUST 一直可达。

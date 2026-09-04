@@ -15,6 +15,8 @@ final class AppPrivacyController: ObservableObject {
     @Published private(set) var isRecovering = false
     /// 策略要主密码、本机却没有存主密码。此时口令框永远验不过，只能走恢复出口。
     @Published private(set) var masterPasswordMissing = false
+    /// 策略是「仅生物识别」，本机却没有可用生物识别。反复点解锁永远过不去，只能走恢复出口。
+    @Published private(set) var biometryUnavailableForUnlock = false
 
     /// 主密码档只出应用口令框，MUST NOT 再弹系统「iPhone 密码」。
     var usesMasterPasswordUnlock: Bool {
@@ -51,6 +53,7 @@ final class AppPrivacyController: ObservableObject {
         next.completeColdStart(with: prefs)
         session = next
         await refreshMasterPasswordAvailability()
+        refreshBiometryAvailability()
         syncSnapshotCover()
         promptUnlockIfNeeded()
     }
@@ -67,6 +70,16 @@ final class AppPrivacyController: ObservableObject {
         masterPasswordMissing = !isSet
     }
 
+    /// 「仅生物识别」但本机没有 Face ID / Touch ID：与缺主密码同属死局。
+    /// 设置页已禁止新选这档，但 iCloud 同步或先前登记过的偏好仍可能带着它。
+    private func refreshBiometryAvailability() {
+        guard session.preferences.revealPolicy == .biometricOnly else {
+            biometryUnavailableForUnlock = false
+            return
+        }
+        biometryUnavailableForUnlock = gate.availableBiometry() == .none
+    }
+
     func applyLivePreferences(_ prefs: AppLockPreferences) {
         guard session.isPreferencesReady else { return }
         var next = session
@@ -79,6 +92,7 @@ final class AppPrivacyController: ObservableObject {
         if prefs.revealPolicy != .masterPassword {
             masterPasswordMissing = false
         }
+        refreshBiometryAvailability()
         syncSnapshotCover()
     }
 
@@ -108,8 +122,11 @@ final class AppPrivacyController: ObservableObject {
         session = next
         syncSnapshotCover()
         promptUnlockIfNeeded()
-        // 主密码可能在别处（设置页、另一台设备）被清掉，回前台时重查一次。
-        Task { await refreshMasterPasswordAvailability() }
+        // 主密码可能在别处（设置页、另一台设备）被清掉；生物识别也可能被系统关掉。
+        Task {
+            await refreshMasterPasswordAvailability()
+            refreshBiometryAvailability()
+        }
     }
 
     func requestUnlock() {
@@ -182,6 +199,35 @@ final class AppPrivacyController: ObservableObject {
         finishUnlockSucceeded()
     }
 
+    /// 「仅生物识别」不可用时的唯一出口。门槛与忘记主密码相同：设备主人验证。
+    /// 验证方式落到 `.biometricOrPasscode`（可用本机密码），MUST NOT 落到 `.noVerification`。
+    func recoverFromUnavailableBiometry() async {
+        guard !isRecovering, !isUnlocking else { return }
+        isRecovering = true
+        unlockError = nil
+        defer { isRecovering = false }
+
+        do {
+            try await gate.confirmMandatory(reason: String(localized: "gate.resetMasterPassword"))
+        } catch ApiRelayError.authenticationCancelled {
+            unlockError = nil
+            return
+        } catch {
+            unlockError = error.localizedDescription
+            return
+        }
+
+        var patch = PreferencesPatch()
+        patch.revealPolicy = .biometricOrPasscode
+        preferences.persist(patch)
+
+        var next = session.preferences
+        next.revealPolicy = .biometricOrPasscode
+        applyLivePreferences(next)
+
+        finishUnlockSucceeded()
+    }
+
     /// 「本机没有主密码」是死局、要走恢复；「密码输错」重试即可。
     /// 两者 MUST NOT 共用一句提示——用户无从判断该重试还是该找出口。
     private func isMasterPasswordNotSet(_ error: Error) -> Bool {
@@ -219,15 +265,31 @@ final class AppPrivacyController: ObservableObject {
             case .noVerification:
                 // App 锁开着但验证方式为「不验证」时，仍须有一次身份确认，否则开关空转。
                 try await gate.confirmMandatory(reason: String(localized: "gate.unlockApp"))
-            case .biometricOrPasscode, .biometricOnly:
+            case .biometricOrPasscode:
                 try await gate.confirm(
                     reason: String(localized: "gate.unlockApp"),
-                    policy: session.preferences.revealPolicy
+                    policy: .biometricOrPasscode
+                )
+            case .biometricOnly:
+                // 预先识别死局，避免用户反复点解锁、每次都收到同一句「生物识别不可用」。
+                if gate.availableBiometry() == .none {
+                    biometryUnavailableForUnlock = true
+                    cancelledCurrentLock = true
+                    unlockError = nil
+                    return
+                }
+                try await gate.confirm(
+                    reason: String(localized: "gate.unlockApp"),
+                    policy: .biometricOnly
                 )
             }
             finishUnlockSucceeded()
         } catch let error as ApiRelayError {
             if case .authenticationCancelled = error {
+                cancelledCurrentLock = true
+                unlockError = nil
+            } else if case .biometryUnavailable = error {
+                biometryUnavailableForUnlock = true
                 cancelledCurrentLock = true
                 unlockError = nil
             } else {

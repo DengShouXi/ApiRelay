@@ -1491,12 +1491,23 @@ struct VaultHomeView: View {
                             .foregroundStyle(.tertiary)
                         Text(caption)
                     }
+                    if !key.secretAvailable {
+                        Text("·")
+                            .foregroundStyle(.tertiary)
+                        Text("vault.secret.missing")
+                            .foregroundStyle(.orange)
+                    }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
             Spacer(minLength: 0)
+            if !key.secretAvailable {
+                Image(systemName: AppSymbols.Key.missingSecret)
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel(Text("vault.secret.missing"))
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

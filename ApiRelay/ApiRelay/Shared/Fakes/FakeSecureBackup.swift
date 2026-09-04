@@ -16,7 +16,7 @@ actor FakeSecureBackup: SecureBackupServing {
         throw ApiRelayError.backupVersionUnsupported(found: 0, supported: 1)
     }
 
-    func exportBackup(passphrase: String?, purpose: BackupPurpose) async throws -> Data {
+    func exportBackup(passphrase: String?, purpose: BackupPurpose) async throws -> BackupExportResult {
         try journal.record("exportBackup")
         var out = Data()
         if let passphrase, !passphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -25,7 +25,7 @@ actor FakeSecureBackup: SecureBackupServing {
             out.append(SecureBackupFile.unprotectedMagic)
         }
         out.append(Data("{\"purpose\":\"\(purpose.rawValue)\"}".utf8))
-        return out
+        return BackupExportResult(data: out, keysWithoutSecretCount: 0)
     }
 
     func importBackup(data: Data, passphrase: String?) async throws -> ImportSummary {
@@ -42,6 +42,7 @@ actor FakeSecureBackup: SecureBackupServing {
             keyCount: 0,
             toolCount: 0,
             skippedKeyCount: 0,
+            keysWithoutSecretCount: 0,
             purpose: .fullBackup
         )
     }

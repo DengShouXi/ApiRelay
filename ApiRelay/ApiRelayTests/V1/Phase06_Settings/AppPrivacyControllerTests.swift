@@ -195,6 +195,44 @@ final class AppPrivacyControllerTests: XCTestCase {
         XCTAssertEqual(saved.revealPolicy, .masterPassword)
     }
 
+    /// 「仅生物识别」但本机没有生物识别 = 死局，必须在锁屏露面之前摆出恢复出口。
+    func testStartDetectsUnavailableBiometryForBiometricOnlyPolicy() async throws {
+        let harness = try await makeHarness(
+            appLock: true,
+            hide: false,
+            seconds: 60,
+            revealPolicy: .biometricOnly,
+            biometry: BiometryKind.none,
+            deviceOwnerAuth: { _, _ in }
+        )
+        let sut = harness.controller
+        await sut.start()
+        XCTAssertTrue(sut.biometryUnavailableForUnlock)
+        XCTAssertTrue(sut.session.isSessionLocked)
+    }
+
+    func testRecoverFromUnavailableBiometryDowngradesPolicy() async throws {
+        let harness = try await makeHarness(
+            appLock: true,
+            hide: false,
+            seconds: 60,
+            revealPolicy: .biometricOnly,
+            biometry: BiometryKind.none,
+            deviceOwnerAuth: { _, _ in }
+        )
+        let sut = harness.controller
+        await sut.start()
+        XCTAssertTrue(sut.biometryUnavailableForUnlock)
+
+        await sut.recoverFromUnavailableBiometry()
+
+        XCTAssertFalse(sut.biometryUnavailableForUnlock)
+        XCTAssertFalse(sut.session.isSessionLocked)
+        await harness.preferences.drainPendingWrites()
+        let saved = try await harness.preferences.load()
+        XCTAssertEqual(saved.revealPolicy, .biometricOrPasscode)
+    }
+
     private struct Harness {
         let controller: AppPrivacyController
         let master: MasterPasswordService
@@ -219,12 +257,15 @@ final class AppPrivacyControllerTests: XCTestCase {
 
     /// - Parameter deviceOwnerAuth: 为 nil 时任何设备主人验证都判为测试失败——
     ///   主密码档解锁 MUST NOT 弹系统「iPhone 密码」。只有恢复出口的用例才注入它。
+    /// - Parameter biometry: 非 nil 时改用 `FakeRevealGate`，以便稳定模拟「无生物识别」死局
+    ///   （真机/模拟器的 `LAContext` 结果不稳定）。
     private func makeHarness(
         appLock: Bool,
         hide: Bool,
         seconds: Int,
         revealPolicy: RevealPolicy = .noVerification,
         masterPassword: String? = nil,
+        biometry: BiometryKind? = nil,
         deviceOwnerAuth: (@Sendable (String, LAPolicy) async throws -> Void)? = nil
     ) async throws -> Harness {
         let container = try AppSchema.makeInMemoryContainer()
@@ -242,10 +283,17 @@ final class AppPrivacyControllerTests: XCTestCase {
         if let masterPassword {
             try await master.setPassword(masterPassword)
         }
-        let authenticate = deviceOwnerAuth ?? { _, _ in
-            XCTFail("App lock with master-password policy must not present the device passcode prompt")
+        let gate: any RevealGateServing
+        if let biometry {
+            let fake = FakeRevealGate()
+            await fake.setAvailableBiometry(biometry)
+            gate = fake
+        } else {
+            let authenticate = deviceOwnerAuth ?? { _, _ in
+                XCTFail("App lock with master-password policy must not present the device passcode prompt")
+            }
+            gate = RevealGate(masterPassword: master, authenticateDeviceOwner: authenticate)
         }
-        let gate = RevealGate(masterPassword: master, authenticateDeviceOwner: authenticate)
         let controller = AppPrivacyController(
             gate: gate,
             preferences: preferences,

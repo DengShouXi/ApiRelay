@@ -5,8 +5,14 @@ import SwiftData
 
 protocol SecureBackupServing: Actor {
     func inspectProtection(_ data: Data) throws -> BackupFileProtection
-    func exportBackup(passphrase: String?, purpose: BackupPurpose) async throws -> Data
+    func exportBackup(passphrase: String?, purpose: BackupPurpose) async throws -> BackupExportResult
     func importBackup(data: Data, passphrase: String?) async throws -> ImportSummary
+}
+
+struct BackupExportResult: Sendable {
+    let data: Data
+    /// 元信息在备份里、但本机 Keychain 读不到明文的密钥数。导出仍会带上空字符串，导入后须明示。
+    let keysWithoutSecretCount: Int
 }
 
 struct ImportSummary: Sendable {
@@ -14,6 +20,8 @@ struct ImportSummary: Sendable {
     let keyCount: Int
     let toolCount: Int
     let skippedKeyCount: Int
+    /// 已写入元信息、但备份里明文为空、本机也没有写入 Keychain 的密钥数。
+    let keysWithoutSecretCount: Int
     let purpose: BackupPurpose
 }
 
@@ -61,20 +69,26 @@ actor SecureBackupService: SecureBackupServing {
         throw ApiRelayError.backupVersionUnsupported(found: 0, supported: 1)
     }
 
-    func exportBackup(passphrase: String? = nil, purpose: BackupPurpose = .fullBackup) async throws -> Data {
+    func exportBackup(passphrase: String? = nil, purpose: BackupPurpose = .fullBackup) async throws -> BackupExportResult {
         try await gate.confirmMandatory(reason: String(localized: "gate.exportBackup"))
-        let json = try await encodeVaultJSON(purpose: purpose)
+        let encoded = try await encodeVaultJSON(purpose: purpose)
+        let data: Data
         if let passphrase {
             let trimmed = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
                 throw ApiRelayError.validationFailed(field: "backupPassphrase", reason: "empty")
             }
-            return try Self.encrypt(json, passphrase: trimmed)
+            data = try Self.encrypt(encoded.json, passphrase: trimmed)
+        } else {
+            var out = Data()
+            out.append(SecureBackupFile.unprotectedMagic)
+            out.append(encoded.json)
+            data = out
         }
-        var out = Data()
-        out.append(SecureBackupFile.unprotectedMagic)
-        out.append(json)
-        return out
+        return BackupExportResult(
+            data: data,
+            keysWithoutSecretCount: encoded.keysWithoutSecretCount
+        )
     }
 
     func importBackup(data: Data, passphrase: String?) async throws -> ImportSummary {
@@ -93,15 +107,19 @@ actor SecureBackupService: SecureBackupServing {
         return try await applyVaultJSON(json)
     }
 
-    private func encodeVaultJSON(purpose: BackupPurpose) async throws -> Data {
+    private func encodeVaultJSON(purpose: BackupPurpose) async throws -> (json: Data, keysWithoutSecretCount: Int) {
         let accountDTOs = try await accounts.fetchAll()
         let keyDTOs = try await keys.fetch(lifecycles: [.active, .revokedUpstream])
         let toolDTOs = try await tools.fetchAll(includeHidden: true, includeDeleted: false)
 
         var keyPayloads: [[String: Any]] = []
         var assignmentPayloads: [[String: Any]] = []
+        var keysWithoutSecretCount = 0
         for key in keyDTOs {
             let secret = (try? await keychain.read(service: .keys, account: key.id)) ?? ""
+            if secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                keysWithoutSecretCount += 1
+            }
             keyPayloads.append(
                 Self.compact([
                     "id": key.id.uuidString,
@@ -157,7 +175,8 @@ actor SecureBackupService: SecureBackupServing {
             },
             "assignments": assignmentPayloads,
         ]
-        return try JSONSerialization.data(withJSONObject: plaintext, options: [.sortedKeys])
+        let json = try JSONSerialization.data(withJSONObject: plaintext, options: [.sortedKeys])
+        return (json, keysWithoutSecretCount)
     }
 
     private func applyVaultJSON(_ json: Data) async throws -> ImportSummary {
@@ -218,6 +237,7 @@ actor SecureBackupService: SecureBackupServing {
 
         var importedKeys = 0
         var skippedKeys = 0
+        var keysWithoutSecret = 0
         for key in keysArr {
             guard let id = Self.uuid(key["id"]),
                   let accountId = Self.uuid(key["accountId"]),
@@ -251,7 +271,9 @@ actor SecureBackupService: SecureBackupServing {
                lifecycle != .active {
                 try await keys.update(id: id, patch: KeyRecordPatch(lifecycle: lifecycle))
             }
-            if !secret.isEmpty {
+            if secret.isEmpty {
+                keysWithoutSecret += 1
+            } else {
                 try await keychain.save(secret, service: .keys, account: id)
             }
             importedKeys += 1
@@ -273,6 +295,7 @@ actor SecureBackupService: SecureBackupServing {
             keyCount: importedKeys,
             toolCount: importedTools,
             skippedKeyCount: skippedKeys,
+            keysWithoutSecretCount: keysWithoutSecret,
             purpose: purpose
         )
     }
