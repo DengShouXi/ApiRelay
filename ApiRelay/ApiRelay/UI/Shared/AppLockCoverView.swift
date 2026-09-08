@@ -12,6 +12,8 @@ import AppKit
 /// SwiftUI `FocusState` 强行聚焦在 iOS 上常常只出光标、不出键盘，触屏主密码框改走 UIKit `becomeFirstResponder`。
 struct AppLockCoverView: View {
     var showsUnlockChrome: Bool
+    /// 未就绪 / 多任务遮罩只铺底色。锁图标只在真的 App 锁开着时出现。
+    var showsLockMark: Bool = false
     var usesMasterPassword: Bool
     /// 策略要主密码但本机没有：此时 MUST NOT 再摆输入框，直接把恢复出口摆到主位。
     var masterPasswordMissing: Bool
@@ -40,7 +42,7 @@ struct AppLockCoverView: View {
                 } else {
                     physicalKeyboardForm
                 }
-            } else {
+            } else if showsLockMark {
                 lockMark
             }
         }

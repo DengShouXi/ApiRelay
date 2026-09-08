@@ -20,13 +20,14 @@ private struct PrivacyGatedVault: View {
     var body: some View {
         ZStack {
             VaultRoot(environment: environment)
-                .opacity(privacy.session.blocksContent ? 0 : 1)
-                .allowsHitTesting(!privacy.session.blocksContent)
-                .accessibilityHidden(privacy.session.blocksContent)
-                .animation(nil, value: privacy.session.blocksContent)
+                .opacity(privacy.session.showsAppLockUI ? 0 : 1)
+                .allowsHitTesting(!privacy.session.showsAppLockUI)
+                .accessibilityHidden(privacy.session.showsAppLockUI)
+                .animation(nil, value: privacy.session.showsAppLockUI)
 
             AppLockCoverView(
                 showsUnlockChrome: privacy.session.needsUnlockPrompt,
+                showsLockMark: privacy.session.showsAppLockUI,
                 usesMasterPassword: privacy.usesMasterPasswordUnlock,
                 masterPasswordMissing: privacy.masterPasswordMissing,
                 biometryUnavailableForUnlock: privacy.biometryUnavailableForUnlock,
@@ -43,10 +44,10 @@ private struct PrivacyGatedVault: View {
                     Task { await privacy.recoverFromUnavailableBiometry() }
                 }
             )
-            .opacity(privacy.session.blocksContent ? 1 : 0)
-            .allowsHitTesting(privacy.session.blocksContent)
-            .accessibilityHidden(!privacy.session.blocksContent)
-            .animation(nil, value: privacy.session.blocksContent)
+            .opacity(privacy.session.showsAppLockUI ? 1 : 0)
+            .allowsHitTesting(privacy.session.showsAppLockUI)
+            .accessibilityHidden(!privacy.session.showsAppLockUI)
+            .animation(nil, value: privacy.session.showsAppLockUI)
         }
         .task {
             await privacy.start()

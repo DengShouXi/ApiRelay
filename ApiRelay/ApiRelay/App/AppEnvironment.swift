@@ -152,7 +152,8 @@ final class AppEnvironment: ObservableObject {
             preferences: preferences,
             masterPassword: master,
             installsSnapshotCover: false,
-            enablesUnlockPrompt: false
+            enablesUnlockPrompt: false,
+            launchAppLockEnabled: false
         )
         return AppEnvironment(
             modelContainer: container,

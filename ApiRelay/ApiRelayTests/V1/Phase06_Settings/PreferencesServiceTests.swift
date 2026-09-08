@@ -4,6 +4,16 @@ import SwiftData
 
 @MainActor
 final class PreferencesServiceTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        AppLockLaunchCache.resetForTests()
+    }
+
+    override func tearDown() {
+        AppLockLaunchCache.resetForTests()
+        super.tearDown()
+    }
+
     func testDefaultsAndAppearanceIsolation() async throws {
         let container = try AppSchema.makeInMemoryContainer()
         let sut = PreferencesService(modelContainer: container)
@@ -39,6 +49,7 @@ final class PreferencesServiceTests: XCTestCase {
         XCTAssertTrue(loaded.appLockEnabled)
         XCTAssertEqual(loaded.autoLockSeconds, 0)
         XCTAssertFalse(loaded.hideInAppSwitcher)
+        XCTAssertEqual(AppLockLaunchCache.read(), true)
     }
 
     /// 设置页的同步开关全部走 `persist`（不在 MainActor 上 `await`）。

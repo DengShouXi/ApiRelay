@@ -4,6 +4,16 @@ import LocalAuthentication
 
 @MainActor
 final class AppPrivacyControllerTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        AppLockLaunchCache.resetForTests()
+    }
+
+    override func tearDown() {
+        AppLockLaunchCache.resetForTests()
+        super.tearDown()
+    }
+
     func testStartUsesStoredAppLockAndDefaultHide() async throws {
         let sut = try await makeController(appLock: true, hide: true, seconds: 60)
         await sut.start()
@@ -13,15 +23,78 @@ final class AppPrivacyControllerTests: XCTestCase {
         XCTAssertTrue(sut.session.needsUnlockPrompt)
     }
 
+    func testCachedAppLockLocksBeforeStart() async throws {
+        let sut = try await makeController(appLock: true, hide: true, seconds: 60)
+        XCTAssertTrue(sut.session.isSessionLocked)
+        XCTAssertTrue(sut.session.blocksContent)
+        XCTAssertFalse(sut.session.needsUnlockPrompt, "验证方式还没读到，不得先按默认「不验证」去弹系统解锁")
+        await sut.start()
+        XCTAssertTrue(sut.session.needsUnlockPrompt)
+    }
+
+    func testCachedUnlockedShowsContentBeforeStart() async throws {
+        let sut = try await makeController(appLock: false, hide: true, seconds: 60)
+        XCTAssertTrue(sut.session.isPreferencesReady)
+        XCTAssertFalse(sut.session.isSessionLocked)
+        XCTAssertFalse(sut.session.blocksContent)
+    }
+
+    func testCachedLockWaitsForRealRevealPolicy() async throws {
+        let sut = try await makeController(
+            appLock: true,
+            hide: false,
+            seconds: 60,
+            revealPolicy: .masterPassword,
+            masterPassword: "vault-pass-word"
+        )
+        XCTAssertTrue(sut.session.isSessionLocked)
+        XCTAssertFalse(sut.session.isPreferencesReady)
+        XCTAssertFalse(sut.usesMasterPasswordUnlock)
+        XCTAssertFalse(sut.session.needsUnlockPrompt)
+        await sut.start()
+        XCTAssertTrue(sut.usesMasterPasswordUnlock)
+        XCTAssertTrue(sut.session.needsUnlockPrompt)
+    }
+
+    func testUncachedLaunchShowsContentWithoutWaiting() async throws {
+        AppLockLaunchCache.resetForTests()
+        let container = try AppSchema.makeInMemoryContainer()
+        let preferences = PreferencesService(modelContainer: container)
+        let keychain = KeychainStore.makeForTests()
+        let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
+        try? await master.reset()
+        let sut = AppPrivacyController(
+            gate: RevealGate(masterPassword: master, authenticateDeviceOwner: { _, _ in }),
+            preferences: preferences,
+            masterPassword: master,
+            installsSnapshotCover: false,
+            enablesUnlockPrompt: false
+        )
+        XCTAssertTrue(sut.session.isPreferencesReady)
+        XCTAssertFalse(sut.session.isSessionLocked)
+        XCTAssertFalse(sut.session.blocksContent)
+        await sut.start()
+        XCTAssertFalse(sut.session.isSessionLocked)
+        XCTAssertFalse(sut.session.blocksContent)
+    }
+
     func testStartWithDefaultsDoesNotLockButHidesInSwitcher() async throws {
         let sut = try await makeController(appLock: false, hide: true, seconds: 60)
         await sut.start()
         XCTAssertFalse(sut.session.isSessionLocked)
         XCTAssertFalse(sut.session.blocksContent)
-        sut.handleWillResignActive()
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleWillResignActive(now: t0)
+        XCTAssertFalse(sut.session.showsSnapshotCover, "冷启动 inactive 不得当成切换器")
+        sut.handleDidBecomeActive(now: t0.addingTimeInterval(0.1))
+        sut.handleWillResignActive(now: t0.addingTimeInterval(0.2))
+        XCTAssertFalse(sut.session.showsSnapshotCover, "进前台后立刻 inactive 仍是启动闪断")
+        sut.handleDidBecomeActive(now: t0.addingTimeInterval(0.3))
+        sut.handleWillResignActive(now: t0.addingTimeInterval(2))
         XCTAssertTrue(sut.session.showsSnapshotCover)
         XCTAssertTrue(sut.session.blocksContent)
-        sut.handleDidBecomeActive()
+        XCTAssertFalse(sut.session.showsAppLockUI)
+        sut.handleDidBecomeActive(now: t0.addingTimeInterval(2.1))
         XCTAssertFalse(sut.session.blocksContent)
         XCTAssertFalse(sut.session.isSessionLocked)
     }
@@ -29,7 +102,9 @@ final class AppPrivacyControllerTests: XCTestCase {
     func testTurningOffHideRemovesSwitcherCover() async throws {
         let sut = try await makeController(appLock: false, hide: true, seconds: 60)
         await sut.start()
-        sut.handleWillResignActive()
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        sut.handleWillResignActive(now: t0.addingTimeInterval(2))
         XCTAssertTrue(sut.session.showsSnapshotCover)
         sut.applyLivePreferences(
             AppLockPreferences(appLockEnabled: false, autoLockSeconds: 60, hideInAppSwitcher: false)

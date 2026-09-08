@@ -24,7 +24,8 @@ final class VaultHomeViewModel: ObservableObject {
     @Published var platformSectionSort: SectionSortPreference = .nameAscending
     @Published var consumerSectionSort: SectionSortPreference = .nameAscending
     @Published var remainingQuota: Int?
-    @Published var avatarDefaults = AvatarPreferenceDefaults.builtIn
+    /// 产品写死的默认头像；设置页不再提供改默认的入口。单条覆盖存在账号 / 使用方 / 密钥上。
+    let avatarDefaults = AvatarPreferenceDefaults.builtIn
     @Published var errorMessage: String?
     @Published var toastMessage: String?
     /// 提示弹窗的第二行说明。复制成功时装的是真实清除时长与该平台的清除边界。
@@ -53,7 +54,6 @@ final class VaultHomeViewModel: ObservableObject {
             groupingMode = prefs.defaultGrouping
             platformSectionSort = prefs.platformSectionSort
             consumerSectionSort = prefs.consumerSectionSort
-            avatarDefaults = .from(prefs)
             await refresh()
         } catch {
             errorMessage = error.localizedDescription
@@ -61,7 +61,6 @@ final class VaultHomeViewModel: ObservableObject {
     }
 
     func refresh() async {
-        await reloadAvatarDefaults()
         do {
             accounts = try await vault.accounts()
             tools = try await environment.consumerTools.tools(includeHidden: false)
@@ -83,17 +82,10 @@ final class VaultHomeViewModel: ObservableObject {
             groupingMode = prefs.defaultGrouping
             platformSectionSort = prefs.platformSectionSort
             consumerSectionSort = prefs.consumerSectionSort
-            avatarDefaults = .from(prefs)
         }
         toastMessage = nil
         toastDetail = nil
         await refresh()
-    }
-
-    func reloadAvatarDefaults() async {
-        if let prefs = try? await environment.preferences.load() {
-            avatarDefaults = .from(prefs)
-        }
     }
 
     func avatar(for key: KeyRecordDTO) -> AvatarChoice {

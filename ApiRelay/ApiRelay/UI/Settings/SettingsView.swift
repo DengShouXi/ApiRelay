@@ -131,20 +131,6 @@ struct SettingsView: View {
 
                         settingsDivider()
 
-                        settingsDisclosureRow(
-                            icon: AppSymbols.Settings.avatars,
-                            tint: .pink,
-                            title: "settings.avatars",
-                            detail: "settings.avatars.rowDetail"
-                        ) {
-                            AvatarSettingsView(environment: environment)
-                                .onDisappear {
-                                    Task { await reload() }
-                                }
-                        }
-
-                        settingsDivider()
-
                         settingsPickerRow(
                             icon: AppSymbols.Settings.defaultGrouping,
                             tint: .blue,
@@ -253,45 +239,47 @@ struct SettingsView: View {
                         )
                     }
 
-                    // 页脚紧贴卡片（7pt，与分组标题同距），说明 Mac 端清除的真实边界。
-                    VStack(alignment: .leading, spacing: 7) {
-                        settingsGroup(title: "settings.section.lockTiming") {
-                            settingsStepperRow(
-                                icon: AppSymbols.Settings.autoLock,
-                                tint: .purple,
-                                title: "settings.autoLock.label",
-                                detail: "settings.autoLock.rowDetail",
-                                seconds: prefs.autoLockSeconds,
-                                value: Binding(
-                                    get: { prefs.autoLockSeconds },
-                                    set: { persistSyncedPatch(PreferencesPatch(autoLockSeconds: $0)) }
-                                ),
-                                range: 0...600,
-                                step: 30,
-                                enabled: prefs.appLockEnabled
-                            )
+                    settingsGroup(title: "settings.section.lockTiming") {
+                        settingsStepperRow(
+                            icon: AppSymbols.Settings.autoLock,
+                            tint: .purple,
+                            title: "settings.autoLock.label",
+                            detail: "settings.autoLock.rowDetail",
+                            seconds: prefs.autoLockSeconds,
+                            value: Binding(
+                                get: { prefs.autoLockSeconds },
+                                set: { persistSyncedPatch(PreferencesPatch(autoLockSeconds: $0)) }
+                            ),
+                            range: 0...600,
+                            step: 30,
+                            enabled: prefs.appLockEnabled
+                        )
 
-                            settingsDivider()
+                        settingsDivider()
 
-                            settingsStepperRow(
-                                icon: AppSymbols.Settings.clipboardClear,
-                                tint: .pink,
-                                title: "settings.clipboardClear.label",
-                                detail: "settings.clipboardClear.rowDetail",
-                                seconds: prefs.clipboardClearSeconds,
-                                value: Binding(
-                                    get: { prefs.clipboardClearSeconds },
-                                    set: { persistSyncedPatch(PreferencesPatch(clipboardClearSeconds: $0)) }
-                                ),
-                                range: 30...600,
-                                step: 30
-                            )
-                        }
-
-                        SettingsFooterNote(text: "settings.section.lockTiming.footer")
+                        settingsStepperRow(
+                            icon: AppSymbols.Settings.clipboardClear,
+                            tint: .pink,
+                            title: "settings.clipboardClear.label",
+                            detail: SettingsChrome.isMacDesktop
+                                ? "settings.clipboardClear.rowDetail.mac"
+                                : "settings.clipboardClear.rowDetail",
+                            seconds: prefs.clipboardClearSeconds,
+                            value: Binding(
+                                get: { prefs.clipboardClearSeconds },
+                                set: { persistSyncedPatch(PreferencesPatch(clipboardClearSeconds: $0)) }
+                            ),
+                            range: 30...600,
+                            step: 30
+                        )
                     }
 
-                    settingsGroup(title: "settings.section.clipboardPrivacy") {
+                    settingsGroup(
+                        title: "settings.section.clipboardPrivacy",
+                        detail: SettingsChrome.isMacDesktop
+                            ? LocalizedStringResource("settings.section.clipboardPrivacy.macLimits")
+                            : nil
+                    ) {
                         settingsToggleRow(
                             icon: AppSymbols.Settings.clipboardLocalOnly,
                             tint: .cyan,
@@ -470,15 +458,22 @@ struct SettingsView: View {
 
     private func settingsGroup<Content: View>(
         title: LocalizedStringKey,
+        detail: LocalizedStringResource? = nil,
         danger: Bool = false,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                // 系统设置分组标题：13pt 常规、次要色，不和行标题抢字重。
-                .font(.footnote)
-                .foregroundStyle(danger ? Color.red.opacity(0.85) : Color.secondary)
-                .padding(.horizontal, 16)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(title)
+                    // 系统设置分组标题：13pt 常规、次要色，不和行标题抢字重。
+                    .font(.footnote)
+                    .foregroundStyle(danger ? Color.red.opacity(0.85) : Color.secondary)
+                if let detail {
+                    InlineHelpButton(title: title, message: detail)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
 
             // 同一功能区：一行贴一行，中间只有细分隔线，不留灰缝。
             VStack(spacing: 0) {

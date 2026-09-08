@@ -6,14 +6,12 @@ import UIKit
 
 /// 把 `AppLockSession` 接到生命周期、门闩与切换器快照。
 ///
-/// 两条进入路径：
-/// 1. **未锁**：回到前台直接进内容；UIKit 层只为多任务截屏短暂盖住，且不抢点击。
-/// 2. **已锁**：立刻拿掉截屏层 → 系统/按钮解锁 → `finishUnlockSucceeded` 后自动进内容。
-///
-/// UIKit 遮罩在 `willResignActive` / `sceneWillDeactivate` 里同步盖上，避免 SwiftUI 还没提交就被系统拍照。
+/// 没开 App 锁：冷启动直接进内容，软件不画锁。
+/// 开了 App 锁：冷启动与离开再进都走软件锁。
+/// 多任务遮罩只盖在 UIKit 窗口上、不画锁，避免被当成解锁页。
 @MainActor
 final class AppPrivacyController: ObservableObject {
-    @Published private(set) var session: AppLockSession = .unready()
+    @Published private(set) var session: AppLockSession
     @Published private(set) var isUnlocking = false
     @Published private(set) var unlockError: String?
     /// 走「忘记主密码」出口的过程中。
@@ -42,22 +40,30 @@ final class AppPrivacyController: ObservableObject {
         preferences: any PreferencesServing,
         masterPassword: any MasterPasswordServing,
         installsSnapshotCover: Bool = true,
-        enablesUnlockPrompt: Bool = true
+        enablesUnlockPrompt: Bool = true,
+        launchAppLockEnabled: Bool? = nil
     ) {
         self.gate = gate
         self.preferences = preferences
         self.masterPassword = masterPassword
         self.installsSnapshotCover = installsSnapshotCover
         self.enablesUnlockPrompt = enablesUnlockPrompt
+        var launch = AppLockSession.unready()
+        let cached = launchAppLockEnabled ?? AppLockLaunchCache.read()
+        if cached == true {
+            launch.applyCachedLockEnabled()
+        } else {
+            // 关着或从未写过：按产品默认没开锁进界面。等 CloudKit 再挡会画出假锁。
+            launch.completeColdStart(with: .defaults)
+        }
+        self.session = launch
     }
 
     func start() async {
         guard !didStart else { return }
         didStart = true
         let prefs = await loadPreferencesOrDefaults()
-        var next = session
-        next.completeColdStart(with: prefs)
-        session = next
+        applyStartPreferences(prefs)
         await refreshMasterPasswordAvailability()
         refreshBiometryAvailability()
         syncSnapshotCoverImmediately()
@@ -91,6 +97,7 @@ final class AppPrivacyController: ObservableObject {
         var next = session
         next.applyLivePreferences(prefs)
         session = next
+        AppLockLaunchCache.write(prefs.appLockEnabled)
         if !prefs.appLockEnabled {
             unlockError = nil
             cancelledCurrentLock = false
@@ -102,32 +109,51 @@ final class AppPrivacyController: ObservableObject {
         syncSnapshotCoverImmediately()
     }
 
+    /// `start()` 读到真实偏好之后：未就绪则按冷启动上锁；已经按「没开锁」进过界面则不得再 `completeColdStart`（会把刚解开的锁重新锁上）。
+    private func applyStartPreferences(_ prefs: AppLockPreferences) {
+        if session.isPreferencesReady {
+            if prefs.appLockEnabled && !session.hasBecomeActiveOnce {
+                var next = session
+                next.completeColdStart(with: prefs)
+                session = next
+                AppLockLaunchCache.write(prefs.appLockEnabled)
+            } else {
+                applyLivePreferences(prefs)
+            }
+            return
+        }
+        var next = session
+        next.completeColdStart(with: prefs)
+        session = next
+        AppLockLaunchCache.write(prefs.appLockEnabled)
+    }
+
     func reloadAfterErase() async {
         applyLivePreferences(await loadPreferencesOrDefaults())
     }
 
-    func handleWillResignActive() {
+    func handleWillResignActive(now: Date = Date()) {
         cancelledCurrentLock = false
         snapshotCoverTask?.cancel()
         snapshotCoverTask = nil
         var next = session
-        next.noteWillResignActive(now: Date())
+        next.noteWillResignActive(now: now)
         session = next
         syncSnapshotCoverImmediately()
     }
 
-    func handleWillEnterForeground() {
+    func handleWillEnterForeground(now: Date = Date()) {
         var next = session
-        next.noteWillEnterForeground(now: Date())
+        next.noteWillEnterForeground(now: now)
         session = next
         // 仍可能处于 inactive（切换器未结束）；遮罩去留跟 session，立即同步即可。
         syncSnapshotCoverImmediately()
     }
 
-    func handleDidBecomeActive() {
+    func handleDidBecomeActive(now: Date = Date()) {
         var next = session
-        next.noteWillEnterForeground(now: Date())
-        next.noteDidBecomeActive(now: Date())
+        next.noteWillEnterForeground(now: now)
+        next.noteDidBecomeActive(now: now)
         session = next
         if session.isSessionLocked {
             // 路径 2：已锁 — 立刻拿掉 UIKit 截屏遮罩，把点击交给 SwiftUI 解锁层；
@@ -350,7 +376,7 @@ final class AppPrivacyController: ObservableObject {
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
             guard !session.isInactive else {
-                applySnapshotCover(shouldShow: true)
+                applySnapshotCover(shouldShow: session.showsSnapshotCover)
                 return
             }
             applySnapshotCover(shouldShow: session.showsSnapshotCover)
@@ -361,7 +387,10 @@ final class AppPrivacyController: ObservableObject {
         #if canImport(UIKit)
         guard installsSnapshotCover else { return }
         guard !AppRuntime.isRunningTests else { return }
-        AppSwitcherSnapshotCover.sync(shouldShow: shouldShow)
+        AppSwitcherSnapshotCover.sync(
+            shouldShow: shouldShow,
+            showsLockMark: session.isSessionLocked
+        )
         #endif
     }
 }
@@ -371,16 +400,18 @@ final class AppPrivacyController: ObservableObject {
 enum AppSwitcherSnapshotCover {
     static let viewTag = 71_080_301
 
-    static func sync(shouldShow: Bool) {
+    static func sync(shouldShow: Bool, showsLockMark: Bool = false) {
         let windows = allWindows()
         for window in windows {
-            let existing = window.viewWithTag(viewTag)
+            let existing = window.viewWithTag(viewTag) as? SnapshotCoverView
             if shouldShow {
                 if let existing {
+                    existing.setShowsLockMark(showsLockMark)
                     existing.isHidden = false
                     window.bringSubviewToFront(existing)
                 } else {
                     let cover = SnapshotCoverView(frame: window.bounds)
+                    cover.setShowsLockMark(showsLockMark)
                     window.addSubview(cover)
                 }
                 window.layoutIfNeeded()
@@ -407,6 +438,15 @@ enum AppSwitcherSnapshotCover {
 }
 
 private final class SnapshotCoverView: UIView {
+    private let lockView: UIImageView = {
+        let image = UIImageView(image: UIImage(systemName: AppSymbols.Settings.appLock))
+        image.tintColor = .secondaryLabel
+        image.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
+        image.translatesAutoresizingMaskIntoConstraints = false
+        image.isHidden = true
+        return image
+    }()
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         tag = AppSwitcherSnapshotCover.viewTag
@@ -417,16 +457,15 @@ private final class SnapshotCoverView: UIView {
         isAccessibilityElement = false
         accessibilityElementsHidden = true
         accessibilityLabel = String(localized: "appLock.coverTitle")
-
-        let image = UIImageView(image: UIImage(systemName: AppSymbols.Settings.appLock))
-        image.tintColor = .secondaryLabel
-        image.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
-        image.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(image)
+        addSubview(lockView)
         NSLayoutConstraint.activate([
-            image.centerXAnchor.constraint(equalTo: centerXAnchor),
-            image.centerYAnchor.constraint(equalTo: centerYAnchor)
+            lockView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            lockView.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
+    }
+
+    func setShowsLockMark(_ shows: Bool) {
+        lockView.isHidden = !shows
     }
 
     @available(*, unavailable)

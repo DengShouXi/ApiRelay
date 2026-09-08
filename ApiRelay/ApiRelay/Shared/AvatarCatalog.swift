@@ -34,7 +34,7 @@ struct AvatarChoice: Sendable, Equatable, Hashable {
     }
 }
 
-/// 本机外观里三类默认头像（未单独改过的条目走这里）。
+/// 产品写死的三类默认头像（未单独改过的条目走这里）。设置页不再提供改默认的入口。
 struct AvatarPreferenceDefaults: Sendable, Equatable {
     var key: AvatarChoice
     var customAccount: AvatarChoice
@@ -45,20 +45,6 @@ struct AvatarPreferenceDefaults: Sendable, Equatable {
         customAccount: .customAccount,
         customTool: .customTool
     )
-
-    nonisolated static func from(_ prefs: PreferencesDTO) -> AvatarPreferenceDefaults {
-        AvatarPreferenceDefaults(
-            key: AvatarChoice.parse(symbol: prefs.defaultKeyAvatarSymbol, color: prefs.defaultKeyAvatarColor) ?? .key,
-            customAccount: AvatarChoice.parse(
-                symbol: prefs.defaultCustomAccountAvatarSymbol,
-                color: prefs.defaultCustomAccountAvatarColor
-            ) ?? .customAccount,
-            customTool: AvatarChoice.parse(
-                symbol: prefs.defaultCustomToolAvatarSymbol,
-                color: prefs.defaultCustomToolAvatarColor
-            ) ?? .customTool
-        )
-    }
 }
 
 /// 选择器里的预置符号（不是全量 SF Symbol）。

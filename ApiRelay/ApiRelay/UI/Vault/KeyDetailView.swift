@@ -47,6 +47,7 @@ struct KeyDetailView: View {
     @State private var draftCustomURL = ""
     @State private var usesDefaultAvatar = true
     @State private var customAvatar = AvatarChoice.key
+    @State private var showAvatarEditor = false
 
     private var key: KeyRecordDTO? {
         viewModel.allKeys.first { $0.id == keyId }
@@ -135,6 +136,9 @@ struct KeyDetailView: View {
         .vaultPossibleDuplicateAlert(existingName: $duplicateExistingName) {
             await save(acknowledgeDuplicate: true)
         }
+        .sheet(isPresented: $showAvatarEditor) {
+            avatarEditorSheet
+        }
     }
 
     private var pageBackground: Color {
@@ -178,13 +182,13 @@ struct KeyDetailView: View {
 
     private func hero(_ key: KeyRecordDTO) -> some View {
         VStack(spacing: 12) {
-            VaultAvatarView(
-                choice: isEditing
-                    ? (usesDefaultAvatar ? viewModel.avatarDefaults.key : customAvatar)
-                    : viewModel.avatar(for: key),
+            EditableAvatarButton(
+                choice: heroAvatar(for: key),
                 size: 72,
                 cornerRadius: 16
-            )
+            ) {
+                openAvatarEditor(for: key)
+            }
             Text(isEditing ? draftName : key.displayName)
                 .font(.title2.weight(.semibold))
                 .multilineTextAlignment(.center)
@@ -192,6 +196,13 @@ struct KeyDetailView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 4)
+    }
+
+    private func heroAvatar(for key: KeyRecordDTO) -> AvatarChoice {
+        if isEditing {
+            return usesDefaultAvatar ? viewModel.avatarDefaults.key : customAvatar
+        }
+        return viewModel.avatar(for: key)
     }
 
     private func browseCard(_ key: KeyRecordDTO) -> some View {
@@ -230,13 +241,6 @@ struct KeyDetailView: View {
             editAssignmentRow(key)
             cardDivider()
             editNotesRow
-            cardDivider()
-            AvatarOverrideEditor(
-                defaultChoice: viewModel.avatarDefaults.key,
-                usesDefault: $usesDefaultAvatar,
-                customChoice: $customAvatar
-            )
-            .padding(.vertical, 12)
         }
         .padding(.horizontal, 16)
         .background(
@@ -402,6 +406,65 @@ struct KeyDetailView: View {
             return String(localized: "vault.assign.badge.none")
         }
         return assignedTools.map(\.name).joined(separator: "、")
+    }
+
+    private func openAvatarEditor(for key: KeyRecordDTO) {
+        if !isEditing {
+            let override = AvatarChoice.parse(symbol: key.avatarSymbol, color: key.avatarColor)
+            usesDefaultAvatar = override == nil
+            customAvatar = override ?? viewModel.avatarDefaults.key
+        }
+        showAvatarEditor = true
+    }
+
+    private var avatarEditorSheet: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    AvatarOverrideEditor(
+                        defaultChoice: viewModel.avatarDefaults.key,
+                        usesDefault: $usesDefaultAvatar,
+                        customChoice: $customAvatar
+                    )
+                    .buttonStyle(.borderless)
+                }
+            }
+            .navigationTitle("vault.avatar")
+            #if os(iOS) || targetEnvironment(macCatalyst)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("vault.avatar.done") {
+                        showAvatarEditor = false
+                        if !isEditing {
+                            Task { await commitAvatarIfBrowsing() }
+                        }
+                    }
+                }
+            }
+        }
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        .frame(minWidth: 400, minHeight: 480)
+        #endif
+    }
+
+    /// 浏览态改头像不走门闩：头像不是明文。
+    private func commitAvatarIfBrowsing() async {
+        guard !isEditing, let key, let account else { return }
+        _ = await viewModel.editKey(
+            keyId: key.id,
+            name: key.displayName,
+            secret: nil,
+            ackDuplicate: false,
+            notes: key.notes,
+            accountName: account.displayName,
+            platform: account.platform,
+            customPlatformName: account.customPlatformName,
+            customBaseURL: account.customBaseURL,
+            avatarSymbol: usesDefaultAvatar ? nil : customAvatar.symbol,
+            avatarColor: usesDefaultAvatar ? nil : customAvatar.color.rawValue
+        )
     }
 
     private func handleChrome(_ command: KeyDetailChromeCommand) async {

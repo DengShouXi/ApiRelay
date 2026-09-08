@@ -67,6 +67,9 @@ actor PreferencesService: PreferencesServing {
         if patch.writesDevicePreferences {
             try await deviceRepo.update(patch)
         }
+        if let enabled = patch.appLockEnabled {
+            AppLockLaunchCache.write(enabled)
+        }
     }
 
     /// 界面写入 CloudKit 同步的 UserPreferences 时，MUST NOT 在 MainActor 上 `await update`。
@@ -87,6 +90,7 @@ actor PreferencesService: PreferencesServing {
     func purgeAllRecordsForErase() async throws {
         try await userRepo.deleteAllRecords()
         try await deviceRepo.deleteAllRecords()
+        AppLockLaunchCache.write(false)
     }
 }
 

@@ -153,9 +153,6 @@ struct VaultHomeView: View {
             if tab != .trash {
                 trashHasItems = nil
             }
-            if tab == .byPlatform || tab == .byConsumer {
-                Task { await viewModel.reloadAvatarDefaults() }
-            }
             Task { await applyTab(tab) }
         }
         .onChange(of: viewModel.allKeys.map(\.id)) { _, ids in
@@ -1218,12 +1215,26 @@ struct VaultHomeView: View {
                     toggleSectionCollapsed(section)
                 }
             } label: {
+                Image(systemName: collapsed ? AppSymbols.Action.chevronRight : AppSymbols.Action.chevronDown)
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(.primary.opacity(0.72))
+                    .frame(width: 14, alignment: .center)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text(sectionTitle(section)))
+            .accessibilityHint(
+                Text(collapsed ? "vault.a11y.sectionExpand" : "vault.a11y.sectionCollapse")
+            )
+
+            sectionAvatarButton(section)
+
+            Button {
+                withAnimation(.snappy(duration: 0.2)) {
+                    toggleSectionCollapsed(section)
+                }
+            } label: {
                 HStack(spacing: VaultListMetrics.stackSpacing) {
-                    Image(systemName: collapsed ? AppSymbols.Action.chevronRight : AppSymbols.Action.chevronDown)
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(.primary.opacity(0.72))
-                        .frame(width: 14, alignment: .center)
-                    VaultAvatarView(choice: viewModel.avatar(for: section))
                     Text(sectionTitle(section))
                         .font(.body.weight(.semibold))
                         .foregroundStyle(vaultSectionTitleColor)
@@ -1238,16 +1249,39 @@ struct VaultHomeView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text(sectionTitle(section)))
-            .accessibilityHint(
-                Text(collapsed ? "vault.a11y.sectionExpand" : "vault.a11y.sectionCollapse")
-            )
+            .accessibilityHidden(true)
 
             // 工具栏 + = 加账号/工具；此处 + = 在该分区下加密钥 / 指派。
             sectionAddButton(section)
             sectionOverflowMenu(section)
         }
         .id(sectionCollapseId(section))
+    }
+
+    /// 账号 / 使用方头像单独成按钮，避免包在折叠热区里点不到「编辑」。
+    @ViewBuilder
+    private func sectionAvatarButton(_ section: KeyGroupSection) -> some View {
+        let avatar = VaultAvatarView(choice: viewModel.avatar(for: section))
+        switch section.kind {
+        case .platform(let accountId, _):
+            Button {
+                editAccountId = accountId
+            } label: {
+                avatar
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text("vault.account.edit"))
+        case .consumer(let toolId, _):
+            Button {
+                editToolId = toolId
+            } label: {
+                avatar
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text("vault.consumer.edit"))
+        case .shared, .unassigned:
+            avatar
+        }
     }
 
     private func sectionHeaderIcon(_ systemName: String) -> some View {
@@ -1532,7 +1566,7 @@ struct VaultHomeView: View {
     /// 菜单栏 ⌘N /「添加密钥」：接到 `ApiRelayCommands` 发出的 `.newKey`。
     /// 锁屏遮罩下忽略；无账号时改为新建账号（与空列表 CTA 一致）。
     private func beginNewKeyFromMenu() {
-        guard !viewModel.environment.appPrivacy.session.blocksContent else { return }
+        guard !viewModel.environment.appPrivacy.session.showsAppLockUI else { return }
 
         if selectedTab == .settings || selectedTab == .trash {
             selectedTab = .byPlatform
@@ -2543,6 +2577,7 @@ private struct EditAccountSheet: View {
     @State private var isSaving = false
     @State private var usesDefaultAvatar: Bool
     @State private var customAvatar: AvatarChoice
+    @State private var showAvatarEditor = false
 
     init(
         account: UpstreamAccountDTO,
@@ -2589,9 +2624,31 @@ private struct EditAccountSheet: View {
         return hasName
     }
 
+    private var displayedAvatar: AvatarChoice {
+        usesDefaultAvatar
+            ? AvatarCatalog.accountDefault(platform: platform, defaults: avatarDefaults)
+            : customAvatar
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    HStack(alignment: .center, spacing: 14) {
+                        EditableAvatarButton(choice: displayedAvatar) {
+                            showAvatarEditor = true
+                        }
+                        TextField("vault.account.name", text: $name)
+                            .font(.title3.weight(.semibold))
+                            .textFieldStyle(.plain)
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                    }
+                    .padding(.vertical, 6)
+                    .accessibilityElement(children: .contain)
+                }
+
                 Section {
                     Picker("vault.account.platform", selection: $platform) {
                         ForEach(PresetCatalog.platforms, id: \.id) { p in
@@ -2612,7 +2669,6 @@ private struct EditAccountSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    TextField("vault.account.name", text: $name)
                     if isCustom {
                         TextField("vault.account.baseURL", text: $customURL)
                             .autocorrectionDisabled()
@@ -2620,14 +2676,6 @@ private struct EditAccountSheet: View {
                     Text("vault.account.edit.hint")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                }
-
-                Section("vault.avatar") {
-                    AvatarOverrideEditor(
-                        defaultChoice: AvatarCatalog.accountDefault(platform: platform, defaults: avatarDefaults),
-                        usesDefault: $usesDefaultAvatar,
-                        customChoice: $customAvatar
-                    )
                 }
 
                 Section {
@@ -2668,9 +2716,38 @@ private struct EditAccountSheet: View {
                     .disabled(!canSave)
                 }
             }
+            .sheet(isPresented: $showAvatarEditor) {
+                NavigationStack {
+                    Form {
+                        Section {
+                            AvatarOverrideEditor(
+                                defaultChoice: AvatarCatalog.accountDefault(
+                                    platform: platform,
+                                    defaults: avatarDefaults
+                                ),
+                                usesDefault: $usesDefaultAvatar,
+                                customChoice: $customAvatar
+                            )
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                    .navigationTitle("vault.avatar")
+                    #if os(iOS) || targetEnvironment(macCatalyst)
+                    .navigationBarTitleDisplayMode(.inline)
+                    #endif
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("vault.avatar.done") { showAvatarEditor = false }
+                        }
+                    }
+                }
+                #if os(macOS) || targetEnvironment(macCatalyst)
+                .frame(minWidth: 400, minHeight: 480)
+                #endif
+            }
         }
         #if os(macOS)
-        .frame(minWidth: 420, idealWidth: 460, minHeight: 420, idealHeight: 520)
+        .frame(minWidth: 420, idealWidth: 460, minHeight: 360, idealHeight: 440)
         #endif
     }
 }
@@ -2731,6 +2808,7 @@ private struct EditConsumerToolSheet: View {
                         usesDefault: $usesDefaultAvatar,
                         customChoice: $customAvatar
                     )
+                    .buttonStyle(.borderless)
                 }
                 Section {
                     TextField("vault.consumer.notes", text: $notes, axis: .vertical)
@@ -2761,8 +2839,8 @@ private struct EditConsumerToolSheet: View {
                 }
             }
         }
-        #if os(macOS)
-        .frame(minWidth: 360, idealWidth: 400, minHeight: 320, idealHeight: 380)
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        .frame(minWidth: 420, idealWidth: 460, minHeight: 520, idealHeight: 600)
         #endif
     }
 }

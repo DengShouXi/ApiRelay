@@ -5,12 +5,48 @@
 final class AppLockSessionTests: XCTestCase {
     private let t0 = Date(timeIntervalSince1970: 1_700_000_000)
 
-    func testUnreadyBlocksContentSoListCannotFlash() {
+    func testUnreadyDoesNotPretendAppIsLocked() {
         let session = AppLockSession.unready()
         XCTAssertFalse(session.isPreferencesReady)
-        XCTAssertTrue(session.blocksContent)
+        XCTAssertFalse(session.showsAppLockUI)
+        XCTAssertFalse(session.blocksContent)
         XCTAssertFalse(session.needsUnlockPrompt)
         XCTAssertFalse(session.showsSnapshotCover)
+        XCTAssertFalse(session.isSessionLocked)
+    }
+
+    func testCachedLockEnabledBlocksWithoutUnlockPromptUntilColdStart() {
+        var session = AppLockSession.unready()
+        session.applyCachedLockEnabled()
+        XCTAssertTrue(session.isSessionLocked)
+        XCTAssertTrue(session.showsAppLockUI)
+        XCTAssertTrue(session.blocksContent)
+        XCTAssertFalse(session.isPreferencesReady)
+        XCTAssertFalse(session.needsUnlockPrompt)
+        session.completeColdStart(with: AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 60,
+            hideInAppSwitcher: true,
+            revealPolicy: .masterPassword
+        ))
+        XCTAssertTrue(session.needsUnlockPrompt)
+        XCTAssertEqual(session.preferences.revealPolicy, .masterPassword)
+    }
+
+    func testColdStartInactiveIsNotSwitcherCover() {
+        var session = AppLockSession.unready()
+        session.completeColdStart(with: .defaults)
+        session.noteWillResignActive(now: t0)
+        XCTAssertFalse(session.showsSnapshotCover)
+        XCTAssertFalse(session.blocksContent)
+        session.noteDidBecomeActive(now: t0.addingTimeInterval(0.2))
+        session.noteWillResignActive(now: t0.addingTimeInterval(0.4))
+        XCTAssertFalse(session.showsSnapshotCover, "进前台后 1 秒内的 inactive 不是切换器")
+        XCTAssertFalse(session.blocksContent)
+        session.noteWillResignActive(now: t0.addingTimeInterval(2))
+        XCTAssertTrue(session.showsSnapshotCover)
+        XCTAssertTrue(session.blocksContent)
+        XCTAssertFalse(session.showsAppLockUI, "多任务遮罩不是软件锁")
     }
 
     func testColdStartWithAppLockOffShowsContent() {
@@ -41,6 +77,7 @@ final class AppLockSessionTests: XCTestCase {
         session.noteWillResignActive(now: t0)
         XCTAssertTrue(session.showsSnapshotCover)
         XCTAssertTrue(session.blocksContent)
+        XCTAssertFalse(session.showsAppLockUI)
         session.noteWillEnterForeground(now: t0.addingTimeInterval(1))
         session.noteDidBecomeActive(now: t0.addingTimeInterval(1))
         XCTAssertFalse(session.showsSnapshotCover)
@@ -237,6 +274,8 @@ final class AppLockSessionTests: XCTestCase {
         if lock {
             session.unlockSucceeded()
         }
+        // 模拟已进入过前台，之后的 resign 才是「去了切换器」而不是冷启动噪声。
+        session.noteDidBecomeActive(now: t0.addingTimeInterval(-10))
         return session
     }
 }

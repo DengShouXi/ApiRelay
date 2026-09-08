@@ -40,7 +40,13 @@ struct AppLockPreferences: Equatable, Sendable {
 
 /// 会话锁与切换器遮罩决策。无 SwiftUI、无 LocalAuthentication。
 ///
-/// 首帧不得露出密钥列表：偏好尚未读出时 `blocksContent == true`。
+/// 推荐规则：
+/// - 没开 App 锁：冷启动直接进列表。手机锁屏是系统的事。不得画软件锁。
+/// - 开了 App 锁：冷启动（含划掉再点开）与离开再进都走软件锁，否则划掉即可绕过。
+/// - 多任务遮罩不是锁：只挡截屏，不得画锁图标。
+/// iOS 冷启动会先 inactive；进前台后 1 秒内的 inactive 也不是「去了切换器」。
+/// 本机缓存只回答「上次是不是开着 App 锁」，且不得伪造验证方式。
+///
 /// 自动锁定只在「打开 App 需要身份确认」开启时生效。
 ///
 /// 自动锁计时：以**第一次**离开前台为准。系统在后台/切换器里偶尔会短暂拉起
@@ -54,6 +60,8 @@ struct AppLockSession: Equatable, Sendable {
     private(set) var isPreferencesReady: Bool
     private(set) var isSessionLocked: Bool
     private(set) var isInactive: Bool
+    /// 冷启动会先 inactive 再 active；在真正进过前台之前，resign 不是「去了切换器」。
+    private(set) var hasBecomeActiveOnce: Bool
     private(set) var lastLeftActiveAt: Date?
     private(set) var lastBecameActiveAt: Date?
 
@@ -63,21 +71,27 @@ struct AppLockSession: Equatable, Sendable {
             isPreferencesReady: false,
             isSessionLocked: false,
             isInactive: false,
+            hasBecomeActiveOnce: false,
             lastLeftActiveAt: nil,
             lastBecameActiveAt: nil
         )
     }
 
-    /// 列表与详情必须不可见（含偏好未就绪、会话锁、切换器遮罩）。
+    /// 软件锁挡住列表。多任务遮罩不走这里——那会把冷启动画成一张白屏。
     var blocksContent: Bool {
-        if !isPreferencesReady { return true }
-        return isSessionLocked || showsSnapshotCover
+        isSessionLocked || showsSnapshotCover
+    }
+
+    /// 软件锁界面（白底锁 / 解锁）。没开 App 锁时必须为 false。
+    var showsAppLockUI: Bool {
+        isSessionLocked
     }
 
     /// 应用切换器应拍到的遮罩：仅在离开前台且开关打开时。
     /// 会话已锁定时离开前台也会遮挡——锁态不得在多任务里露出列表。
     var showsSnapshotCover: Bool {
         guard isInactive else { return false }
+        guard hasBecomeActiveOnce else { return false }
         return preferences.hideInAppSwitcher || isSessionLocked
     }
 
@@ -93,6 +107,11 @@ struct AppLockSession: Equatable, Sendable {
         isSessionLocked = preferences.appLockEnabled
     }
 
+    /// 本机记得上次开着 App 锁：立刻挡列表，但验证方式仍等 `start()`。
+    mutating func applyCachedLockEnabled() {
+        isSessionLocked = true
+    }
+
     /// 设置页改开关：关 App 锁立即解锁；打开不立刻锁，等下次离开/冷启动。
     mutating func applyLivePreferences(_ prefs: AppLockPreferences) {
         preferences = normalized(prefs)
@@ -103,9 +122,15 @@ struct AppLockSession: Equatable, Sendable {
     }
 
     mutating func noteWillResignActive(now: Date) {
+        guard hasBecomeActiveOnce else { return }
+        let wasBriefActive = lastBecameActiveAt
+            .map { now.timeIntervalSince($0) < Self.briefActiveThreshold } ?? false
+        // 刚进前台不到 1 秒又 inactive：冷启动 / 模拟器调试常见闪断。
+        // 没开 App 锁时不得盖层，否则用户会一直看着那把锁直到系统真正 active。
+        if wasBriefActive && !preferences.appLockEnabled {
+            return
+        }
         if !isInactive {
-            let wasBriefActive = lastBecameActiveAt
-                .map { now.timeIntervalSince($0) < Self.briefActiveThreshold } ?? false
             if lastLeftActiveAt == nil || !wasBriefActive {
                 lastLeftActiveAt = now
             }
@@ -137,6 +162,7 @@ struct AppLockSession: Equatable, Sendable {
     }
 
     mutating func noteDidBecomeActive(now: Date) {
+        hasBecomeActiveOnce = true
         isInactive = false
         lastBecameActiveAt = now
         // 故意不在这里清 `lastLeftActiveAt`：系统闪断 active 时若清掉，
@@ -147,6 +173,7 @@ struct AppLockSession: Equatable, Sendable {
     mutating func unlockSucceeded() {
         isSessionLocked = false
         lastLeftActiveAt = nil
+        hasBecomeActiveOnce = true
         // 解锁即视为已回到可交互前台。若仍标 inactive，hide 开关会继续
         // `showsSnapshotCover` → 整页挡死且没有解锁按钮（needsUnlockPrompt 为 false）。
         isInactive = false
@@ -156,5 +183,26 @@ struct AppLockSession: Equatable, Sendable {
         var next = prefs
         next.autoLockSeconds = max(0, next.autoLockSeconds)
         return next
+    }
+}
+
+/// 本机上次的 App 锁开关。冷启动等不及 CloudKit / SwiftData 时用它决定要不要挡首帧。
+/// 测试走 `AppRuntime.userDefaultsForCurrentRuntime()`，不得碰 `.standard`。
+enum AppLockLaunchCache: Sendable {
+    nonisolated static let defaultsKey = "ApiRelay.appLock.enabled"
+
+    /// `nil` = 从未写过（升级前的安装）。此时不得当成已开锁，也不要先画锁图标。
+    nonisolated static func read() -> Bool? {
+        let defaults = AppRuntime.userDefaultsForCurrentRuntime()
+        guard defaults.object(forKey: defaultsKey) != nil else { return nil }
+        return defaults.bool(forKey: defaultsKey)
+    }
+
+    nonisolated static func write(_ enabled: Bool) {
+        AppRuntime.userDefaultsForCurrentRuntime().set(enabled, forKey: defaultsKey)
+    }
+
+    nonisolated static func resetForTests() {
+        AppRuntime.userDefaultsForCurrentRuntime().removeObject(forKey: defaultsKey)
     }
 }
