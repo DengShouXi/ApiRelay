@@ -105,7 +105,9 @@ private struct VaultRoot: View {
     }
 }
 
+#if DEBUG
 #Preview {
     ContentView()
         .environmentObject(AppEnvironment.makePreview())
 }
+#endif
