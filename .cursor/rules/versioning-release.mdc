@@ -6,7 +6,8 @@ alwaysApply: true
 # 版本、分支与上架
 
 权威细则见 `ApiRelay/specs/playbooks/BRANCHES.md` 与 `ApiRelay/specs/ROADMAP.md`。  
-上架后热修的保存并上传提示词：`ApiRelay/specs/playbooks/热修-save.md`。
+听到「上传」时的顺序：`ZL01_具体说明/09-上传流程.md` §1。  
+上架后热修的 git 提示词：`ApiRelay/specs/playbooks/热修-save.md`。
 
 ## 商店版本（产品阶段完成才升主版本）
 
@@ -44,7 +45,13 @@ release/N.0.0          仅上架 tag，MUST NOT 建成分支
 
 ## Agent 操作
 
-用户说「提交 / 保存 / 上传 / 保存并上传」且改动已确认可入库时，**先判断走哪份 save，不要问用户再解释一遍分支策略**：
+用户说「提交 / 保存 / 上传 / 保存并上传 / 按热修-save 保存并上传」时：
+
+1. **先打开并执行** `ZL01_具体说明/09-上传流程.md` §1（对照本次 diff → 同步 ZL01 → 再 git）。MUST NOT 凭记忆只 commit / push。  
+2. 对照与同步做完后，再判断走哪份 save（下面 A 或 B）。save 只管开分支、台账、commit、push，不要跳过 §1。  
+3. 未听到上述口令前 MUST NOT commit。
+
+用户不必自己写 FR、不必自己改 `BRANCHES.md`、不必自己起分支名。
 
 ### A. 规划或产品小阶段（对应 P0N 尚未关账）
 
@@ -60,5 +67,3 @@ release/N.0.0          仅上架 tag，MUST NOT 建成分支
 - push `v1.13.1`；fast-forward 大阶段 tip `v1`。  
 - 默认**不要** push 冻结的 `v1.13`、**不要**动 `main`、**不要**改 `MARKETING_VERSION`、**不要**打新 tag。  
 - **不要**开 `P0N-save.md` 冒充新 Phase。
-
-用户不必自己写 FR、不必自己改 `BRANCHES.md`、不必自己起分支名。未听到「提交 / 保存 / 上传」前 MUST NOT commit。
