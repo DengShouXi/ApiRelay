@@ -49,15 +49,23 @@ final class VaultHomeViewModel: ObservableObject {
     func onAppear() async {
         do {
             try await vault.performStartupMaintenance()
+        } catch {
+            IdentityHygieneLog.failed(source: .startup, kind: .account, error: error)
+        }
+        do {
             try await environment.consumerTools.ensurePresetsSeeded()
+        } catch {
+            IdentityHygieneLog.failed(source: .startup, kind: .tool, error: error)
+        }
+        do {
             let prefs = try await environment.preferences.load()
             groupingMode = prefs.defaultGrouping
             platformSectionSort = prefs.platformSectionSort
             consumerSectionSort = prefs.consumerSectionSort
-            await refresh()
         } catch {
             errorMessage = error.localizedDescription
         }
+        await refresh()
     }
 
     func refresh() async {

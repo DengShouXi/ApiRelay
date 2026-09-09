@@ -64,6 +64,9 @@ actor EntitlementService: EntitlementServing {
     }
 
     func refreshFromStore() async throws {
+        await IdentityHygieneLog.runIsolated(source: .startup, steps: [
+            (.entitlement, { try await self.snapshot.pruneDuplicateIdentities() }),
+        ])
         _ = try await currentTier()
     }
 

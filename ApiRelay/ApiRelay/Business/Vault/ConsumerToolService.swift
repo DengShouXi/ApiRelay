@@ -5,6 +5,8 @@ protocol ConsumerToolServing: Actor {
     func tools(includeHidden: Bool) async throws -> [ConsumerToolDTO]
     /// 启动维护：不再自动写入预置使用端；并清除历史种子的预置项（用户自建保留）。
     func ensurePresetsSeeded() async throws
+    /// CloudKit 导入成功后的身份清扫。
+    func pruneDuplicateIdentities() async throws
     func createTool(_ draft: ConsumerToolDraft) async throws -> UUID
     func updateTool(id: UUID, patch: ConsumerToolPatch) async throws
     func deleteTool(id: UUID) async throws
@@ -43,6 +45,7 @@ actor ConsumerToolService: ConsumerToolServing {
     /// 顺带清除历史上 `isPreset == true` 的种子（否则主列表占满且无法删除），
     /// 为缺少 `iconSymbol` 的存量按名称回填，并把 VS Code 族上的废止三截符号换成现行徽章。
     func ensurePresetsSeeded() async throws {
+        await pruneDuplicateIdentities(source: .startup)
         let existing = try await repo.fetchAll(includeHidden: true, includeDeleted: true)
         for tool in existing where tool.isPreset {
             try await destroyToolAndAssignments(id: tool.id, allowPreset: true)
@@ -56,7 +59,21 @@ actor ConsumerToolService: ConsumerToolServing {
             patch.iconSymbol = PresetCatalog.toolSymbol(name: tool.name)
             try await repo.update(id: tool.id, patch: patch)
         }
-        try await purgeExpiredDeletedTools()
+        do {
+            try await purgeExpiredDeletedTools()
+        } catch {
+            IdentityHygieneLog.failed(source: .startup, kind: .expiredTools, error: error)
+        }
+    }
+
+    func pruneDuplicateIdentities() async throws {
+        await pruneDuplicateIdentities(source: .cloudImport)
+    }
+
+    private func pruneDuplicateIdentities(source: IdentityHygieneLog.Source) async {
+        await IdentityHygieneLog.runIsolated(source: source, steps: [
+            (.tool, { try await self.repo.pruneDuplicateIdentities() }),
+        ])
     }
 
     func createTool(_ draft: ConsumerToolDraft) async throws -> UUID {

@@ -44,8 +44,12 @@ protocol KeyVaultServing: Actor {
     func remainingFreeQuota() async throws -> Int?
     func readSecretForAutomatedUse(keyId: UUID, purpose: AutomatedSecretPurpose) async throws -> String
 
-    /// 启动巡检：孤儿标记 + 过期回收站清除。
+    /// 启动巡检：过期回收站清除、末四位纠偏、同业务 id 重复行卫生清扫。
+    /// 各步 best-effort，失败不抛给首页。
     func performStartupMaintenance() async throws
+    /// CloudKit 导入成功后的身份清扫（账号 / 密钥；不含安全偏好物理删除）。
+    /// 各类型独立捕获，失败不抛。
+    func pruneDuplicateIdentities() async throws
 
     /// FR-061：物理删除本服务持有的账号 / 密钥 / 指派 / 安全偏好（含回收站）。
     func purgeAllRecordsForErase() async throws

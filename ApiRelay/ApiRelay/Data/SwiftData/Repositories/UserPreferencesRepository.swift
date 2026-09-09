@@ -56,7 +56,42 @@ actor UserPreferencesRepository {
     }
 
     func update(_ patch: PreferencesPatch) throws {
-        let model = try ensureSingleton()
+        var models = try fetchSingletons()
+        if models.isEmpty {
+            let created = UserPreferences()
+            modelContext.insert(created)
+            models = [created]
+        }
+        for model in models {
+            Self.apply(patch, to: model)
+        }
+        try modelContext.save()
+    }
+
+    func pruneDuplicateIdentities() throws {
+        // 13.5：无 `updatedAt`，按指纹物理删可能留下错误设置组合。
+        // 读取仍折叠、写入仍打全；有可靠版本时间或 replicaSeed 之前 MUST NOT 删行。
+    }
+
+    private func ensureSingleton() throws -> UserPreferences {
+        let models = try fetchSingletons()
+        if let winner = SyncedIdentity.winner(in: models, rank: Self.rank) {
+            return winner
+        }
+        let created = UserPreferences()
+        modelContext.insert(created)
+        try modelContext.save()
+        return created
+    }
+
+    private func fetchSingletons() throws -> [UserPreferences] {
+        let id = UserPreferences.singletonID
+        return try modelContext.fetch(FetchDescriptor<UserPreferences>(
+            predicate: #Predicate { $0.id == id }
+        ))
+    }
+
+    private static func apply(_ patch: PreferencesPatch, to model: UserPreferences) {
         if let value = patch.appLockEnabled { model.appLockEnabled = value }
         if let value = patch.autoLockSeconds { model.autoLockSeconds = value }
         if let value = patch.autoLockDurationOptions {
@@ -78,22 +113,31 @@ actor UserPreferencesRepository {
         if let value = patch.notifyWeeklyDigest { model.notifyWeeklyDigest = value }
         if let value = patch.lowBalanceThreshold { model.lowBalanceThreshold = value }
         // appearance / defaultGrouping / window → DevicePreferences（此处刻意忽略）
-        try modelContext.save()
     }
 
-    private func ensureSingleton() throws -> UserPreferences {
-        let id = UserPreferences.singletonID
-        var descriptor = FetchDescriptor<UserPreferences>(
-            predicate: #Predicate { $0.id == id }
+    private static func rank(_ model: UserPreferences) -> SyncedIdentity.ReplicaRank {
+        SyncedIdentity.ReplicaRank(
+            updatedAt: .distantPast,
+            isDeleted: false,
+            fingerprint: [
+                model.appLockEnabled ? "1" : "0",
+                String(model.autoLockSeconds),
+                model.autoLockDurationOptionsJSON ?? "",
+                model.revealPolicy,
+                model.clipboardClearEnabled ? "1" : "0",
+                String(model.clipboardClearSeconds),
+                model.clipboardClearDurationOptionsJSON ?? "",
+                model.clipboardLocalOnly ? "1" : "0",
+                model.hideInAppSwitcher ? "1" : "0",
+                String(model.refreshIntervalMinutes),
+                model.displayCurrency,
+                SyncedIdentity.decimalStamp(model.usdToDisplayRate),
+                model.notifyLowBalance ? "1" : "0",
+                model.notifyKeyRevoked ? "1" : "0",
+                model.notifyWeeklyDigest ? "1" : "0",
+                SyncedIdentity.decimalStamp(model.lowBalanceThreshold),
+            ].joined(separator: "\u{1e}")
         )
-        descriptor.fetchLimit = 1
-        if let existing = try modelContext.fetch(descriptor).first {
-            return existing
-        }
-        let created = UserPreferences()
-        modelContext.insert(created)
-        try modelContext.save()
-        return created
     }
 
     /// FR-061：删除安全偏好单例；下次 `loadOrCreate` 会写入默认值。

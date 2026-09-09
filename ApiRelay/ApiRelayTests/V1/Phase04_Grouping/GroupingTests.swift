@@ -143,6 +143,38 @@ final class GroupingTests: XCTestCase {
         XCTAssertEqual(sections.last?.kind, .shared)
     }
 
+    func testPlatformModeDedupesDuplicateAccountIdsWithoutCrashing() {
+        let id = UUID()
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+        let stale = makeAccount(id: id, name: "Old", createdAt: older, updatedAt: older)
+        let fresh = makeAccount(id: id, name: "New", createdAt: older, updatedAt: newer)
+        let sections = KeyGrouping.group(
+            keys: [],
+            accounts: [stale, fresh],
+            tools: [],
+            mode: .byPlatform
+        )
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.kind, .platform(accountId: id, title: "New"))
+    }
+
+    func testConsumerModeDedupesDuplicateToolIdsWithoutCrashing() {
+        let id = UUID()
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+        let stale = makeTool(id: id, name: "Old", createdAt: older, updatedAt: older)
+        let fresh = makeTool(id: id, name: "New", createdAt: older, updatedAt: newer)
+        let sections = KeyGrouping.group(
+            keys: [],
+            accounts: [],
+            tools: [stale, fresh],
+            mode: .byConsumer
+        )
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.kind, .consumer(toolId: id, title: "New"))
+    }
+
     func testNeedsCustomSeedWhenOrdersCollide() {
         XCTAssertTrue(SectionSortPreference.needsCustomSeed(sortOrders: [0, 0, 0]))
         XCTAssertFalse(SectionSortPreference.needsCustomSeed(sortOrders: [0, 1, 2]))
@@ -179,13 +211,14 @@ final class GroupingTests: XCTestCase {
     }
 
     private func makeAccount(
+        id: UUID = UUID(),
         name: String,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         sortOrder: Int = 0
     ) -> UpstreamAccountDTO {
         UpstreamAccountDTO(
-            id: UUID(), platform: "openai", customPlatformName: nil,
+            id: id, platform: "openai", customPlatformName: nil,
             displayName: name, customBaseURL: nil, hasManagementCredential: false,
             notes: nil, createdAt: createdAt, updatedAt: updatedAt, sortOrder: sortOrder,
             deletedAt: nil, purgeAfter: nil

@@ -424,3 +424,15 @@ Phase 3..6 → Phase 7 (Catalyst) → Phase 8 (安全与上架)
 `KeyOrigin.providerIssued` / `.relayIssued`、`UsageDataSource.relayLedger`、
 `EntitlementTier.relay` 等枚举值 **V1 定义但不可达**，用于保证 V2/V3 无破坏性迁移
 （data-model §10）。
+
+---
+
+## 热修后续（本文件不要再追加未勾的实现任务）
+
+账号 / 使用方 / 密钥的**读去重、写打全、启动清扫、搜索防崩**随 **`v1.13.5`** 入库（2026-09-10）。远程 `v1.13.4` 没有这些代码。  
+尚未关账的后续（导入后再清扫、POSIX 指纹、insert 语义、replicaSeed、单例、双设备手测）在：
+
+- 规格 / 任务：[`follow-ups/cloudkit-sync-hygiene/`](./follow-ups/cloudkit-sync-hygiene/)
+- 实现提示词：[`../playbooks/热修-CloudKit同步卫生.md`](../playbooks/热修-CloudKit同步卫生.md)（与 `热修-save.md` 并列，不是 P14）
+
+对本目录跑 `/speckit.implement` 只会看到未勾的 **T065（商店截图）**。卫生后续 MUST `export SPECIFY_FEATURE_DIRECTORY=specs/001-key-vault/follow-ups/cloudkit-sync-hygiene`。

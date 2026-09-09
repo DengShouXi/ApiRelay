@@ -103,13 +103,33 @@ final class VaultSearchTests: XCTestCase {
         XCTAssertEqual(results.accounts.map(\.id), [account.id])
     }
 
+    func testDuplicateAccountIdsDoNotCrashAndKeepNewerName() {
+        let id = UUID()
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+        let stale = makeAccount(id: id, name: "Old Name", updatedAt: older)
+        let fresh = makeAccount(id: id, name: "New Name", updatedAt: newer)
+        let key = makeKey(name: "钥", accountId: id)
+        let results = VaultSearch.results(
+            query: "Name",
+            keys: [key],
+            accounts: [stale, fresh],
+            tools: []
+        )
+        XCTAssertEqual(results.accounts.map(\.displayName), ["New Name"])
+        XCTAssertEqual(results.keys.map(\.id), [key.id])
+        XCTAssertEqual(results.accounts.map(\.id), [id])
+    }
+
     private func makeAccount(
+        id: UUID = UUID(),
         name: String,
         platform: String = "openai",
-        notes: String? = nil
+        notes: String? = nil,
+        updatedAt: Date = Date()
     ) -> UpstreamAccountDTO {
         UpstreamAccountDTO(
-            id: UUID(),
+            id: id,
             platform: platform,
             customPlatformName: nil,
             displayName: name,
@@ -117,7 +137,7 @@ final class VaultSearchTests: XCTestCase {
             hasManagementCredential: false,
             notes: notes,
             createdAt: Date(),
-            updatedAt: Date(),
+            updatedAt: updatedAt,
             sortOrder: 0,
             deletedAt: nil,
             purgeAfter: nil

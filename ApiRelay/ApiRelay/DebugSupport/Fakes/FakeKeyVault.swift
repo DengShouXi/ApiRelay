@@ -401,6 +401,10 @@ actor FakeKeyVault: KeyVaultServing {
         try await purgeExpiredDeletedAccounts()
     }
 
+    func pruneDuplicateIdentities() async throws {
+        try journal.record("pruneDuplicateIdentities")
+    }
+
     func purgeAllRecordsForErase() async throws {
         try journal.record("purgeAllRecordsForErase")
         accountsById.removeAll()

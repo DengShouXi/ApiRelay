@@ -25,6 +25,10 @@ actor FakeConsumerTools: ConsumerToolServing {
         try journal.record("ensurePresetsSeeded")
     }
 
+    func pruneDuplicateIdentities() async throws {
+        try journal.record("pruneDuplicateIdentities")
+    }
+
     func createTool(_ draft: ConsumerToolDraft) async throws -> UUID {
         try journal.record("createTool")
         let id = UUID()

@@ -343,9 +343,24 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func performStartupMaintenance() async throws {
-        try await purgeExpiredDeletedKeys()
-        try await purgeExpiredDeletedAccounts()
-        try await keysRepo.clearStoredSecretFragments()
+        await IdentityHygieneLog.runIsolated(source: .startup, steps: [
+            (.expiredKeys, { try await self.purgeExpiredDeletedKeys() }),
+            (.expiredAccounts, { try await self.purgeExpiredDeletedAccounts() }),
+            (.secretFragments, { try await self.keysRepo.clearStoredSecretFragments() }),
+        ])
+        await pruneDuplicateIdentities(source: .startup)
+    }
+
+    func pruneDuplicateIdentities() async throws {
+        await pruneDuplicateIdentities(source: .cloudImport)
+    }
+
+    /// 账号 / 密钥可按 `updatedAt` 清扫。安全偏好无 `updatedAt`，13.5 只读折叠、写打全，不物理删。
+    private func pruneDuplicateIdentities(source: IdentityHygieneLog.Source) async {
+        await IdentityHygieneLog.runIsolated(source: source, steps: [
+            (.account, { try await self.accountsRepo.pruneDuplicateIdentities() }),
+            (.key, { try await self.keysRepo.pruneDuplicateIdentities() }),
+        ])
     }
 
     /// FR-061：物理删除本服务 ModelActor 里的账号 / 密钥 / 指派 / 安全偏好（含回收站）。

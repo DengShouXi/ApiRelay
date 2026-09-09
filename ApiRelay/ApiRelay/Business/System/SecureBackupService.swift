@@ -199,7 +199,6 @@ actor SecureBackupService: SecureBackupServing {
             guard let id = Self.uuid(account["id"]),
                   let platform = account["platform"] as? String,
                   let displayName = account["displayName"] as? String else { continue }
-            if try await accounts.fetch(id: id) != nil { continue }
             let draft = UpstreamAccountDraft(
                 platform: platform,
                 customPlatformName: account["customPlatformName"] as? String,
@@ -210,15 +209,15 @@ actor SecureBackupService: SecureBackupServing {
                 avatarSymbol: account["avatarSymbol"] as? String,
                 avatarColor: account["avatarColor"] as? String
             )
-            _ = try await accounts.insert(draft, id: id)
-            importedAccounts += 1
+            if try await accounts.insertIfAbsent(draft, id: id) {
+                importedAccounts += 1
+            }
         }
 
         var importedTools = 0
         for tool in toolsArr {
             guard let id = Self.uuid(tool["id"]),
                   let name = tool["name"] as? String else { continue }
-            if try await tools.fetch(id: id) != nil { continue }
             let draft = ConsumerToolDraft(
                 name: name,
                 iconSymbol: tool["iconSymbol"] as? String,
@@ -228,7 +227,7 @@ actor SecureBackupService: SecureBackupServing {
                 avatarSymbol: tool["avatarSymbol"] as? String,
                 avatarColor: tool["avatarColor"] as? String
             )
-            _ = try await tools.insert(draft, id: id)
+            guard try await tools.insertIfAbsent(draft, id: id) else { continue }
             if tool["isHidden"] as? Bool == true {
                 try await tools.update(id: id, patch: ConsumerToolPatch(isHidden: true))
             }
@@ -242,10 +241,6 @@ actor SecureBackupService: SecureBackupServing {
             guard let id = Self.uuid(key["id"]),
                   let accountId = Self.uuid(key["accountId"]),
                   let displayName = key["displayName"] as? String else {
-                skippedKeys += 1
-                continue
-            }
-            if try await keys.fetch(id: id) != nil {
                 skippedKeys += 1
                 continue
             }
@@ -265,7 +260,10 @@ actor SecureBackupService: SecureBackupServing {
                 avatarSymbol: key["avatarSymbol"] as? String,
                 avatarColor: key["avatarColor"] as? String
             )
-            _ = try await keys.insert(draft, id: id)
+            guard try await keys.insertIfAbsent(draft, id: id) else {
+                skippedKeys += 1
+                continue
+            }
             if let lifecycleRaw = key["lifecycle"] as? String,
                let lifecycle = KeyLifecycle.init(rawValue: lifecycleRaw),
                lifecycle != .active {

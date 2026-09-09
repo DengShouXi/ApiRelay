@@ -21,6 +21,9 @@ final class AppEnvironment: ObservableObject {
     let dataLifecycle: any DataLifecycleServing
     let cloudSync: any CloudSyncServing
     let appPrivacy: AppPrivacyController
+    /// 强持有，避免导入清扫调度被释放。测试路径为 nil。
+    private let cloudImportHygiene: CloudImportIdentityHygiene?
+    private let cloudImportObserver: (any NSObjectProtocol)?
 
     /// 本机外观（DevicePreferences）；驱动根视图 `preferredColorScheme`。
     @Published private(set) var appearance: AppearancePreference = .system
@@ -86,6 +89,26 @@ final class AppEnvironment: ObservableObject {
             preferences: self.preferences,
             masterPassword: master
         )
+        if isTesting {
+            self.cloudImportHygiene = nil
+            self.cloudImportObserver = nil
+        } else {
+            let vault = self.vault
+            let tools = self.consumerTools
+            let hygiene = CloudImportIdentityHygiene {
+                try? await vault.pruneDuplicateIdentities()
+                try? await tools.pruneDuplicateIdentities()
+            }
+            self.cloudImportHygiene = hygiene
+            // 同步注册，避免启动瞬间通知先到、异步 for-await 后挂上。
+            self.cloudImportObserver = NotificationCenter.default.addObserver(
+                forName: .apiRelayCloudMetadataDidImport,
+                object: nil,
+                queue: nil
+            ) { [hygiene] _ in
+                Task { await hygiene.handleImportSucceeded() }
+            }
+        }
         Task { await self.refreshAppearance() }
     }
 
@@ -123,6 +146,8 @@ final class AppEnvironment: ObservableObject {
         self.dataLifecycle = dataLifecycle
         self.cloudSync = cloudSync
         self.appPrivacy = appPrivacy
+        self.cloudImportHygiene = nil
+        self.cloudImportObserver = nil
         Task { await self.refreshAppearance() }
     }
 

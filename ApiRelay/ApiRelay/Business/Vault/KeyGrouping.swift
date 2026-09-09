@@ -43,7 +43,13 @@ enum KeyGrouping {
         accounts: [UpstreamAccountDTO],
         sectionSort: SectionSortPreference
     ) -> [KeyGroupSection] {
-        let titleByAccount = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.displayName) })
+        // CloudKit 无唯一约束，同步竞态会给出相同 `id` 的两行。
+        // `Dictionary(uniqueKeysWithValues:)` 会直接崩（首页一打开就退）。
+        let accounts = SyncedIdentity.uniquedByID(accounts, id: \.id, updatedAt: \.updatedAt)
+        let titleByAccount = Dictionary(
+            accounts.map { ($0.id, $0.displayName) },
+            uniquingKeysWith: { _, last in last }
+        )
         // Seed every account so 「添加账号」后主列表仍可见（0 密钥也出分区），否则无法点「添加密钥」。
         var buckets: [UUID: [KeyRecordDTO]] = [:]
         for account in accounts {
@@ -65,7 +71,11 @@ enum KeyGrouping {
         tools: [ConsumerToolDTO],
         sectionSort: SectionSortPreference
     ) -> [KeyGroupSection] {
-        let toolName = Dictionary(uniqueKeysWithValues: tools.map { ($0.id, $0.name) })
+        let tools = SyncedIdentity.uniquedByID(tools, id: \.id, updatedAt: \.updatedAt)
+        let toolName = Dictionary(
+            tools.map { ($0.id, $0.name) },
+            uniquingKeysWith: { _, last in last }
+        )
         // 与按平台一致：每个使用端都出分区（含 0 密钥），否则「添加使用端」后主列表看不见。
         var exclusive: [UUID: [KeyRecordDTO]] = [:]
         for tool in tools {

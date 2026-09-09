@@ -8,33 +8,38 @@ actor UpstreamAccountRepository {
         let descriptor = FetchDescriptor<UpstreamAccount>(
             sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)]
         )
-        return try modelContext.fetch(descriptor)
-            .filter { includeDeleted || $0.deletedAt == nil }
-            .map(Self.map)
+        return SyncedIdentity.uniquedReplicas(
+            try modelContext.fetch(descriptor),
+            id: \.id,
+            rank: Self.rank
+        )
+        .filter { includeDeleted || $0.deletedAt == nil }
+        .map(Self.map)
     }
 
     func fetchSoftDeleted() throws -> [UpstreamAccountDTO] {
         let models = try modelContext.fetch(FetchDescriptor<UpstreamAccount>(
             sortBy: [SortDescriptor(\.deletedAt, order: .reverse)]
         ))
-        return models.filter { $0.deletedAt != nil }.map(Self.map)
+        return SyncedIdentity.uniquedReplicas(models, id: \.id, rank: Self.rank)
+            .filter { $0.deletedAt != nil }
+            .map(Self.map)
     }
 
     func fetch(id: UUID) throws -> UpstreamAccountDTO? {
-        var descriptor = FetchDescriptor<UpstreamAccount>(
-            predicate: #Predicate { $0.id == id }
-        )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first.map(Self.map)
+        SyncedIdentity.winner(in: try fetchModels(id: id), rank: Self.rank).map(Self.map)
     }
 
     @discardableResult
     func insert(_ draft: UpstreamAccountDraft, id: UUID? = nil) throws -> UUID {
+        let id = id ?? UUID()
+        if !(try fetchModels(id: id)).isEmpty {
+            throw ApiRelayError.validationFailed(field: "id", reason: "already_exists")
+        }
         let trimmed = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= 64 else {
             throw ApiRelayError.validationFailed(field: "displayName", reason: "required_1_to_64")
         }
-        let id = id ?? UUID()
         let now = Date()
         let trimmedNotes = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         let sortOrder = draft.sortOrder > 0 ? draft.sortOrder : (try nextSortOrder())
@@ -59,8 +64,18 @@ actor UpstreamAccountRepository {
         return id
     }
 
+    /// 备份导入：业务 `id` 已存在则跳过，MUST NOT 假装写入成功。
+    func insertIfAbsent(_ draft: UpstreamAccountDraft, id: UUID) throws -> Bool {
+        if !(try fetchModels(id: id)).isEmpty {
+            return false
+        }
+        _ = try insert(draft, id: id)
+        return true
+    }
+
     func update(id: UUID, patch: UpstreamAccountPatch) throws {
-        guard let model = try fetchModel(id: id) else {
+        let models = try fetchModels(id: id)
+        guard !models.isEmpty else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
         }
         if let platform = patch.platform {
@@ -68,13 +83,95 @@ actor UpstreamAccountRepository {
             guard !trimmed.isEmpty else {
                 throw ApiRelayError.validationFailed(field: "platform", reason: "required")
             }
-            model.platform = trimmed
         }
         if let name = patch.displayName {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty, trimmed.count <= 64 else {
                 throw ApiRelayError.validationFailed(field: "displayName", reason: "required_1_to_64")
             }
+        }
+        let now = Date()
+        for model in models {
+            Self.apply(patch, to: model, now: now)
+        }
+        try modelContext.save()
+    }
+
+    /// 按给定顺序重写 `sortOrder`（0…n-1）。不碰 `updatedAt`（自定义拖拽不是「上次修改」）。
+    func reorder(orderedIds: [UUID]) throws {
+        for (index, id) in orderedIds.enumerated() {
+            for model in try fetchModels(id: id) {
+                model.sortOrder = index
+            }
+        }
+        try modelContext.save()
+    }
+
+    private func nextSortOrder() throws -> Int {
+        let models = try modelContext.fetch(FetchDescriptor<UpstreamAccount>())
+        return (models.map(\.sortOrder).max() ?? -1) + 1
+    }
+
+    /// 移入回收站（默认保留 30 天）。
+    func softDelete(id: UUID, deletedAt: Date = Date(), retainDays: Int = 30) throws {
+        let models = try fetchModels(id: id)
+        guard !models.isEmpty else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        let purgeAfter = deletedAt.addingTimeInterval(TimeInterval(retainDays * 24 * 3600))
+        let now = Date()
+        for model in models {
+            model.deletedAt = deletedAt
+            model.purgeAfter = purgeAfter
+            model.updatedAt = now
+        }
+        try modelContext.save()
+    }
+
+    func clearDeletionMarks(id: UUID) throws {
+        let models = try fetchModels(id: id)
+        guard !models.isEmpty else {
+            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
+        }
+        let now = Date()
+        for model in models {
+            model.deletedAt = nil
+            model.purgeAfter = nil
+            model.updatedAt = now
+        }
+        try modelContext.save()
+    }
+
+    func delete(id: UUID) throws {
+        for model in try fetchModels(id: id) {
+            modelContext.delete(model)
+        }
+        try modelContext.save()
+    }
+
+    /// FR-061：清空本仓库上下文中的全部上游账号（含回收站）。
+    func deleteAllRecords() throws {
+        try modelContext.deleteAllRecords(UpstreamAccount.self)
+    }
+
+    /// CloudKit 同步留下的同业务 `id` 多行：能稳定分出唯一赢家才删输家。
+    func pruneDuplicateIdentities() throws {
+        try modelContext.pruneSyncedDuplicates(of: UpstreamAccount.self, id: \.id, rank: Self.rank)
+    }
+
+    private func fetchModels(id: UUID) throws -> [UpstreamAccount] {
+        try modelContext.fetch(FetchDescriptor<UpstreamAccount>(
+            predicate: #Predicate { $0.id == id }
+        ))
+    }
+
+    private static func apply(_ patch: UpstreamAccountPatch, to model: UpstreamAccount, now: Date) {
+        if let platform = patch.platform {
+            let trimmed = platform.trimmingCharacters(in: .whitespacesAndNewlines)
+            model.platform = trimmed
+        }
+        if let name = patch.displayName {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             model.displayName = trimmed
         }
         if let value = patch.customPlatformName {
@@ -99,63 +196,29 @@ actor UpstreamAccountRepository {
             || patch.notes != nil
             || patch.updatesAvatar
         if touchesContent {
-            model.updatedAt = Date()
+            model.updatedAt = now
         }
-        try modelContext.save()
     }
 
-    /// 按给定顺序重写 `sortOrder`（0…n-1）。不碰 `updatedAt`（自定义拖拽不是「上次修改」）。
-    func reorder(orderedIds: [UUID]) throws {
-        for (index, id) in orderedIds.enumerated() {
-            guard let model = try fetchModel(id: id) else { continue }
-            model.sortOrder = index
-        }
-        try modelContext.save()
-    }
-
-    private func nextSortOrder() throws -> Int {
-        let models = try modelContext.fetch(FetchDescriptor<UpstreamAccount>())
-        return (models.map(\.sortOrder).max() ?? -1) + 1
-    }
-
-    /// 移入回收站（默认保留 30 天）。
-    func softDelete(id: UUID, deletedAt: Date = Date(), retainDays: Int = 30) throws {
-        guard let model = try fetchModel(id: id) else {
-            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
-        }
-        model.deletedAt = deletedAt
-        model.purgeAfter = deletedAt.addingTimeInterval(TimeInterval(retainDays * 24 * 3600))
-        model.updatedAt = Date()
-        try modelContext.save()
-    }
-
-    func clearDeletionMarks(id: UUID) throws {
-        guard let model = try fetchModel(id: id) else {
-            throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
-        }
-        model.deletedAt = nil
-        model.purgeAfter = nil
-        model.updatedAt = Date()
-        try modelContext.save()
-    }
-
-    func delete(id: UUID) throws {
-        guard let model = try fetchModel(id: id) else { return }
-        modelContext.delete(model)
-        try modelContext.save()
-    }
-
-    /// FR-061：清空本仓库上下文中的全部上游账号（含回收站）。
-    func deleteAllRecords() throws {
-        try modelContext.deleteAllRecords(UpstreamAccount.self)
-    }
-
-    private func fetchModel(id: UUID) throws -> UpstreamAccount? {
-        var descriptor = FetchDescriptor<UpstreamAccount>(
-            predicate: #Predicate { $0.id == id }
+    private static func rank(_ model: UpstreamAccount) -> SyncedIdentity.ReplicaRank {
+        SyncedIdentity.ReplicaRank(
+            updatedAt: model.updatedAt,
+            isDeleted: model.deletedAt != nil,
+            fingerprint: [
+                model.displayName,
+                model.platform,
+                model.customPlatformName ?? "",
+                model.customBaseURL ?? "",
+                model.notes ?? "",
+                model.hasManagementCredential ? "1" : "0",
+                String(model.sortOrder),
+                model.avatarSymbol ?? "",
+                model.avatarColor ?? "",
+                SyncedIdentity.dateStamp(model.createdAt),
+                SyncedIdentity.dateStamp(model.deletedAt),
+                SyncedIdentity.dateStamp(model.purgeAfter),
+            ].joined(separator: "\u{1e}")
         )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
     }
 
     private static func map(_ model: UpstreamAccount) -> UpstreamAccountDTO {

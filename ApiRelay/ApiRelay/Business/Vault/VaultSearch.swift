@@ -29,10 +29,21 @@ enum VaultSearch: Sendable {
         guard !query.isEmpty else {
             return Results(keys: [], accounts: [], tools: [])
         }
-        let accountById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
-        let toolById = Dictionary(uniqueKeysWithValues: tools.map { ($0.id, $0) })
+        // CloudKit 无唯一约束；仓库漏去重时 `uniqueKeysWithValues` 会直接崩。
+        let accounts = SyncedIdentity.uniquedByID(accounts, id: \.id, updatedAt: \.updatedAt)
+        let tools = SyncedIdentity.uniquedByID(tools, id: \.id, updatedAt: \.updatedAt)
+        let accountById = Dictionary(
+            accounts.map { ($0.id, $0) },
+            uniquingKeysWith: { _, last in last }
+        )
+        let toolById = Dictionary(
+            tools.map { ($0.id, $0) },
+            uniquingKeysWith: { _, last in last }
+        )
         return Results(
-            keys: keys.filter { keyMatches($0, query: query, accountById: accountById, toolById: toolById) },
+            keys: uniquedKeys(
+                keys.filter { keyMatches($0, query: query, accountById: accountById, toolById: toolById) }
+            ),
             accounts: accounts.filter { accountMatches($0, query: query) },
             tools: tools.filter { toolMatches($0, query: query) }
         )
@@ -81,6 +92,11 @@ enum VaultSearch: Sendable {
         if contains(account.platform, query) { return true }
         if contains(account.customPlatformName, query) { return true }
         return contains(platformDisplayName(for: account), query)
+    }
+
+    private static func uniquedKeys(_ keys: [KeyRecordDTO]) -> [KeyRecordDTO] {
+        var seen = Set<UUID>()
+        return keys.filter { seen.insert($0.id).inserted }
     }
 
     private static func toolMatches(_ tool: ConsumerToolDTO, query: String) -> Bool {

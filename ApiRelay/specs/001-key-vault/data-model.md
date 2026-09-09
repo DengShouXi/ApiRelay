@@ -116,7 +116,7 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 
 | 字段 | 类型 | 同步 | 约束 |
 |------|------|------|------|
-| id | UUID | ✅ | 主键 |
+| id | UUID | ✅ | 主键。CloudKit 无唯一约束，见下方「重复行」 |
 | platform | String | ✅ | 平台标识，见下方预置清单；用户自定义平台为 `custom` |
 | customPlatformName | String? | ✅ | `platform == custom` 时的用户自定义平台名称（FR-007a） |
 | displayName | String | ✅ | 1…64 字符，非空。**允许同平台多账号** |
@@ -137,13 +137,26 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 （FR-007a）。自定义平台的能力矩阵默认为**全部不支持**（无 App 内签发、无用量、无余额），
 在 V2 的界面上如实呈现为「该平台能力未知」而非「功能故障」。
 
+**重复行（CloudKit）**：`id` 在业务上应唯一。CloudKit 无唯一约束，同步竞态会留下业务 `id` 相同、记录名不同的多行。仓库读取时按 `id` 去重：冲突留 `updatedAt` 较新者；时间戳相同则带 `deletedAt` 的墓碑优先；仍打平则按业务字段指纹。用户改 / 软删 / 恢复 / 永久删除 MUST 打到同 `id` 全部本地行。完全相同的克隆 MUST NOT 在卫生清扫中删除（两台设备若各删「另一行」，同步后会一条不剩）。MUST NOT 给同步模型加 `@Attribute(.unique)`。
+
+**冲突字段取舍（整行 LWW，禁止拼接）**：
+
+| 实体 | 冲突时保留 | 禁止 |
+|------|------------|------|
+| `UpstreamAccount` / `ConsumerTool` / `APIKeyRecord` | 较新 `updatedAt` 的**整行**（名称、备注、头像、平台、lifecycle、删除态一并采用）。时间戳相同则墓碑整行胜。较旧行上独有的字段随整行丢掉。 | 把两边非空备注/名称拼成新字符串；做字段级三路合并 |
+| `KeyAssignment` | 按 `(keyId, consumerToolId)` **去重并集**（同一组合只计一次；不同组合都保留） | 用账号那套整行 LWW 丢掉另一条合法指派 |
+| `UserPreferences` | 读取按指纹确定性折叠；写入打全部副本。**13.5 不物理删除冲突行**（无 `updatedAt`，指纹赢家不是最后修改者优先）。有可靠版本时间或 `replicaSeed` 后再清。 | 拼接时长 JSON；按指纹自动删行 |
+| `EntitlementSnapshot` | 本机库；较新 `updatedAt` 整行胜，打平不删 | 把两档权益拼成第三档 |
+
+未 Deploy additive `replicaSeed` 之前，业务字段完全相同的克隆继续不删。
+
 **状态**：无生命周期状态。删除账号 MUST 级联处理其下密钥（见 §9）。
 
 ### 3.2 APIKeyRecord（密钥元信息）
 
 | 字段 | 类型 | 同步 | 约束 |
 |------|------|------|------|
-| id | UUID | ✅ | 主键；同时是 Keychain Account |
+| id | UUID | ✅ | 主键；同时是 Keychain Account。CloudKit 无唯一约束，见账号「重复行」同一套规则 |
 | accountId | UUID | ✅ | → `UpstreamAccount.id` |
 | displayName | String | ✅ | 1…64 字符，去首尾空白后非空 |
 | maskedHint | String? | ✅ | CloudKit 遗留字段（不可删）。**MUST 保持 nil**；禁止存末位等密钥片段。列表不读此字段 |
@@ -166,7 +179,7 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 **验证规则**
 
 - 免费权益下 `lifecycle != .softDeleted` 的记录数 ≤ 3（FR-026）；权益失效后超额部分只读保留
-  （FR-029），计数用于**阻止新增**而非删除既有数据。
+  （FR-029），计数用于**阻止新增**而非删除既有数据。计数 MUST 按业务 `id` 去重，MUST NOT 把 CloudKit 重复行算成两把密钥。
 - `providerKeyRef` 在同一 `accountId` 内应唯一；因 CloudKit 无唯一约束，冲突时以 `updatedAt` 较新者
   为准并记录一次冲突提示。
 - 明文 MUST 在写入前去除首尾空白，MUST 拒绝含空格、制表符或换行的内容（FR-056）。
@@ -233,7 +246,7 @@ softDeleted ──┬─→ active              (用户恢复；清 deletedAt / 
 
 | 字段 | 类型 | 同步 | 约束 |
 |------|------|------|------|
-| id | UUID | ✅ | 主键 |
+| id | UUID | ✅ | 主键。CloudKit 无唯一约束，见账号「重复行」同一套规则 |
 | name | String | ✅ | 1…48 字符，非空。用户可自定义新增（FR-007a） |
 | iconSymbol | String? | ✅ | 预置/目录 SF Symbol 名称 |
 | avatarSymbol | String? | ✅ | 用户覆盖的头像；nil = 预置工具跟目录，自建工具跟产品写死的默认（设置不再改默认） |
@@ -262,7 +275,8 @@ softDeleted ──┬─→ active              (用户恢复；清 deletedAt / 
 **验证规则**
 
 - `(keyId, consumerToolId)` 组合应唯一。CloudKit 无唯一约束，故在 Business 层去重；
-  同步竞态产生的重复行 MUST 在读取时按组合去重，MUST NOT 导致该密钥被计算两次。
+  同步竞态产生的重复行 MUST 在读取时按组合去重并集，MUST NOT 导致该密钥被计算两次，
+  MUST NOT 套用账号/密钥的整行 LWW（见 §3.1 冲突字段取舍表）。
 - **「未分配」的定义**：不存在任何 `KeyAssignment` 引用该 `keyId`。
 
 #### ⚠️ 多对多引入的统计口径约束（V2 必须遵守）
@@ -379,6 +393,8 @@ DeepSeek 仅支持本实体、不支持 `UsageSnapshot` 的按密钥拆分——
 | lowBalanceThreshold | Decimal? | ✅ | 余额提醒阈值（V2 使用） |
 
 `revealPolicy` **单一字段同时管辖查看与复制**——不设两个开关（FR-003、宪法 VIII）。
+
+CloudKit 无唯一约束，同步竞态可能留下多条同 `singletonID` 的行。读取按指纹选赢家（本实体无 `updatedAt`）；写入打到全部副本。**13.5 起卫生清扫 MUST NOT 物理删除冲突行**——指纹赢家不是最后修改者优先。见 §3.1 冲突字段取舍表。
 
 **本实体只放需要在各设备间保持一致的偏好**。安全策略若各设备不同，用户会误判自己的实际保护
 等级，因此必须同步。
