@@ -89,25 +89,44 @@ actor KeychainStore: KeychainStoring {
     // MARK: - KeychainStoring
 
     func save(_ secret: String, service: KeychainService, account: UUID) throws {
-        try? delete(service: service, account: account)
-
         guard let data = secret.data(using: .utf8) else {
             throw ApiRelayError.keychainFailure(errSecParam)
         }
 
-        var query: [String: Any] = [
+        let synchronizable = isSynchronizable(for: service)
+        var match: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName(for: service),
             kSecAttrAccount as String: account.uuidString,
+            kSecAttrSynchronizable as String: synchronizable,
+        ]
+        applyAccessGroup(to: &match)
+
+        let updates: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: accessibleAttribute(for: service),
-            kSecAttrSynchronizable as String: isSynchronizable(for: service),
         ]
-        applyAccessGroup(to: &query)
+        let updateStatus = SecItemUpdate(match as CFDictionary, updates as CFDictionary)
+        if updateStatus == errSecSuccess { return }
+        guard updateStatus == errSecItemNotFound else {
+            throw ApiRelayError.keychainFailure(updateStatus)
+        }
 
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw ApiRelayError.keychainFailure(status)
+        // 仅在确认不存在时新增；禁止“先删后加”，否则新增失败会把旧值及其云端副本一起删掉。
+        var add = match
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = accessibleAttribute(for: service)
+        let addStatus = SecItemAdd(add as CFDictionary, nil)
+        if addStatus == errSecDuplicateItem {
+            // 查询与新增之间若刚好收到另一设备的同名条目，重新走原子更新。
+            let retryStatus = SecItemUpdate(match as CFDictionary, updates as CFDictionary)
+            guard retryStatus == errSecSuccess else {
+                throw ApiRelayError.keychainFailure(retryStatus)
+            }
+            return
+        }
+        guard addStatus == errSecSuccess else {
+            throw ApiRelayError.keychainFailure(addStatus)
         }
     }
 

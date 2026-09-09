@@ -70,9 +70,16 @@ final class VaultHomeViewModel: ObservableObject {
             }
             allKeys = keys
             rebuildSections()
-            remainingQuota = try await vault.remainingFreeQuota()
         } catch {
             errorMessage = error.localizedDescription
+            return
+        }
+
+        // 额度状态依赖 StoreKit；失败不能把已经成功加载的密钥列表判成失败。
+        do {
+            remainingQuota = try await vault.remainingFreeQuota()
+        } catch {
+            remainingQuota = nil
         }
     }
 
@@ -610,13 +617,22 @@ final class VaultHomeViewModel: ObservableObject {
     /// 复制成功提示。剩余时长 MUST 取设置里的真实值，MUST NOT 写死；
     /// Mac 与 iPhone 的清除边界不同，说明也分开写。
     private func announceCopied() async {
-        let seconds = try? await environment.preferences.load().clipboardClearSeconds
-        copySecondsRemaining = seconds
+        let prefs = try? await environment.preferences.load()
+        let enabled = prefs?.clipboardClearEnabled ?? true
+        let seconds = prefs?.clipboardClearSeconds
+        copySecondsRemaining = enabled ? seconds : nil
         toastMessage = String(localized: "vault.copied.toast")
-        toastDetail = Self.copiedDetail(seconds: seconds)
+        toastDetail = Self.copiedDetail(seconds: seconds, enabled: enabled)
     }
 
-    static func copiedDetail(seconds: Int?) -> String? {
+    static func copiedDetail(seconds: Int?, enabled: Bool = true) -> String? {
+        guard enabled else {
+            #if os(macOS) || targetEnvironment(macCatalyst)
+            return String(localized: "vault.copied.detail.off.mac")
+            #else
+            return String(localized: "vault.copied.detail.off")
+            #endif
+        }
         guard let seconds else { return nil }
         #if os(macOS) || targetEnvironment(macCatalyst)
         return String(localized: "vault.copied.detail.mac \(seconds)")
@@ -773,7 +789,7 @@ final class VaultHomeViewModel: ObservableObject {
         }
     }
 
-    /// 催元数据走完本次 CloudKit 导入/导出；明文仍由钥匙串自行同步。
+    /// 刷新并等待本次可观测的 CloudKit 活动；明文仍由钥匙串自行同步。
     func requestSyncNow() async -> CloudSyncNowOutcome {
         let outcome = await environment.cloudSync.requestMetadataSync()
         await refresh()

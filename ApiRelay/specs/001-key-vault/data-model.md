@@ -123,7 +123,7 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 | customBaseURL | String? | ✅ | 自定义平台必填；预置平台可选覆写 |
 | hasManagementCredential | Bool | ✅ | 冗余标记，默认 false。V2 才使用 |
 | notes | String? | ✅ | 可选备注 |
-| avatarSymbol | String? | ✅ | 用户覆盖的 SF Symbol；nil = 跟设置默认 / 平台预置 |
+| avatarSymbol | String? | ✅ | 用户覆盖的 SF Symbol；nil = 跟产品写死的默认 / 平台预置（不跟设置里的默认头像） |
 | avatarColor | String? | ✅ | 底色标记；与 `avatarSymbol` 同进同出 |
 | createdAt / updatedAt | Date | ✅ | `updatedAt` 为 LWW 冲突依据 |
 | sortOrder | Int | ✅ | 列表排序，默认 0；自定义分区顺序（FR-064） |
@@ -152,7 +152,7 @@ Payload 为 salt + 迭代次数 + 派生结果，**不是**主密码明文，也
 | lifecycle | String | ✅ | `active` / `revokedUpstream` / `softDeleted` |
 | spendLimit | Decimal? | ✅ | 平台支持时的消费上限（FR-009） |
 | notes | String? | ✅ | 备注 |
-| avatarSymbol | String? | ✅ | 用户覆盖的 SF Symbol；nil = 跟设置里的密钥默认 |
+| avatarSymbol | String? | ✅ | 用户覆盖的 SF Symbol；nil = 跟产品写死的密钥默认（设置不再改默认） |
 | avatarColor | String? | ✅ | 底色标记；与 `avatarSymbol` 同进同出 |
 | createdAt / updatedAt | Date | ✅ | — |
 | deletedAt | Date? | ✅ | 移入回收站的时间（FR-006 / DC-029） |
@@ -236,7 +236,7 @@ softDeleted ──┬─→ active              (用户恢复；清 deletedAt / 
 | id | UUID | ✅ | 主键 |
 | name | String | ✅ | 1…48 字符，非空。用户可自定义新增（FR-007a） |
 | iconSymbol | String? | ✅ | 预置/目录 SF Symbol 名称 |
-| avatarSymbol | String? | ✅ | 用户覆盖的头像；nil = 预置工具跟目录，自建工具跟设置默认 |
+| avatarSymbol | String? | ✅ | 用户覆盖的头像；nil = 预置工具跟目录，自建工具跟产品写死的默认（设置不再改默认） |
 | avatarColor | String? | ✅ | 底色标记；与 `avatarSymbol` 同进同出 |
 | isPreset | Bool | ✅ | 是否来自内置预置清单，默认 false |
 | isHidden | Bool | ✅ | 预置项可被隐藏而非删除，默认 false |
@@ -363,10 +363,13 @@ DeepSeek 仅支持本实体、不支持 `UsageSnapshot` 的按密钥拆分——
 | 字段 | 类型 | 同步 | 说明 |
 |------|------|------|------|
 | id | UUID | ✅ | 固定 singleton 逻辑 id |
-| appLockEnabled | Bool | ✅ | 打开 App 需身份确认 |
-| autoLockSeconds | Int | ✅ | 自动锁定时长 |
+| appLockEnabled | Bool | ✅ | 打开 App 需身份确认 / 自动锁定开关 |
+| autoLockSeconds | Int | ✅ | 当前选中的自动锁定时长 |
+| autoLockDurationOptionsJSON | String? | ✅ | 时长列表 JSON；`nil` 首次预填 `[0,60]`；`[]` 表示用户删光 |
 | revealPolicy | String | ✅ | `none`（默认） / `biometricOrPasscode` / `biometricOnly` / `masterPassword`（FR-003 四档） |
-| clipboardClearSeconds | Int | ✅ | 默认 120（FR-005） |
+| clipboardClearEnabled | Bool | ✅ | 剪贴板自动清除开关，默认 true（FR-005） |
+| clipboardClearSeconds | Int | ✅ | 当前选中的清除时长，默认 120（FR-005） |
+| clipboardClearDurationOptionsJSON | String? | ✅ | 时长列表 JSON；`nil` 首次预填 `[30,120]`；`[]` 表示用户删光 |
 | clipboardLocalOnly | Bool | ✅ | 禁用通用剪贴板（FR-004） |
 | hideInAppSwitcher | Bool | ✅ | — |
 | refreshIntervalMinutes | Int | ✅ | 0 = 仅手动（FR-021a，V2 使用） |
@@ -390,9 +393,9 @@ DeepSeek 仅支持本实体、不支持 `UsageSnapshot` 的按密钥拆分——
 | lastWindowWidth / lastWindowHeight | Double? | ❌ | Mac 窗口尺寸记忆，iOS 不使用 |
 | platformSectionSortCriterion / Ascending | String / Bool | ❌ | 按平台分区排序（FR-064）；默认 `name` + 升序 |
 | consumerSectionSortCriterion / Ascending | String / Bool | ❌ | 按使用方分区排序（FR-064）；默认 `name` + 升序 |
-| defaultKeyAvatarSymbol / Color | String | ❌ | 本机密钥默认头像；空 = 内置紫钥匙 |
-| defaultCustomAccountAvatarSymbol / Color | String | ❌ | 本机「自定义平台」默认头像；空 = 内置建筑 |
-| defaultCustomToolAvatarSymbol / Color | String | ❌ | 本机自建使用方默认头像；空 = 内置电脑 |
+| defaultKeyAvatarSymbol / Color | String | ❌ | **遗留字段**（本机模型不可删）。界面 MUST NOT 读；设置 MUST NOT 提供改默认入口。空或有值都不影响展示，未单独覆盖的条目走产品写死的紫钥匙 |
+| defaultCustomAccountAvatarSymbol / Color | String | ❌ | 同上；产品写死的默认是深灰建筑 |
+| defaultCustomToolAvatarSymbol / Color | String | ❌ | 同上；产品写死的默认是蓝电脑 |
 
 **为何不同步**（FR-060、DC-021）：外观与默认视角是**每台设备各自的选择**。「在 Mac 上切成深色
 导致 iPhone 也变深色」是用户并不想要的联动；窗口尺寸更是与 iPhone 无关。
@@ -552,7 +555,7 @@ Development 与 Production 是**两套独立 schema**。下列清单 MUST 在 **
 | `UsageSnapshot` | 时区口径字段（FR-019a）、`dataSource` |
 | `BalanceSnapshot` | — |
 | `PricingRule` | — |
-| `UserPreferences` | 仅安全相关偏好（FR-060） |
+| `UserPreferences` | 仅安全相关偏好（FR-060）。热修 additive：`autoLockDurationOptionsJSON`、`clipboardClearDurationOptionsJSON`（2026-08 的 2b **未含**这两项；发出写这两字段的正式包前 MUST 再 Deploy Production） |
 
 **不进 CloudKit 的**：`EntitlementSnapshot`、`RefreshHealth`、`DevicePreferences`、Keychain。
 

@@ -5,7 +5,9 @@ alwaysApply: true
 
 # 密钥明文红线
 
-明文只允许存在于三处：**Keychain**、**单次操作的局部作用域**、**剪贴板（限时）**。
+明文只允许存在于三处：**Keychain**、**单次操作的局部作用域**、**剪贴板**。
+
+剪贴板自动清除 **默认开启、用户可关**（关掉须在设置处披露风险）。MUST NOT 把「可关」改回「必须限时、不能关」。MUST NOT 把 2 分钟做成不可删固定档。MUST NOT 为「杀掉 App 后仍清除」给 Mac 加回 `.expirationDate`（其他 App 会粘贴不到）。
 
 末四位等密钥片段 MUST NOT 写入 SwiftData / CloudKit，也 MUST NOT 出现在未过门闩的列表或详情。去重在本机对 Keychain 明文做相等比较，MUST NOT 为此存储哈希。
 
@@ -21,9 +23,10 @@ print("key: \(secret.prefix(8))")
 // ❌ 明文进入 SwiftData / CloudKit
 @Model class APIKeyRecord { var secret: String }
 
-// ✅ 取出后立即用掉，不持有
+// ✅ 取出后立即用掉，不持有。关掉自动清除时 expiresAfter 为 nil。
+let expires: TimeInterval? = prefs.clipboardClearEnabled ? TimeInterval(prefs.clipboardClearSeconds) : nil
 let secret = try await vault.revealSecret(keyId: id, purpose: .copy)
-clipboard.write(secret, expiresAfter: 120, localOnly: true)
+clipboard.write(secret, expiresAfter: expires, localOnly: true)
 ```
 
 ## Keychain 的一条致命约束

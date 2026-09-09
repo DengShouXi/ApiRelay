@@ -19,9 +19,12 @@ final class PreferencesServiceTests: XCTestCase {
         let sut = PreferencesService(modelContainer: container)
         let loaded = try await sut.load()
         XCTAssertEqual(loaded.clipboardClearSeconds, 120)
+        XCTAssertTrue(loaded.clipboardClearEnabled)
+        XCTAssertEqual(loaded.clipboardClearDurationOptions, [30, 120])
         XCTAssertEqual(loaded.revealPolicy, .noVerification)
         XCTAssertFalse(loaded.appLockEnabled)
         XCTAssertEqual(loaded.autoLockSeconds, 60)
+        XCTAssertEqual(loaded.autoLockDurationOptions, [0, 60])
         XCTAssertTrue(loaded.hideInAppSwitcher)
 
         var patch = PreferencesPatch()
@@ -122,5 +125,23 @@ final class PreferencesServiceTests: XCTestCase {
 
         let user = try await UserPreferencesRepository(modelContainer: container).loadOrCreate()
         XCTAssertNil(user.defaultKeyAvatarSymbol)
+    }
+
+    func testDurationListsPersistAndEmptyListIsNotReseeded() async throws {
+        let container = try AppSchema.makeInMemoryContainer()
+        let sut = PreferencesService(modelContainer: container)
+
+        var patch = PreferencesPatch()
+        patch.clipboardClearEnabled = false
+        patch.autoLockDurationOptions = []
+        patch.clipboardClearDurationOptions = [45, 90]
+        patch.clipboardClearSeconds = 45
+        try await sut.update(patch)
+
+        let loaded = try await sut.load()
+        XCTAssertFalse(loaded.clipboardClearEnabled)
+        XCTAssertEqual(loaded.autoLockDurationOptions, [])
+        XCTAssertEqual(loaded.clipboardClearDurationOptions, [45, 90])
+        XCTAssertEqual(loaded.clipboardClearSeconds, 45)
     }
 }

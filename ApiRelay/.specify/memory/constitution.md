@@ -1,6 +1,62 @@
 <!--
-Sync Impact Report（最新：v2.5.0 → v2.6.0）
+Sync Impact Report（最新：v2.8.0 → v2.9.0）
 ==========================================
+Version change: 2.8.0 → 2.9.0 (MINOR: VII 剪贴板时长改为可增删列表；澄清 Mac/强制退出清不掉)
+
+Modified principles / requirements:
+  - VII. 密钥安全
+      * 自动清除出厂预填与默认选中 MUST 含 2 分钟；用户 MUST 能增删改列表（含删掉 2 分钟）。
+        废止「可选时长 MUST 永远包含 2 分钟」的固定档读法。
+      * 进程仍存活时 MUST 在时限内清除；系统终止、强制退出、崩溃、Mac 无可靠系统过期
+        MUST 在设置处如实说明。MUST NOT 为在 Mac 上写 `.expirationDate` 而破坏其他 App 粘贴。
+
+Templates / downstream sync:
+  - `specs/001-key-vault/spec.md`（FR-005、FR-021、DC-003、DC-020、SC-003、宪法修订记录）
+  - `specs/001-key-vault/plan.md`
+  - `specs/001-key-vault/research.md` §2 / §3
+  - `specs/001-key-vault/contracts/module-interfaces.md`
+  - `specs/001-key-vault/data-model.md`（默认头像遗留字段）
+  - `specs/001-key-vault/quickstart.md`、`tasks.md`
+  - `specs/ROADMAP.md`
+
+Follow-up TODOs: none
+
+历史记录
+========
+Version change: 2.7.0 → 2.8.0 (MINOR: 设置列表行 ⓘ 改紧贴标题；未删除 〉 规则)
+
+Modified principles / requirements:
+  - Platform Experience Standards → 设置列表行
+      * 子页行从左到右改为 `图标　标题　ⓘ　当前值（可空）　〉`。
+        ⓘ MUST 紧贴标题右侧，MUST NOT 贴在 〉 旁。
+        空间不足时 MUST 截断标题、保留当前值与 〉。
+      * 本页控件行仍为 `图标　标题　ⓘ　控件`，并明确 ⓘ 紧贴标题。
+      * 〉 仍仅用于 NavigationLink 子页行，点 ⓘ 仍只出示说明。
+
+Templates / downstream sync:
+  - `.cursor/rules/settings-row-chrome.mdc`
+  - `specs/001-key-vault/plan.md` Constitution Check
+  - `specs/001-key-vault/spec.md`（FR-021、宪法修订记录）
+  - `specs/playbooks/重要说明/索引.md`
+
+Follow-up TODOs: none
+
+Version change: 2.6.0 → 2.7.0 (MINOR: 剪贴板自动清除改为默认开启、用户可关；关掉时 MUST 披露风险)
+
+Modified principles / requirements:
+  - VII. 密钥安全
+      * 写入剪贴板的条件从「必须限时清除」改为「默认限时清除，用户可关」。
+        关闭后 MUST 在设置处披露其他 App 读取与通用剪贴板同步的风险。
+        未删除剪贴板条件许可，也未取消限时清除能力。
+
+Templates / downstream sync:
+  - `specs/001-key-vault/spec.md`（FR-005、FR-021、US1 3a、DC-003）
+  - `specs/001-key-vault/data-model.md`
+  - `specs/001-key-vault/contracts/module-interfaces.md`
+  - `specs/001-key-vault/plan.md` Constitution Check
+
+Follow-up TODOs: none
+
 Version change: 2.5.0 → 2.6.0 (MINOR: VII 去重改为本机 Keychain 相等比较，禁止末位片段入同步库与未过门闩界面；无原则删除)
 
 Modified principles / requirements:
@@ -20,8 +76,6 @@ Templates / downstream sync:
 
 Follow-up TODOs: none
 
-历史记录
-========
 Version change: 2.4.0 → 2.5.0 (MINOR: Platform Experience 新增「界面呈现」，无原则删除或重定义)
 
 Modified principles / requirements:
@@ -39,7 +93,7 @@ Version change: 2.3.0 → 2.4.0 (MINOR: Platform Experience 新增「设置列�
 
 Modified principles / requirements:
   - Platform Experience Standards
-      * 新增「设置列表行」：仅子页行显示 〉；顺序为 标题　当前值　ⓘ　〉。
+      * 新增「设置列表行」：仅子页行显示 〉；当时顺序为 标题　当前值　ⓘ　〉（现行见 v2.8.0）。
 
 Templates / downstream sync:
   - `.cursor/rules/settings-row-chrome.mdc`（改为指向本条，不再另立准则）
@@ -176,14 +230,18 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
   MUST NOT 声称「明文永不离开本机」。
 - MUST NOT 将明文写入：SwiftData、CloudKit 业务数据库、UserDefaults、应用文件系统（受口令保护的
   加密导出物除外）、日志、崩溃上报、第三方 SDK 存储、分析事件。
-- **剪贴板为条件许可**。仅当以下三条同时满足时，允许将明文写入剪贴板：
+- **剪贴板为条件许可**。仅当以下两条同时满足时，允许将明文写入剪贴板：
   1. 由用户显式操作触发（MUST NOT 自动或后台写入）；
-  2. 已按第 VIII 条完成身份确认（当用户开启该选项时）；
-  3. 写入内容在用户可配置的时限内被自动清除。
+  2. 已按第 VIII 条完成身份确认（当用户开启该选项时）。
+  系统 MUST 提供可关闭的自动清除，默认开启。出厂预填与默认选中 MUST 含 2 分钟；用户 MUST 能增删改
+  时长列表（含删掉 2 分钟），MUST NOT 把 2 分钟做成不可删的固定档。用户关闭自动清除时，产品 MUST
+  在设置处披露风险：其他 App 可能读取剪贴板、内容可能经由通用剪贴板同步到用户的其他设备。
+  用户开启自动清除且进程仍存活时，写入内容 MUST 在所选时限内被自动清除。
   产品 MUST 在相关设置处披露剪贴板的固有风险：系统会提示粘贴行为、其他 App 可能读取剪贴板、
   内容可能经由通用剪贴板同步到用户的其他设备。
-- 自动清除 MUST NOT 误清用户在此之后复制的其他内容。若因应用被系统终止导致清除无法执行，
-  产品 MUST 在设置处如实说明该局限，MUST NOT 暗示清除是绝对保证。
+- 自动清除 MUST NOT 误清用户在此之后复制的其他内容。若因应用被系统终止、强制退出、崩溃，
+  或因平台无可靠系统过期（Mac）导致清除无法执行，产品 MUST 在设置处如实说明该局限，MUST NOT
+  暗示清除是绝对保证。MUST NOT 为在 Mac 上写入 `.expirationDate` 而破坏其他 App 粘贴。
 - **管理类高权限凭证**（可创建密钥、可产生消费、可读取组织级用量的凭证）MUST 受到不低于普通密钥的
   保护，且其配置界面 MUST 明确披露权限范围与风险。
 - 明文获取后 MUST 在使用完成后及时清理内存引用（将 `String` 置 nil 或使用 `Data` 的
@@ -260,12 +318,13 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
   `settingsDisclosureRow`，MUST NOT 手写一条能进子页却不画 〉 的行。
 - 本页即可完成的控件（菜单、开关、步进器）、点一下即执行的操作、以及弹层（非推入导航）
   MUST NOT 显示 〉。
-- 子页行从左到右 MUST 为：`图标　标题　当前值（可空）　ⓘ　〉`。〉 MUST 在最右。ⓘ MUST 在 〉
-  左侧；点 ⓘ MUST 只出示说明，MUST NOT 进入下一页。
-- 本页控件行从左到右 MUST 为：`图标　标题　ⓘ　控件`。控件在最右，无 〉。
+- 子页行从左到右 MUST 为：`图标　标题　ⓘ　当前值（可空）　〉`。〉 MUST 在最右。ⓘ MUST 紧贴
+  标题右侧，MUST NOT 贴在 〉 旁；点 ⓘ MUST 只出示说明，MUST NOT 进入下一页。当前值（若有）
+  MUST 靠右、位于 〉 左侧；空间不足时 MUST 截断标题，MUST 保留当前值与 〉。
+- 本页控件行从左到右 MUST 为：`图标　标题　ⓘ　控件`。ⓘ MUST 紧贴标题右侧；控件在最右，无 〉。
 
 **Rationale**: 同一设置页里「有的子页有 〉、有的没有」会让用户无法预判点按结果。与系统设置对齐：
-〉 只表示还能进去；ⓘ 是说明，不是导航。
+〉 只表示还能进去；ⓘ 解释「这一项是什么」，不是导航。
 
 ### 界面呈现 (Presentation)
 
@@ -384,9 +443,24 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
 **Rationale**: 这些不是「以后再优化」的选项，而是只有一次机会的选择。把它们集中登记，是为了避免
 它们被当成普通工程配置在实现阶段随手决定。
 
-**Version**: 2.6.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-21
+**Version**: 2.9.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-09-08
 
 <!--
+v2.9.0（MINOR，剪贴板时长列表 + Mac 清除上限）：
+  - VII：出厂默认 2 分钟，列表可增删（含删掉 2 分钟）；进程存活才保证按时清。
+    Mac / 强制退出 / 崩溃 MUST 披露，MUST NOT 为凑系统过期破坏粘贴。
+  - Sync Impact：spec FR-005/021/DC-003/DC-020、plan、research、contracts、data-model、
+    quickstart、tasks、ROADMAP、`.cursor/rules/key-security.mdc`（每次对话加载，不得再写「必须限时」）。
+
+v2.8.0（MINOR，设置列表行 ⓘ 紧贴标题）：
+  - 子页行顺序改为 `标题　ⓘ　当前值　〉`；ⓘ 解释项名，不贴在 〉 旁。
+  - 〉 规则未改：仅 NavigationLink 子页显示；点 ⓘ 仍只出示说明。
+  - Sync Impact：settings-row-chrome.mdc、plan.md Constitution Check、spec.md FR-021、playbooks 中文索引。
+
+v2.7.0（MINOR，剪贴板自动清除可关）：
+  - VII：写入剪贴板仍须显式操作与门闩；自动清除改为默认开启、用户可关，关掉时 MUST 披露风险。
+  - Sync Impact：spec FR-005/FR-021、data-model、module-interfaces、plan.md。
+
 v2.6.0（MINOR，密钥列表不展示片段）：
   - VII：去重改为本机 Keychain 相等比较；禁止末位片段 / 长度写入同步库或未过门闩界面。
   - 无障碍：列表与详情不展示、不朗读任何密钥字符片段。
@@ -401,7 +475,7 @@ v2.5.0（MINOR，界面呈现）：
 
 v2.4.0（MINOR，设置列表行）：
   - Platform Experience Standards 下新增「设置列表行 (Settings List Rows)」。
-    仅 NavigationLink 子页显示 〉；顺序 标题　当前值　ⓘ　〉。
+    仅 NavigationLink 子页显示 〉；当时顺序 标题　当前值　ⓘ　〉（现行见 v2.8.0）。
   - 无既有原则被删除或重定义，故为 MINOR。
   - Sync Impact：`.cursor/rules/settings-row-chrome.mdc` 改为指向本条；
     playbooks 中文索引、`specs/001-key-vault/plan.md` Constitution Check 已同步。

@@ -1106,13 +1106,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The upgrade product isn’t available yet. In TestFlight use a Sandbox Apple ID, and confirm the IAP exists in App Store Connect (Ready to Submit)."
+            "value" : "The upgrade product is temporarily unavailable. Please try again later."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "暂时无法获取升级商品。TestFlight 请用沙盒 Apple ID；并确认 App Store Connect 里已创建内购且状态可用（如「准备提交」）。"
+            "value" : "暂时无法获取升级商品，请稍后重试。"
           }
         }
       }
@@ -1129,6 +1129,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "恢复购买"
+          }
+        }
+      }
+    },
+    "paywall.restore.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No previous purchase was found"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到可恢复的购买"
           }
         }
       }
@@ -1398,6 +1414,7 @@
       }
     },
     "settings.appLock" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1432,6 +1449,7 @@
       }
     },
     "settings.appLock.rowDetail" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1549,13 +1567,47 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Requires “Require authentication to open” to be on. Counts from when you leave the app; returning after this many seconds locks again. 0 locks as soon as you leave. Brief system wake-ups while away do not reset the timer."
+            "value" : "When on, opening the app and returning after you leave both require authentication. Choose how long you can be away before it locks again. This is separate from whether viewing or copying a secret needs verification. If verification is off, unlocking the app still uses Face ID, Touch ID, or the device passcode."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "须先打开「打开 App 需要认证」。从离开 App 起算，超过此时长再回来会重新上锁。0 表示一离开就锁。离开期间系统短暂唤醒不会重置计时。"
+            "value" : "打开后，启动 App 以及离开后再回来都要身份确认。在本页选择离开多久之后重新上锁。这和「看/复制密钥要不要验证」不是一回事。即使验证方式是「不验证」，打开 App 仍会要一次本机面容 ID、触控 ID 或设备密码。"
+          }
+        }
+      }
+    },
+    "settings.autoLock.timeout" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock After Leaving"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "离开后重新锁定"
+          }
+        }
+      }
+    },
+    "settings.autoLock.timeout.rowDetail" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counts from when you leave the app. 0 locks as soon as you leave. Brief system wake-ups while away do not reset the timer. Takes effect when Auto-Lock is on."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从离开 App 起算。0 表示一离开就锁。离开期间系统短暂唤醒不会重置计时。打开「自动锁定」后才会生效。"
           }
         }
       }
@@ -2603,6 +2655,55 @@
         }
       }
     },
+    "settings.cancel" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "settings.clipboardClear.enabled" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clipboard Auto-Clear"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪贴板自动清除"
+          }
+        }
+      }
+    },
+    "settings.clipboardClear.enabled.rowDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn this off to leave a copied secret on the clipboard until something else replaces it. Other apps may read it, and it may sync to your other devices."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关掉之后，复制的密钥会留在剪贴板里，直到被别的内容覆盖。其他 App 可能读到，也可能同步到你的其他设备。"
+          }
+        }
+      }
+    },
     "settings.clipboardClear.label" : {
       "comment" : "Setting label for clipboard auto-clear duration",
       "localizations" : {
@@ -2626,13 +2727,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After you copy a secret, the system clipboard is cleared once this much time has passed. This still happens if you close the app."
+            "value" : "When on, a copied secret is cleared from the system clipboard after the duration you select. Turn it off if you do not want it cleared. Other apps may still read the clipboard, and it may sync to your other devices."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "复制密钥后，过了这个时长会清空系统剪贴板。关掉 App 也会照清。"
+            "value" : "打开后，复制的密钥会在你选的时长之后从系统剪贴板清除。关掉就不会自动清。其他 App 仍可能读到剪贴板，内容也可能同步到你的其他设备。关掉 App 也会尽量照清。"
           }
         }
       }
@@ -2643,13 +2744,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After you copy a secret, the system clipboard is cleared once this much time has passed."
+            "value" : "When on, a copied secret is cleared from the system clipboard after the duration you select, while this app is still running. Turn it off if you do not want it cleared. Other apps may still read the clipboard."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "复制密钥后，过了这个时长会清空系统剪贴板。"
+            "value" : "打开后，复制的密钥会在你选的时长之后从系统剪贴板清除（本 App 仍在运行时）。关掉就不会自动清。其他 App 仍可能读到剪贴板。"
           }
         }
       }
@@ -2769,7 +2870,288 @@
         }
       }
     },
+    "settings.duration.add" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Duration"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加时长"
+          }
+        }
+      }
+    },
+    "settings.duration.add.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a custom duration. Up to 5 in total."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加一条自定义时长。总共最多 5 条。"
+          }
+        }
+      }
+    },
+    "settings.duration.atCapacity.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can keep at most 5 durations. Delete one before adding another."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最多 5 个时长。请先删掉一条再添加。"
+          }
+        }
+      }
+    },
+    "settings.duration.atCapacity.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limit Reached"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已满 5 条"
+          }
+        }
+      }
+    },
+    "settings.duration.backToWheel" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to Wheel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回轮盘"
+          }
+        }
+      }
+    },
+    "settings.duration.delete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete duration"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除时长"
+          }
+        }
+      }
+    },
+    "settings.duration.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Duration"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修改时长"
+          }
+        }
+      }
+    },
+    "settings.duration.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No durations yet. Add one, then turn the feature on."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有时长。先添加一条，再打开功能。"
+          }
+        }
+      }
+    },
+    "settings.duration.gestureHint" : {
+      "comment" : "Short hint under the duration wheel",
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-click or long-press to type."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双击或长按可直接输入。"
+          }
+        }
+      }
+    },
+    "settings.duration.gestureHint.a11y" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-click or long-press the duration to type a value."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双击或长按时长可选区，可改为键盘输入。"
+          }
+        }
+      }
+    },
+    "settings.duration.immediate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Immediately"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即"
+          }
+        }
+      }
+    },
+    "settings.duration.manualHint" : {
+      "comment" : "Hint under the wheel/stepper for keyboard entry",
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Or edit the result below (H:MM:SS)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "也可以直接改下面的结果（时:分:秒）。"
+          }
+        }
+      }
+    },
+    "settings.duration.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        }
+      }
+    },
+    "settings.duration.part.hours %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hr"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 小时"
+          }
+        }
+      }
+    },
+    "settings.duration.part.minutes %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld min"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 分钟"
+          }
+        }
+      }
+    },
+    "settings.duration.part.seconds %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sec"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒"
+          }
+        }
+      }
+    },
+    "settings.duration.result" : {
+      "comment" : "Accessibility label for the live duration preview",
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "H:MM:SS"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时:分:秒"
+          }
+        }
+      }
+    },
     "settings.duration.seconds %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2786,6 +3168,55 @@
       }
     },
     "settings.duration.unit" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sec"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秒"
+          }
+        }
+      }
+    },
+    "settings.duration.unit.hour" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "hr"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时"
+          }
+        }
+      }
+    },
+    "settings.duration.unit.minute" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "min"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分"
+          }
+        }
+      }
+    },
+    "settings.duration.unit.second" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3662,6 +4093,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已恢复购买"
+          }
+        }
+      }
+    },
+    "settings.restorePurchases.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No previous purchase was found"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到可恢复的购买"
           }
         }
       }
@@ -5023,6 +5470,39 @@
         }
       }
     },
+    "vault.avatar.custom" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已自定义"
+          }
+        }
+      }
+    },
+    "vault.avatar.customize" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Customize"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义"
+          }
+        }
+      }
+    },
     "vault.avatar.done" : {
       "comment" : "Dismiss the avatar picker sheet; changes still wait for the parent Save",
       "localizations" : {
@@ -5053,39 +5533,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更改头像"
-          }
-        }
-      }
-    },
-    "vault.avatar.custom" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Custom"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已自定义"
-          }
-        }
-      }
-    },
-    "vault.avatar.customize" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Customize"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自定义"
           }
         }
       }
@@ -5572,6 +6019,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "密钥会在 %lld 秒后自动清除。如果你在这之前退出 App，剪贴板里的内容可能会留着。"
+          }
+        }
+      }
+    },
+    "vault.copied.detail.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The secret is on the clipboard and will not be cleared automatically."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥已在剪贴板中，不会自动清除。"
+          }
+        }
+      }
+    },
+    "vault.copied.detail.off.mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The secret is on the clipboard and will not be cleared automatically."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密钥已在剪贴板中，不会自动清除。"
           }
         }
       }
@@ -8447,13 +8926,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sync Now"
+            "value" : "Refresh Sync Status"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "立即同步"
+            "value" : "刷新同步状态"
           }
         }
       }
@@ -8480,13 +8959,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Syncing…"
+            "value" : "Refreshing…"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在同步…"
+            "value" : "正在刷新…"
           }
         }
       }
@@ -8564,13 +9043,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloud did not confirm this pass in time. It may still finish in the background."
+            "value" : "No new iCloud activity was confirmed in time. Sync may still continue in the background."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloud 尚未确认这次提交。系统仍可能在后台继续。"
+            "value" : "未在限定时间内观察到新的 iCloud 活动。系统仍可能在后台继续。"
           }
         }
       }

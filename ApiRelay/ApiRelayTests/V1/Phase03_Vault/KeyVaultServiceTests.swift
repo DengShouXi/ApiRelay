@@ -39,6 +39,8 @@ final class KeyVaultServiceTests: XCTestCase {
     }
 
     func testQuotaThirdSucceedsFourthFails() async throws {
+        let entitlements = StubEntitlements(tier: .free)
+        vault = makeVault(entitlements: entitlements)
         let accountId = try await vault.createAccount(
             UpstreamAccountDraft(platform: "openai", displayName: "A")
         )
@@ -48,6 +50,8 @@ final class KeyVaultServiceTests: XCTestCase {
                 secret: "sk-test-secret-\(i)aaa"
             )
         }
+        let callsBeforeFourth = await entitlements.currentTierCallCount
+        XCTAssertEqual(callsBeforeFourth, 0)
         do {
             _ = try await vault.createKey(
                 KeyDraft(accountId: accountId, displayName: "k4"),
@@ -57,6 +61,60 @@ final class KeyVaultServiceTests: XCTestCase {
         } catch let ApiRelayError.quotaExceededFreeTier(limit) {
             XCTAssertEqual(limit, 3)
         }
+        let callsAfterFourth = await entitlements.currentTierCallCount
+        XCTAssertEqual(callsAfterFourth, 1)
+    }
+
+    func testUnlimitedTierAllowsFourthKeyAfterSingleStoreCheck() async throws {
+        let entitlements = StubEntitlements(tier: .unlimitedKeys)
+        vault = makeVault(entitlements: entitlements)
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "Unlimited")
+        )
+
+        for i in 1...4 {
+            _ = try await vault.createKey(
+                KeyDraft(accountId: accountId, displayName: "u\(i)"),
+                secret: "sk-unlimited-secret-\(i)aaa"
+            )
+        }
+
+        let keyCount = try await vault.keys(in: accountId).count
+        let entitlementCalls = await entitlements.currentTierCallCount
+        XCTAssertEqual(keyCount, 4)
+        XCTAssertEqual(entitlementCalls, 1)
+    }
+
+    func testConcurrentFreeCreatesCannotExceedQuota() async throws {
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "Concurrent")
+        )
+        let sut = vault!
+
+        let successes = await withTaskGroup(of: Bool.self, returning: Int.self) { group in
+            for i in 1...4 {
+                group.addTask {
+                    do {
+                        _ = try await sut.createKey(
+                            KeyDraft(accountId: accountId, displayName: "c\(i)"),
+                            secret: "sk-concurrent-secret-\(i)aaa"
+                        )
+                        return true
+                    } catch {
+                        return false
+                    }
+                }
+            }
+            var count = 0
+            for await succeeded in group where succeeded {
+                count += 1
+            }
+            return count
+        }
+
+        let storedKeyCount = try await vault.keys(in: accountId).count
+        XCTAssertEqual(successes, 3)
+        XCTAssertEqual(storedKeyCount, 3)
     }
 
     func testStaleUnlimitedSnapshotStillEnforcesFreeQuota() async throws {

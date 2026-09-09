@@ -13,6 +13,9 @@ actor KeyVaultService: KeyVaultServing {
     private let assignmentsRepo: KeyAssignmentRepository
     private let userPrefsRepo: UserPreferencesRepository
     private let entitlements: EntitlementServing
+    /// 创建 / 恢复会跨多个 actor await；显式串行化，避免并发请求同时看到旧计数而越过免费线。
+    private var activationMutationLocked = false
+    private var activationMutationWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(
         keychain: KeychainStoring,
@@ -75,9 +78,9 @@ actor KeyVaultService: KeyVaultServing {
         acknowledgePossibleDuplicate: Bool
     ) async throws -> UUID {
         let normalized = try Self.normalizeSecret(secret)
-        if let remaining = try await remainingFreeQuota(), remaining <= 0 {
-            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
-        }
+        await acquireActivationMutation()
+        defer { releaseActivationMutation() }
+        try await ensureCanActivateKeys(1)
 
         if !acknowledgePossibleDuplicate,
            let dupId = try await existingKeyId(
@@ -194,9 +197,6 @@ actor KeyVaultService: KeyVaultServing {
 
     func restoreKey(_ id: UUID) async throws {
         try await gate.confirmMandatory(reason: String(localized: "gate.restoreKey"))
-        if let remaining = try await remainingFreeQuota(), remaining <= 0 {
-            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
-        }
         _ = try await restoreKeyAfterAuth(id, requirePresent: true)
     }
 
@@ -285,9 +285,12 @@ actor KeyVaultService: KeyVaultServing {
 
     private func writeSecretToClipboard(_ secret: String) async throws {
         let prefs = try await userPrefsRepo.loadOrCreate()
+        let expires: TimeInterval? = prefs.clipboardClearEnabled
+            ? TimeInterval(prefs.clipboardClearSeconds)
+            : nil
         try await clipboard.write(
             secret,
-            expiresAfter: TimeInterval(prefs.clipboardClearSeconds),
+            expiresAfter: expires,
             localOnly: prefs.clipboardLocalOnly
         )
     }
@@ -298,6 +301,36 @@ actor KeyVaultService: KeyVaultServing {
         if tier != .free { return nil }
         let count = try await keysRepo.countActiveNonDeleted()
         return max(0, Self.freeTierLimit - count)
+    }
+
+    /// 免费额度内的核心操作只查本机计数；只有即将超过 3 把时才向 StoreKit 确认会员。
+    /// 这不会把 snapshot 当授权依据：超过免费线时仍必须拿到权威权益。
+    private func ensureCanActivateKeys(_ additionalCount: Int) async throws {
+        guard additionalCount > 0 else { return }
+        let activeCount = try await keysRepo.countActiveNonDeleted()
+        guard activeCount + additionalCount > Self.freeTierLimit else { return }
+        let tier = try await entitlements.currentTier()
+        guard tier != .free else {
+            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
+        }
+    }
+
+    private func acquireActivationMutation() async {
+        if !activationMutationLocked {
+            activationMutationLocked = true
+            return
+        }
+        await withCheckedContinuation { continuation in
+            activationMutationWaiters.append(continuation)
+        }
+    }
+
+    private func releaseActivationMutation() {
+        guard !activationMutationWaiters.isEmpty else {
+            activationMutationLocked = false
+            return
+        }
+        activationMutationWaiters.removeFirst().resume()
     }
 
     func readSecretForAutomatedUse(
@@ -356,10 +389,7 @@ actor KeyVaultService: KeyVaultServing {
     /// 批量恢复前先算额度。超出则整批拒绝，且 MUST 在门闩之前调用。
     func preflightRestoreQuota(keyIds: [UUID], accountIds: [UUID]) async throws {
         let needed = try await keysThatWouldBecomeActive(keyIds: keyIds, accountIds: accountIds).count
-        guard needed > 0 else { return }
-        if let remaining = try await remainingFreeQuota(), needed > remaining {
-            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
-        }
+        try await ensureCanActivateKeys(needed)
     }
 
     /// 调用方 MUST 已完成 `confirmMandatory`。先账号（级联其下密钥），再处理剩余密钥。
@@ -453,6 +483,8 @@ actor KeyVaultService: KeyVaultServing {
     /// - Returns: 是否把一条回收站账号变成了有效（已恢复则 true，以便重试计成功）。
     @discardableResult
     private func restoreAccountAfterAuth(_ id: UUID, requirePresent: Bool) async throws -> Bool {
+        await acquireActivationMutation()
+        defer { releaseActivationMutation() }
         guard let account = try await accountsRepo.fetch(id: id) else {
             if requirePresent {
                 throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
@@ -461,9 +493,7 @@ actor KeyVaultService: KeyVaultServing {
         }
         guard account.deletedAt != nil else { return true }
         let cascadeKeys = try await keysRepo.fetch(accountId: id, lifecycles: [.softDeleted])
-        if let remaining = try await remainingFreeQuota(), cascadeKeys.count > remaining {
-            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
-        }
+        try await ensureCanActivateKeys(cascadeKeys.count)
         try await accountsRepo.clearDeletionMarks(id: id)
         for key in cascadeKeys {
             try await keysRepo.clearDeletionMarks(id: key.id)
@@ -474,6 +504,8 @@ actor KeyVaultService: KeyVaultServing {
     /// - Returns: 是否已不在回收站（含本来就有效、或刚恢复）。
     @discardableResult
     private func restoreKeyAfterAuth(_ id: UUID, requirePresent: Bool) async throws -> Bool {
+        await acquireActivationMutation()
+        defer { releaseActivationMutation() }
         guard let key = try await keysRepo.fetch(id: id) else {
             if requirePresent {
                 throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
@@ -481,9 +513,7 @@ actor KeyVaultService: KeyVaultServing {
             return true
         }
         guard key.lifecycle == .softDeleted else { return true }
-        if let remaining = try await remainingFreeQuota(), remaining <= 0 {
-            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
-        }
+        try await ensureCanActivateKeys(1)
         if let account = try await accountsRepo.fetch(id: key.accountId),
            account.deletedAt != nil {
             try await accountsRepo.clearDeletionMarks(id: account.id)

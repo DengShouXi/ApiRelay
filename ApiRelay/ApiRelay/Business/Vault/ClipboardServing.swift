@@ -1,7 +1,8 @@
 import Foundation
 
 protocol ClipboardServing: Actor {
-    func write(_ secret: String, expiresAfter: TimeInterval, localOnly: Bool) async throws
+    /// `expiresAfter == nil`：不排程、不写系统过期（用户关掉了自动清除）。
+    func write(_ secret: String, expiresAfter: TimeInterval?, localOnly: Bool) async throws
     /// 仅当剪贴板仍是本产品写入的那一份时才清除。
     func clearIfStillOurs() async
 }
@@ -17,11 +18,12 @@ actor SecureClipboard: ClipboardServing {
     private var lastWritten: String?
     private var clearTask: Task<Void, Never>?
 
-    func write(_ secret: String, expiresAfter: TimeInterval, localOnly: Bool) async throws {
+    func write(_ secret: String, expiresAfter: TimeInterval?, localOnly: Bool) async throws {
         lastWritten = secret
         clearTask?.cancel()
+        clearTask = nil
 
-        let expires = Date().addingTimeInterval(expiresAfter)
+        let expires = expiresAfter.map { Date().addingTimeInterval($0) }
         let changeCount = await Self.applyToPasteboard(
             secret: secret,
             expires: expires,
@@ -32,11 +34,16 @@ actor SecureClipboard: ClipboardServing {
             await ClipboardTerminationGuard.disarm()
             throw ApiRelayError.validationFailed(field: "clipboard", reason: "write_failed")
         }
+
+        guard let delay = expiresAfter, delay > 0 else {
+            await ClipboardTerminationGuard.disarm()
+            return
+        }
         await ClipboardTerminationGuard.arm(changeCount: changeCount)
 
-        let delay = expiresAfter
+        let sleepFor = delay
         clearTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            try? await Task.sleep(nanoseconds: UInt64(sleepFor * 1_000_000_000))
             await self?.clearIfStillOurs()
         }
     }
@@ -59,7 +66,7 @@ actor SecureClipboard: ClipboardServing {
     @MainActor
     private static func applyToPasteboard(
         secret: String,
-        expires: Date,
+        expires: Date?,
         localOnly: Bool
     ) -> Int? {
         #if canImport(UIKit)
@@ -74,9 +81,10 @@ actor SecureClipboard: ClipboardServing {
         pb.string = secret
         return pb.string == secret ? pb.changeCount : nil
         #else
-        var options: [UIPasteboard.OptionsKey: Any] = [
-            .expirationDate: expires
-        ]
+        var options: [UIPasteboard.OptionsKey: Any] = [:]
+        if let expires {
+            options[.expirationDate] = expires
+        }
         if localOnly {
             options[.localOnly] = true
         }

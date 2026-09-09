@@ -19,13 +19,15 @@ actor FakeEntitlements: EntitlementServing {
         try journal.record("refreshFromStore")
     }
 
-    func restorePurchases() async throws {
+    func restorePurchases() async throws -> EntitlementTier {
         try journal.record("restorePurchases")
+        return tier
     }
 
-    func purchaseUnlimitedKeys() async throws {
+    func purchaseUnlimitedKeys() async throws -> EntitlementTier {
         try journal.record("purchaseUnlimitedKeys")
         tier = .unlimitedKeys
+        return tier
     }
 
     func startListening() {

@@ -5,8 +5,8 @@ import SwiftData
 protocol EntitlementServing: Actor {
     func currentTier() async throws -> EntitlementTier
     func refreshFromStore() async throws
-    func restorePurchases() async throws
-    func purchaseUnlimitedKeys() async throws
+    func restorePurchases() async throws -> EntitlementTier
+    func purchaseUnlimitedKeys() async throws -> EntitlementTier
     /// 监听 StoreKit `Transaction.updates`。
     func startListening()
     /// FR-061：清本地权益快照；不吊销 StoreKit。
@@ -23,6 +23,8 @@ actor EntitlementService: EntitlementServing {
 
     private let snapshot: EntitlementSnapshotRepository
     private var updatesTask: Task<Void, Never>?
+    /// 验过签的 App 包环境；失败不缓存，下次再问。
+    private var cachedAppEnvironment: AppStore.Environment?
 
     #if DEBUG
     private var debugTier: EntitlementTier?
@@ -36,9 +38,13 @@ actor EntitlementService: EntitlementServing {
         updatesTask?.cancel()
         updatesTask = Task {
             for await update in Transaction.updates {
-                if case .verified(let transaction) = update {
-                    await handle(transaction: transaction)
+                switch update {
+                case .verified(let transaction):
                     await transaction.finish()
+                    _ = try? await currentTier()
+                case .unverified:
+                    // 不放行，也不 finish：保留 StoreKit 后续重新验签 / 重放的机会。
+                    continue
                 }
             }
         }
@@ -52,7 +58,8 @@ actor EntitlementService: EntitlementServing {
         #endif
         // StoreKit currentEntitlements 含本地缓存；空序列 = 未购，须写回 snapshot，避免脏 unlimited 永久放行。
         let live = Self.canonicalize(await tierFromStoreKit())
-        try await snapshot.update(tier: live, source: "storekit")
+        // snapshot 只是本机观测缓存，不是授权依据；落盘失败不得推翻 StoreKit 的权威结果。
+        try? await snapshot.update(tier: live, source: "storekit")
         return live
     }
 
@@ -60,24 +67,42 @@ actor EntitlementService: EntitlementServing {
         _ = try await currentTier()
     }
 
-    func restorePurchases() async throws {
+    func restorePurchases() async throws -> EntitlementTier {
         try await AppStore.sync()
-        _ = try await currentTier()
+        return try await currentTier()
     }
 
-    func purchaseUnlimitedKeys() async throws {
+    func purchaseUnlimitedKeys() async throws -> EntitlementTier {
         let products = try await Product.products(for: [Self.unlimitedKeysProductID])
         guard let product = products.first else {
-            // StoreKit 拉不到商品：常见于 ASC 未建 IAP / 未就绪 / 未用沙盒账号（TestFlight）。
+            // StoreKit 拉不到商品：常见于 ASC 未建 IAP、商品未就绪或付费协议未生效。
+            // TestFlight 会自动使用沙盒环境，不要求普通测试员更换 Apple ID。
             throw ApiRelayError.validationFailed(field: "product", reason: "storekit_product_unavailable")
         }
         let result = try await product.purchase()
         switch result {
         case .success(let verification):
-            if case .verified(let transaction) = verification {
-                await handle(transaction: transaction)
+            switch verification {
+            case .verified(let transaction):
+                let appEnvironment = await resolvedAppEnvironment()
+                guard EntitlementGrantPolicy.grantsUnlimitedKeys(
+                    productID: transaction.productID,
+                    environment: transaction.environment,
+                    revocationDate: transaction.revocationDate,
+                    appEnvironment: appEnvironment
+                ) else {
+                    await transaction.finish()
+                    throw ApiRelayError.validationFailed(
+                        field: "product",
+                        reason: "transaction_not_eligible"
+                    )
+                }
+                // 本次 verified 交易足以确认刚完成的购买；不再依赖 currentEntitlements 立刻刷新。
                 await transaction.finish()
-            } else {
+                try? await snapshot.update(tier: .unlimitedKeys, source: "storekit")
+                return .unlimitedKeys
+            case .unverified:
+                // 不 finish，保留暂时性验签失败后的重试机会。
                 throw ApiRelayError.validationFailed(field: "product", reason: "unverified_transaction")
             }
         case .userCancelled:
@@ -103,20 +128,33 @@ actor EntitlementService: EntitlementServing {
 
     /// 无有效买断交易 → `.free`（不得返回 nil 去「信脏 snapshot」）。
     private func tierFromStoreKit() async -> EntitlementTier {
+        var appEnvironment: AppStore.Environment?
+        var didResolveAppEnvironment = false
         for await result in Transaction.currentEntitlements {
-            if case .verified(let transaction) = result,
-               transaction.productID == Self.unlimitedKeysProductID {
+            guard case .verified(let transaction) = result else { continue }
+            if !didResolveAppEnvironment {
+                appEnvironment = await resolvedAppEnvironment()
+                didResolveAppEnvironment = true
+            }
+            if EntitlementGrantPolicy.grantsUnlimitedKeys(
+                productID: transaction.productID,
+                environment: transaction.environment,
+                revocationDate: transaction.revocationDate,
+                appEnvironment: appEnvironment
+            ) {
                 return .unlimitedKeys
             }
         }
         return .free
     }
 
-    private func handle(transaction: Transaction) async {
-        let tier: EntitlementTier = (transaction.productID == Self.unlimitedKeysProductID)
-            ? .unlimitedKeys
-            : .free
-        try? await snapshot.update(tier: Self.canonicalize(tier), source: "storekit")
+    private func resolvedAppEnvironment() async -> AppStore.Environment? {
+        if let cachedAppEnvironment { return cachedAppEnvironment }
+        guard case .verified(let app) = try? await AppTransaction.shared else {
+            return nil
+        }
+        cachedAppEnvironment = app.environment
+        return app.environment
     }
 
     /// V1 不暴露 `.relay`：一律视为无限密钥档。

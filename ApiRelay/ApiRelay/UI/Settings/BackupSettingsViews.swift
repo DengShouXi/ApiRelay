@@ -127,8 +127,11 @@ struct BackupPassphraseSettingsView: View {
             )
             let secret = try await environment.backupPassphrase.plaintext()
             let prefs = try? await environment.preferences.load()
-            let seconds = TimeInterval(prefs?.clipboardClearSeconds ?? 120)
-            try await environment.clipboard.write(secret, expiresAfter: seconds, localOnly: true)
+            let expires: TimeInterval? = {
+                guard let prefs, prefs.clipboardClearEnabled else { return nil }
+                return TimeInterval(prefs.clipboardClearSeconds)
+            }()
+            try await environment.clipboard.write(secret, expiresAfter: expires, localOnly: true)
             status = String(localized: "settings.backup.passphrase.copied")
         } catch ApiRelayError.authenticationCancelled {
             return

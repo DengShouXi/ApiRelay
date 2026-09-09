@@ -27,8 +27,11 @@ actor PreferencesService: PreferencesServing {
         return PreferencesDTO(
             appLockEnabled: user.appLockEnabled,
             autoLockSeconds: user.autoLockSeconds,
+            autoLockDurationOptions: user.autoLockDurationOptions,
             revealPolicy: user.revealPolicy,
+            clipboardClearEnabled: user.clipboardClearEnabled,
             clipboardClearSeconds: user.clipboardClearSeconds,
+            clipboardClearDurationOptions: user.clipboardClearDurationOptions,
             clipboardLocalOnly: user.clipboardLocalOnly,
             hideInAppSwitcher: user.hideInAppSwitcher,
             refreshIntervalMinutes: user.refreshIntervalMinutes,

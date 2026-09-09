@@ -185,7 +185,11 @@ final class AppEnvironment: ObservableObject {
         do {
             let container = try AppSchema.makeProductionContainer()
             #if DEBUG
-            CloudKitSchemaBootstrap.runIfNeeded(container: container)
+            // XCTest 使用内存容器，且测试宿主通常没有 CloudKit 签名能力；
+            // 测试启动时不得触发真实 CKContainer 初始化。
+            if !AppRuntime.isRunningTests {
+                CloudKitSchemaBootstrap.runIfNeeded(container: container)
+            }
             #endif
             return AppEnvironment(modelContainer: container)
         } catch {

@@ -152,8 +152,11 @@ struct PreferencesDTO: Sendable {
     // synced — UserPreferences（FR-060）
     var appLockEnabled: Bool
     var autoLockSeconds: Int
+    var autoLockDurationOptions: [Int]
     var revealPolicy: RevealPolicy
+    var clipboardClearEnabled: Bool
     var clipboardClearSeconds: Int
+    var clipboardClearDurationOptions: [Int]
     var clipboardLocalOnly: Bool
     var hideInAppSwitcher: Bool
     // V2 字段：V1 PreferencesService 持久化默认值，Settings UI 不展示（FR-021b）
@@ -249,8 +252,11 @@ enum AssignPickerFilter: String, Sendable {
 struct PreferencesPatch: Sendable {
     var appLockEnabled: Bool? = nil
     var autoLockSeconds: Int? = nil
+    var autoLockDurationOptions: [Int]? = nil
     var revealPolicy: RevealPolicy? = nil
+    var clipboardClearEnabled: Bool? = nil
     var clipboardClearSeconds: Int? = nil
+    var clipboardClearDurationOptions: [Int]? = nil
     var clipboardLocalOnly: Bool? = nil
     var hideInAppSwitcher: Bool? = nil
     var refreshIntervalMinutes: Int? = nil
@@ -277,8 +283,11 @@ struct PreferencesPatch: Sendable {
     nonisolated var writesUserPreferences: Bool {
         appLockEnabled != nil
             || autoLockSeconds != nil
+            || autoLockDurationOptions != nil
             || revealPolicy != nil
+            || clipboardClearEnabled != nil
             || clipboardClearSeconds != nil
+            || clipboardClearDurationOptions != nil
             || clipboardLocalOnly != nil
             || hideInAppSwitcher != nil
             || refreshIntervalMinutes != nil
@@ -388,6 +397,7 @@ struct CloudSyncStatusDTO: Sendable, Equatable {
     var activity: CloudSyncActivity
     var lastSuccessAt: Date?
     var lastFailureMessage: String?
+    var lastFailureAt: Date?
 
     static let placeholder = CloudSyncStatusDTO(
         account: .unknown,
@@ -395,7 +405,8 @@ struct CloudSyncStatusDTO: Sendable, Equatable {
         mirroringEnabled: false,
         activity: .idle,
         lastSuccessAt: nil,
-        lastFailureMessage: nil
+        lastFailureMessage: nil,
+        lastFailureAt: nil
     )
 
     /// 系统不提供 Apple ID 邮箱；编号供两台设备对照是否同一套 iCloud。
@@ -409,6 +420,8 @@ struct CloudSyncStatusDTO: Sendable, Equatable {
 
 enum CloudSyncNowOutcome: Sendable, Equatable {
     case uploaded(Date)
+    /// 本次只观察到 setup / import 完成，不能声称已经上传。
+    case refreshed(Date)
     case nothingToUpload(lastSuccess: Date?)
     case timedOut
     case unavailable

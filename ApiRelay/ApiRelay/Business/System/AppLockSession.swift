@@ -47,7 +47,7 @@ struct AppLockPreferences: Equatable, Sendable {
 /// iOS 冷启动会先 inactive；进前台后 1 秒内的 inactive 也不是「去了切换器」。
 /// 本机缓存只回答「上次是不是开着 App 锁」，且不得伪造验证方式。
 ///
-/// 自动锁定只在「打开 App 需要身份确认」开启时生效。
+/// 自动锁定只在设置里打开「自动锁定」时生效（`appLockEnabled`）。
 ///
 /// 自动锁计时：以**第一次**离开前台为准。系统在后台/切换器里偶尔会短暂拉起
 /// active 再 inactive（通知中心、刷新等）；若每次都重置离开时刻，会出现

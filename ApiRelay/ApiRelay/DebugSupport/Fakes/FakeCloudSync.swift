@@ -14,7 +14,8 @@ actor FakeCloudSync: CloudSyncServing {
             mirroringEnabled: false,
             activity: .idle,
             lastSuccessAt: nil,
-            lastFailureMessage: nil
+            lastFailureMessage: nil,
+            lastFailureAt: nil
         ),
         syncOutcome: CloudSyncNowOutcome = .localOnly
     ) {

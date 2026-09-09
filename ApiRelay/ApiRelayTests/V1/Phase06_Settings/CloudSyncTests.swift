@@ -1,5 +1,6 @@
 @preconcurrency import XCTest
 @testable import ApiRelay
+import CloudKit
 
 actor FakeCloudKitSyncMonitor: CloudKitSyncMonitoring {
     nonisolated let mirroringEnabled: Bool
@@ -8,6 +9,7 @@ actor FakeCloudKitSyncMonitor: CloudKitSyncMonitoring {
     var pipelineActivity: CloudSyncActivity
     var lastSuccess: Date?
     var lastFailure: String?
+    var lastFailureDate: Date?
     var inFlight: Bool
     var waitResult: CloudKitExportWaitResult
 
@@ -18,6 +20,7 @@ actor FakeCloudKitSyncMonitor: CloudKitSyncMonitoring {
         activity: CloudSyncActivity = .idle,
         lastSuccess: Date? = nil,
         lastFailure: String? = nil,
+        lastFailureDate: Date? = nil,
         inFlight: Bool = false,
         waitResult: CloudKitExportWaitResult = .nothingPending
     ) {
@@ -27,6 +30,7 @@ actor FakeCloudKitSyncMonitor: CloudKitSyncMonitoring {
         self.pipelineActivity = activity
         self.lastSuccess = lastSuccess
         self.lastFailure = lastFailure
+        self.lastFailureDate = lastFailureDate
         self.inFlight = inFlight
         self.waitResult = waitResult
     }
@@ -36,6 +40,7 @@ actor FakeCloudKitSyncMonitor: CloudKitSyncMonitoring {
     func activity() async -> CloudSyncActivity { pipelineActivity }
     func lastSuccessAt() async -> Date? { lastSuccess }
     func lastFailureMessage() async -> String? { lastFailure }
+    func lastFailureAt() async -> Date? { lastFailureDate }
     func hasInFlightActivity() async -> Bool { inFlight }
     func waitForCloudActivity(grace: Duration, activeTimeout: Duration) async -> CloudKitExportWaitResult {
         _ = grace
@@ -82,7 +87,7 @@ final class CloudSyncTests: XCTestCase {
         let monitor = FakeCloudKitSyncMonitor(
             mirroringEnabled: true,
             account: .signedOut,
-            waitResult: .succeeded(Date())
+            waitResult: .succeeded(Date(), .export)
         )
         let sut = CloudSyncService(monitor: monitor)
         let outcome = await sut.requestMetadataSync()
@@ -93,7 +98,7 @@ final class CloudSyncTests: XCTestCase {
         let monitor = FakeCloudKitSyncMonitor(
             mirroringEnabled: false,
             account: .signedIn,
-            waitResult: .succeeded(Date())
+            waitResult: .succeeded(Date(), .export)
         )
         let sut = CloudSyncService(monitor: monitor)
         let outcome = await sut.requestMetadataSync()
@@ -105,11 +110,23 @@ final class CloudSyncTests: XCTestCase {
         let monitor = FakeCloudKitSyncMonitor(
             mirroringEnabled: true,
             account: .signedIn,
-            waitResult: .succeeded(at)
+            waitResult: .succeeded(at, .export)
         )
         let sut = CloudSyncService(monitor: monitor)
         let outcome = await sut.requestMetadataSync()
         XCTAssertEqual(outcome, .uploaded(at))
+    }
+
+    func testRequestMetadataSyncDoesNotCallImportAnUpload() async {
+        let at = Date(timeIntervalSince1970: 1_700_000_150)
+        let monitor = FakeCloudKitSyncMonitor(
+            mirroringEnabled: true,
+            account: .signedIn,
+            waitResult: .succeeded(at, .import)
+        )
+        let sut = CloudSyncService(monitor: monitor)
+        let outcome = await sut.requestMetadataSync()
+        XCTAssertEqual(outcome, .refreshed(at))
     }
 
     func testRequestMetadataSyncNothingPendingKeepsLastSuccess() async {
@@ -182,8 +199,75 @@ final class CloudSyncTests: XCTestCase {
             date: date
         )
         let result = await waitTask.value
-        XCTAssertEqual(result, .succeeded(date))
+        XCTAssertEqual(result, .succeeded(date, .export))
         let last = await monitor.lastSuccessAt()
         XCTAssertEqual(last, date)
+    }
+
+    func testImportSuccessDoesNotClearExportFailure() async {
+        let suite = "ApiRelay.CloudSyncTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let monitor = CloudKitSyncMonitor(mirroringEnabled: true, defaults: defaults)
+        let failedAt = Date(timeIntervalSince1970: 1_700_000_400)
+        await monitor.applyPipelineEvent(
+            phase: .export,
+            succeeded: false,
+            ended: true,
+            errorText: "export failed",
+            date: failedAt
+        )
+        await monitor.applyPipelineEvent(
+            phase: .import,
+            succeeded: true,
+            ended: true,
+            errorText: nil,
+            date: failedAt.addingTimeInterval(10)
+        )
+        let failure = await monitor.lastFailureMessage()
+        let failureAt = await monitor.lastFailureAt()
+        XCTAssertEqual(failure, "export failed")
+        XCTAssertEqual(failureAt, failedAt)
+    }
+
+    func testExportSuccessClearsEarlierExportFailure() async {
+        let suite = "ApiRelay.CloudSyncTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let monitor = CloudKitSyncMonitor(mirroringEnabled: true, defaults: defaults)
+        let date = Date(timeIntervalSince1970: 1_700_000_500)
+        await monitor.applyPipelineEvent(
+            phase: .export,
+            succeeded: false,
+            ended: true,
+            errorText: "export failed",
+            date: date
+        )
+        await monitor.applyPipelineEvent(
+            phase: .export,
+            succeeded: true,
+            ended: true,
+            errorText: nil,
+            date: date.addingTimeInterval(10)
+        )
+        let failure = await monitor.lastFailureMessage()
+        let failureAt = await monitor.lastFailureAt()
+        XCTAssertNil(failure)
+        XCTAssertNil(failureAt)
+    }
+
+    func testPartialFailureDiagnosticExpandsChildErrors() {
+        let rejected = NSError(
+            domain: CKErrorDomain,
+            code: CKError.serverRejectedRequest.rawValue,
+            userInfo: [NSLocalizedDescriptionKey: "Field is not deployed"]
+        )
+        let outer = NSError(
+            domain: CKErrorDomain,
+            code: CKError.partialFailure.rawValue,
+            userInfo: [CKPartialErrorsByItemIDKey: ["record": rejected]]
+        )
+        let message = CloudKitSyncMonitor.diagnosticMessage(for: outer)
+        XCTAssertTrue(message.contains("Field is not deployed"))
+        XCTAssertTrue(message.contains("CKErrorDomain 15"))
+        XCTAssertFalse(message.contains("record"))
     }
 }

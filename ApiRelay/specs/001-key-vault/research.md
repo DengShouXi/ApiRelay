@@ -138,33 +138,31 @@ Touch ID 由**设备硬件决定**——iPhone 是 Face ID，多数 MacBook 是 
 
 ## 2. 剪贴板自动清除与通用剪贴板控制
 
-### 结论（好消息）
+### 结论
 
-`UIPasteboard.setItems(_:options:)` 原生支持两个正是本产品所需的选项：
+`UIPasteboard.setItems(_:options:)` 在 **iPhone** 上原生支持本产品所需的两个选项：
 
-- **`.expirationDate`**：由**系统**在指定时刻移除剪贴板内容。因为执行方是系统而非应用，
-  **即使应用已被终止，清除依然生效**。
+- **`.expirationDate`**：由系统在指定时刻移除剪贴板内容。执行方是系统时，应用被终止后清除**仍可能**生效。
 - **`.localOnly`**：阻止内容经 Handoff / 通用剪贴板同步到其他设备。
 
-可用性：iOS 10+、Mac Catalyst 13.1+。
+可用性：iOS 10+、Mac Catalyst 13.1+（API 存在 ≠ Mac 上能被其他 App 稳定粘贴）。
 
-### Decision
+### Decision（现行，落地后修订）
 
-- 主机制用 `.expirationDate`（满足 FR-005，且解决「应用被终止则清除失效」的顾虑）。
-- 辅以应用内 `Timer` 兜底，仅在应用存活期间生效，用于覆盖 `.expirationDate` 在连续多次复制场景下
-  的已知不稳定行为（社区报告：过期后再次 `setItems` 可能出现 `items` 为空）。
-- 兜底清除前 MUST 校验剪贴板当前内容仍是本产品写入的那一份，避免误清用户此后复制的内容（FR-005）。
+- **iPhone**：主机制 `.expirationDate`，辅以应用内计时（进程存活时兜底；连续复制时系统过期不稳定）。
+- **Mac Catalyst**：`setItems` + `.expirationDate` 常无法被其他 App 粘贴。现行 MUST **不写**系统过期，清除只有应用内存活时的计时与正常退出（含 ⌘Q）。强制退出与崩溃清不掉。此局限 MUST 在设置处披露。MUST NOT 为通过「杀掉 App 后仍清除」验收而给 Mac 加回系统过期。
+- 兜底清除前 MUST 校验剪贴板当前内容仍是本产品写入的那一份（FR-005）。
 - 「仅本机剪贴板」暴露为用户可选开关，映射 `.localOnly`。默认**关闭**（即允许通用剪贴板），
   因为「iPhone 复制、Mac 粘贴」是用户的真实场景；但须在设置处披露该路径会使明文离开本机。
 
-### Rationale
+### 当时论据（规划期，部分过时）
 
-`.expirationDate` 把清除责任交给系统，是 FR-005 中「若平台能力无法保证清除必然执行」这一让步条款
-的最优解——实际上大部分情况下能保证。规范无需下调要求。
+规划时认为 Catalyst 上 `.expirationDate` 能使 Mac 与 iPhone 同等「杀掉仍清」，因而「规范无需下调」。
+落地后 Mac 粘贴与系统过期互斥，已下调为上面的现行 Decision。FR-005 / 宪法 VII 的「平台无法保证则披露」条款覆盖此上限。
 
 ### Alternatives considered
 
-- 纯 `Timer` 方案：应用被终止即失效，不满足 FR-005 的可靠性期望。**降级为兜底手段而非主机制。**
+- 纯应用内计时：应用一退出即失效。iPhone 上仍用系统过期作主机制；Mac 上这是能力上限，不是偷懒。
 
 ---
 
@@ -176,15 +174,14 @@ Touch ID 由**设备硬件决定**——iPhone 是 Face ID，多数 MacBook 是 
 
 ### Rationale
 
-- 决定性因素：`UIPasteboard` 的 `.expirationDate` 与 `.localOnly` 在 Mac Catalyst 13.1+ 可用，而
-  原生 macOS 的 `NSPasteboard` **没有等价的系统级过期机制**。走原生 macOS 就必须在 Mac 上退回纯
-  `Timer` 方案，造成两端安全能力不一致。
+- **当时决定性因素（规划期）**：指望 Catalyst 上 `UIPasteboard.expirationDate` 让 Mac 也能「杀掉仍清」；原生 `NSPasteboard` 没有等价机制。
+- **落地后**：Catalyst 上系统过期与「其他 App 能粘贴」不能两全，Mac 改为不写系统过期（见 §2）。选 Catalyst 的**现行**理由是单 target、业务/数据层复用，**不是**剪贴板过期。
 - 业务层与数据层 100% 复用，符合宪法第 IV 条。
 - Mac 专项适配限于 UI 层：窗口尺寸、菜单栏 `Commands`、右键菜单、hover 状态、键盘快捷键。
 
 ### Alternatives considered
 
-- 原生 macOS target：Mac 端体验上限更高，但剪贴板能力退化 + 双份 UI 维护成本。**留作二期。**
+- 原生 macOS target：Mac 端体验上限更高，但双份 UI，且仍然没有可靠系统过期。**不因剪贴板而改形态（DC-020）。**
 
 ---
 
@@ -246,6 +243,12 @@ StoreKit 2，**单个非消耗型内购**解锁无限密钥。权益枚举按三
 `relay`），第三级本期不可达且 MUST NOT 出现在付费界面（FR-032）。
 
 必须实现「恢复购买」（FR-028）——苹果审核会专门检查非消耗型内购的恢复入口。
+
+放行只看：苹果 `.verified`、产品 ID 匹配、未退款。正式包额外只挡 `.xcode`（本地假商店）。
+TestFlight / 审核的 `.sandbox` 与正式店的 `.production` 都放行。MUST NOT 要求
+`transaction.environment == AppTransaction.environment`（环境和 App 包偶发不一致时会变成
+「钱扣了却不是会员」）。苹果已返回购买成功后，MUST NOT 因本地再查档位失败而把这次购买报成失败。
+`debugOverride` MUST 仅 `#if DEBUG`，MUST NOT 做界面/启动参数后门。
 
 ### Rationale
 

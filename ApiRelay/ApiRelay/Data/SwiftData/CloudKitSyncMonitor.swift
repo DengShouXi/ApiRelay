@@ -2,14 +2,14 @@ import CloudKit
 import CoreData
 import Foundation
 
-enum CloudKitPipelinePhase: Sendable, Equatable {
+enum CloudKitPipelinePhase: String, Sendable, Equatable {
     case setup
     case `import`
     case export
 }
 
 enum CloudKitExportWaitResult: Sendable, Equatable {
-    case succeeded(Date)
+    case succeeded(Date, CloudKitPipelinePhase)
     case failed(String)
     case timedOut
     case nothingPending
@@ -24,6 +24,7 @@ protocol CloudKitSyncMonitoring: Actor {
     func activity() async -> CloudSyncActivity
     func lastSuccessAt() async -> Date?
     func lastFailureMessage() async -> String?
+    func lastFailureAt() async -> Date?
     func hasInFlightActivity() async -> Bool
     func waitForCloudActivity(grace: Duration, activeTimeout: Duration) async -> CloudKitExportWaitResult
 }
@@ -31,6 +32,8 @@ protocol CloudKitSyncMonitoring: Actor {
 actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
     nonisolated static let lastSuccessDefaultsKey = "ApiRelay.cloudKit.lastSuccessAt"
     nonisolated static let lastFailureDefaultsKey = "ApiRelay.cloudKit.lastFailureMessage"
+    nonisolated static let lastFailureAtDefaultsKey = "ApiRelay.cloudKit.lastFailureAt"
+    nonisolated static let lastFailurePhaseDefaultsKey = "ApiRelay.cloudKit.lastFailurePhase"
 
     nonisolated let mirroringEnabled: Bool
     private let containerIdentifier: String
@@ -106,6 +109,9 @@ actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
         guard !started else { return }
         started = true
         observeNotifications()
+        // XCTest 宿主可能没有 CloudKit entitlement；直接创建 CKContainer 会触发系统崩溃，
+        // 而测试通过注入 / applyPipelineEvent 验证状态机，不需要访问真实账号。
+        guard !AppRuntime.isRunningTests else { return }
         await refreshAccount()
     }
 
@@ -127,6 +133,12 @@ actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
 
     func lastFailureMessage() async -> String? {
         defaults.string(forKey: Self.lastFailureDefaultsKey)
+    }
+
+    func lastFailureAt() async -> Date? {
+        let interval = defaults.double(forKey: Self.lastFailureAtDefaultsKey)
+        guard interval > 0 else { return nil }
+        return Date(timeIntervalSince1970: interval)
     }
 
     func hasInFlightActivity() async -> Bool {
@@ -198,22 +210,42 @@ actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
 
         if succeeded {
             defaults.set(date.timeIntervalSince1970, forKey: Self.lastSuccessDefaultsKey)
-            defaults.removeObject(forKey: Self.lastFailureDefaultsKey)
+            // 只有同一阶段的后续成功才能关闭该阶段的失败；import 成功不能掩盖 export 失败。
+            if defaults.string(forKey: Self.lastFailurePhaseDefaultsKey) == phase.rawValue {
+                defaults.removeObject(forKey: Self.lastFailureDefaultsKey)
+                defaults.removeObject(forKey: Self.lastFailureAtDefaultsKey)
+                defaults.removeObject(forKey: Self.lastFailurePhaseDefaultsKey)
+            }
+            if phase == .import {
+                NotificationCenter.default.post(name: .apiRelayCloudMetadataDidImport, object: nil)
+            }
             if !hasInFlight {
-                resumeAll(.succeeded(date))
+                resumeAll(.succeeded(date, phase))
             }
         } else {
             let message = errorText ?? "CloudKit"
-            defaults.set(message, forKey: Self.lastFailureDefaultsKey)
+            persistFailure(message, phase: phase, date: date)
             resumeAll(.failed(message))
         }
     }
 
     func refreshAccount() async {
-        let status: CKAccountStatus = await withCheckedContinuation { continuation in
-            CKContainer(identifier: containerIdentifier).accountStatus { status, _ in
-                continuation.resume(returning: status)
+        let result: Result<CKAccountStatus, NSError> = await withCheckedContinuation { continuation in
+            CKContainer(identifier: containerIdentifier).accountStatus { status, error in
+                if let error {
+                    continuation.resume(returning: .failure(error as NSError))
+                } else {
+                    continuation.resume(returning: .success(status))
+                }
             }
+        }
+        guard case .success(let status) = result else {
+            cachedAccount = .unknown
+            cachedUserRecordName = nil
+            if case .failure(let error) = result {
+                persistFailure(Self.diagnosticMessage(for: error), phase: .setup, date: Date())
+            }
+            return
         }
         cachedAccount = Self.mapAccountStatus(status)
         if status == .available {
@@ -251,6 +283,12 @@ actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
         return Date(timeIntervalSince1970: interval)
     }
 
+    private func persistFailure(_ message: String, phase: CloudKitPipelinePhase, date: Date) {
+        defaults.set(message, forKey: Self.lastFailureDefaultsKey)
+        defaults.set(date.timeIntervalSince1970, forKey: Self.lastFailureAtDefaultsKey)
+        defaults.set(phase.rawValue, forKey: Self.lastFailurePhaseDefaultsKey)
+    }
+
     private func observeNotifications() {
         let pipeline = NotificationCenter.default.addObserver(
             forName: NSPersistentCloudKitContainer.eventChangedNotification,
@@ -271,7 +309,7 @@ actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
             guard let phase else { return }
             let succeeded = event.succeeded
             let ended = event.endDate != nil
-            let errorText = event.error?.localizedDescription
+            let errorText = event.error.map(Self.diagnosticMessage(for:))
             let date = event.endDate ?? Date()
             Task { await self.applyPipelineEvent(
                 phase: phase,
@@ -316,7 +354,6 @@ actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
     private func timeoutOutcome(_ id: UUID) -> CloudKitExportWaitResult {
         let observed = waiters[id]?.observedActivity ?? false
         if hasInFlight { return .timedOut }
-        if observed, let date = persistedSuccess() { return .succeeded(date) }
         return observed ? .timedOut : .nothingPending
     }
 
@@ -325,4 +362,37 @@ actor CloudKitSyncMonitor: CloudKitSyncMonitoring {
             waiter.yield(.finished(result))
         }
     }
+
+    /// `CKError.partialFailure` 的外层描述只有“错误 2”；这里展开逐条子错误，但不记录 record ID。
+    nonisolated static func diagnosticMessage(for error: Error) -> String {
+        let leaves = leafErrors(in: error as NSError)
+        var unique: [String] = []
+        for leaf in leaves {
+            let marker = "\(leaf.domain) \(leaf.code)"
+            let description = leaf.localizedDescription
+            let item = description.contains(marker) ? description : "\(description) [\(marker)]"
+            if !unique.contains(item) { unique.append(item) }
+        }
+        let shown = unique.prefix(3).joined(separator: "；")
+        let omitted = max(0, unique.count - 3)
+        return omitted == 0 ? shown : "\(shown)；另有 \(omitted) 类错误"
+    }
+
+    nonisolated private static func leafErrors(in error: NSError, depth: Int = 0) -> [NSError] {
+        guard depth < 6 else { return [error] }
+        var children: [NSError] = []
+        if let partial = error.userInfo[CKPartialErrorsByItemIDKey] as? NSDictionary {
+            children += partial.allValues.compactMap { $0 as? NSError }
+        }
+        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+            children.append(underlying)
+        }
+        guard !children.isEmpty else { return [error] }
+        return children.flatMap { leafErrors(in: $0, depth: depth + 1) }
+    }
+}
+
+extension Notification.Name {
+    /// 业务 UI 只听这个脱敏后的语义事件，不直接依赖 Core Data / CloudKit 通知。
+    nonisolated static let apiRelayCloudMetadataDidImport = Notification.Name("ApiRelay.cloudMetadataDidImport")
 }

@@ -1,5 +1,6 @@
 @preconcurrency import XCTest
 @testable import ApiRelay
+import StoreKit
 import SwiftData
 
 @MainActor
@@ -35,6 +36,53 @@ final class EntitlementServiceTests: XCTestCase {
     func testProductIdentifiersMatchPlan() {
         XCTAssertEqual(EntitlementService.unlimitedKeysProductID, "com.apirelay.iap.unlimited_keys")
         XCTAssertEqual(EntitlementService.relayProductIDReserved, "com.apirelay.iap.relay")
+    }
+
+    func testGrantPolicyProductionRejectsOnlyXcodeFakes() {
+        XCTAssertTrue(grant(environment: .production, app: .production))
+        XCTAssertTrue(grant(environment: .sandbox, app: .production))
+        XCTAssertFalse(grant(environment: .xcode, app: .production))
+    }
+
+    func testGrantPolicyTestFlightHonorsSandbox() {
+        XCTAssertTrue(grant(environment: .sandbox, app: .sandbox))
+        XCTAssertTrue(grant(environment: .production, app: .sandbox))
+        XCTAssertFalse(grant(environment: .xcode, app: .sandbox))
+    }
+
+    func testGrantPolicyXcodeHonorsLocalStoreKitTesting() {
+        XCTAssertTrue(grant(environment: .xcode, app: .xcode))
+        XCTAssertTrue(grant(environment: .production, app: .xcode))
+        XCTAssertTrue(grant(environment: .sandbox, app: .xcode))
+    }
+
+    func testGrantPolicyRevokedOrWrongProductNeverGrants() {
+        XCTAssertFalse(grant(environment: .production, app: .production, revocationDate: Date()))
+        XCTAssertFalse(grant(
+            productID: "com.apirelay.iap.relay",
+            environment: .production,
+            app: .production
+        ))
+    }
+
+    func testGrantPolicyUnknownAppEnvironmentRejectsXcodeFakes() {
+        XCTAssertFalse(grant(environment: .xcode, app: nil))
+        XCTAssertTrue(grant(environment: .sandbox, app: nil))
+        XCTAssertTrue(grant(environment: .production, app: nil))
+    }
+
+    private func grant(
+        productID: String = EntitlementService.unlimitedKeysProductID,
+        environment: AppStore.Environment,
+        app: AppStore.Environment?,
+        revocationDate: Date? = nil
+    ) -> Bool {
+        EntitlementGrantPolicy.grantsUnlimitedKeys(
+            productID: productID,
+            environment: environment,
+            revocationDate: revocationDate,
+            appEnvironment: app
+        )
     }
 
     #if DEBUG

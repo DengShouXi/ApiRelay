@@ -6,7 +6,7 @@ final class ConsumerTool {
     var id: UUID = UUID()
     var name: String = ""
     var iconSymbol: String?
-    /// 用户在编辑里选的头像；nil = 预置工具跟目录，自建工具跟设置默认。
+    /// 用户在编辑里选的头像；nil = 预置工具跟目录，自建工具跟产品写死的默认（设置不再改默认）。
     var avatarSymbol: String?
     var avatarColor: String?
     var isPreset: Bool = false

@@ -199,8 +199,11 @@ struct PreferencesDTO: Sendable {
     // synced — UserPreferences（FR-060）
     var appLockEnabled: Bool
     var autoLockSeconds: Int
+    var autoLockDurationOptions: [Int]
     var revealPolicy: RevealPolicy
+    var clipboardClearEnabled: Bool
     var clipboardClearSeconds: Int
+    var clipboardClearDurationOptions: [Int]
     var clipboardLocalOnly: Bool
     var hideInAppSwitcher: Bool
     // V2 字段：V1 PreferencesService 持久化默认值，Settings UI 不展示（FR-021b）
@@ -230,13 +233,17 @@ enum GroupingMode: String, Sendable {
 }
 
 /// 局部更新；未设置的字段保持原值。
-/// 实现 MUST：`appearance` / `defaultGrouping` / 窗口尺寸 / 默认头像 → `DevicePreferences`；
+/// 实现 MUST：`appearance` / `defaultGrouping` / 窗口尺寸 / 分区排序 → `DevicePreferences`；
 /// 其余安全相关字段 → `UserPreferences`（FR-060）。
+/// 默认头像字段若仍存在于本机模型，属遗留：界面 MUST NOT 读取，设置 MUST NOT 提供改默认入口。
 struct PreferencesPatch: Sendable {
     var appLockEnabled: Bool?
     var autoLockSeconds: Int?
+    var autoLockDurationOptions: [Int]?
     var revealPolicy: RevealPolicy?
+    var clipboardClearEnabled: Bool?
     var clipboardClearSeconds: Int?
+    var clipboardClearDurationOptions: [Int]?
     var clipboardLocalOnly: Bool?
     var hideInAppSwitcher: Bool?
     var refreshIntervalMinutes: Int?
@@ -390,17 +397,17 @@ enum RevealPolicy: String, Sendable {
 
 ```swift
 protocol ClipboardServing: Sendable {
-    /// 写入并交由系统在 expiresAfter 后清除（UIPasteboard .expirationDate）。
-    /// localOnly = true 时阻止通用剪贴板同步。
-    func write(_ secret: String, expiresAfter: TimeInterval, localOnly: Bool)
+    /// `expiresAfter == nil`：用户关闭了自动清除，不排程、不写系统过期。
+    func write(_ secret: String, expiresAfter: TimeInterval?, localOnly: Bool)
 
     /// 兜底清除。MUST 先校验剪贴板当前内容仍是本产品写入的那一份。
     func clearIfStillOurs()
 }
 ```
 
-**契约要点**：主机制为系统级 `.expirationDate`（应用被终止仍生效）；应用内 `Timer` 仅作兜底。
-兜底清除 MUST NOT 误清用户此后复制的内容（FR-005）。
+**契约要点**：iPhone 主机制为系统 `.expirationDate`（进程被杀后仍可能清）；Mac MUST NOT 写系统过期，
+清除仅应用内存活时的计时与正常退出。应用内计时 MUST 先校验仍是本产品写入的那一份（FR-005）。
+强制退出与崩溃 MUST NOT 验收为「仍会清除」。
 
 ### 3.4 ProviderKeyServing — 在 App 内签发/作废密钥（US3）
 
@@ -474,6 +481,11 @@ protocol PreferencesServing: Sendable {
     func update(_ patch: PreferencesPatch) async throws
 }
 ```
+
+**`EntitlementServing` 契约要点**：以 StoreKit 2 `.verified` 为准，本地 snapshot 不得单独放行。
+MUST NOT 要求交易环境与 App 包完全相等。只挡非 Xcode 包里的 `.xcode` 假交易；`.sandbox` 在
+TestFlight / 审核 MUST 放行。苹果已返回购买成功后，MUST NOT 因本地再查档位失败而把本次购买报成失败。
+`debugOverride` MUST 仅 DEBUG。
 
 **`PreferencesServing` 契约要点**：`update` MUST 按 FR-060 分流——安全字段写入
 `UserPreferences`（synced），`appearance` / `defaultGrouping` / 窗口尺寸写入

@@ -72,11 +72,11 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 
 **Constraints**:
 
-- 明文只存在于 Keychain、单次操作的局部作用域、以及剪贴板（限时）三处
+- 明文只存在于 Keychain、单次操作的局部作用域、以及剪贴板三处（自动清除默认开、用户可关）
 - 明文 MUST NOT 进入 SwiftData / CloudKit / 日志 / 崩溃报告
 - 离线可用：保管与分发全功能可用，仅统计降级为「显示上次数据 + 时间戳」
 - HTTPS only
-- 剪贴板默认 2 分钟自动清除，且可禁用通用剪贴板
+- 剪贴板自动清除默认开启、出厂默认 2 分钟（列表可改）；可禁用通用剪贴板。Mac 不承诺杀掉 App 后仍清。
 
 **Scale/Scope**:
 
@@ -92,15 +92,15 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 |------|----------|------|
 | I. 三层架构解耦 | UI → Business Protocol → Data；Data 无 SwiftUI | ✅ Pass |
 | II. 模块化横向隔离 | 四模块仅经 protocol 通信；新增平台=新增 adapter | ✅ Pass |
-| III. Apple 原生优先 | 零第三方 SDK；剪贴板限时清除用系统 `.expirationDate` 而非自建计时器 | ✅ Pass |
+| III. Apple 原生优先 | 零第三方 SDK；iPhone 剪贴板限时清除用系统 `.expirationDate`，Mac 不写系统过期（应用内计时 + 正常退出），设置处披露局限 | ✅ Pass |
 | IV. 跨平台复用 | Business + Data 100% 共享；UI 分平台适配 | ✅ Pass |
 | V. 故障隔离 | 刷新结果**按账号**返回；单平台失败不影响其他平台与保管功能 | ✅ Pass |
 | VI. 向下兼容 | additive-only schema；阶段三三个扩展点均为枚举加值或新增实体 | ✅ Pass |
-| VII. 密钥安全 | Keychain only；列表不展示密钥片段；去重为本机 Keychain 相等比较；剪贴板为条件许可；iCloud 钥匙串同步已获宪法明许 | ⚠️ **见下方说明** |
+| VII. 密钥安全 | Keychain only；列表不展示密钥片段；去重为本机 Keychain 相等比较；剪贴板为条件许可（自动清除默认开、可关）；iCloud 钥匙串同步已获宪法明许 | ⚠️ **见下方说明** |
 | VIII. 身份确认门闩 | 应用层 `LAContext`；查看与复制**共用一个门闩**；自动刷新不触发门闩 | ⚠️ **见下方说明** |
 | IX. 数据真实性 | 未知一律 nil 且显式标注，禁止以 0 代替；平台数字与本产品估算分字段存储 | ✅ Pass |
 | 平台体验标准 | SwiftUI 系统组件、Dynamic Type、Dark Mode | ✅ Pass |
-| **设置列表行**（v2.4.0 新增） | 仅子页行显示 〉；顺序 `标题　当前值　ⓘ　〉`；本页控件无 〉 | ✅ Pass |
+| **设置列表行**（v2.4.0 新增，v2.8.0 修订 ⓘ 位置） | 仅子页行显示 〉；现行 `标题　ⓘ　当前值　〉`；ⓘ 紧贴标题；MUST NOT 回退到 `标题　当前值　ⓘ　〉`；本页控件无 〉 | ✅ Pass |
 | **界面呈现**（v2.5.0 新增） | 设置下一层推入；购买/确认用 sheet；本页控件不另开界面 | ✅ Pass |
 | **无障碍**（v2.2.0 新增；v2.6.0 列表不读片段） | Dynamic Type；VoiceOver 标签；列表/详情不朗读密钥片段；门闩后明文区可逐字符朗读（FR-059） | ✅ Pass（T060） |
 | **本地化**（v2.1.0 新增） | **开发语言为英语** + `zh-Hans` 附加；String Catalog + 语义化 key；Apple 官方译名；法律文本人工双语 | ✅ Pass（T005a / T059a / T059b） |
@@ -250,14 +250,14 @@ ApiRelayTests/
 | UI | SwiftUI | iOS/Catalyst 复用率高，符合 HIG |
 | 密钥存储 | Security.framework Keychain（synchronizable） | 宪法 VII；跨设备同步靠系统 |
 | 身份门闩 | LocalAuthentication `LAContext` | 与同步兼容的唯一方案（research §1） |
-| 剪贴板 | `UIPasteboard` + `.expirationDate` + `.localOnly` | 系统级限时清除，应用被杀仍生效 |
+| 剪贴板 | iPhone：`UIPasteboard` + `.expirationDate` + `.localOnly`；Mac：不写系统过期，应用内计时 + 正常退出 | iPhone 进程存活（及系统过期仍有效）时限时清除；Mac / 强制退出须披露，不得验收「杀掉仍清」 |
 | 业务存储 | SwiftData | iOS 17 官方 ORM，CloudKit 集成成熟 |
 | 同步 | CloudKit Private DB | 元信息多端同步，无需自建后端 |
 | 网络 | URLSession + async/await | 仅普通 REST 请求，无需流式 |
 | 加密备份 | CryptoKit AES-GCM | 付费能力，原生实现 |
 | 自动刷新 | 前台 Task + BackgroundTasks | 前台精确、后台机会性 |
 | 权益 | StoreKit 2 | 苹果官方 IAP |
-| Mac 一期 | Mac Catalyst | `UIPasteboard` 语义一致，双端行为统一 |
+| Mac 一期 | Mac Catalyst | 单 target 复用；Mac 剪贴板无可靠系统过期，见 research §2 |
 
 **明确不引入**：KeychainAccess、Alamofire、Realm 等第三方库（宪法 III）。
 
@@ -315,8 +315,8 @@ sequenceDiagram
     GT-->>VA: ok
     VA->>KC: read(.keys, keyId)
     KC-->>VA: 明文（局部作用域）
-    VA->>CB: write(明文, expiresAfter: 120s, localOnly: 用户设定)
-    Note over CB: 系统在 120s 后清除，应用被杀仍生效
+    VA->>CB: write(明文, expiresAfter: 用户所选或 nil, localOnly: 用户设定)
+    Note over CB: iPhone 可走系统过期；Mac 仅应用内存活时计时 + 正常退出
     VA-->>UI: 已复制 + 剩余时间提示
     Note over VA: 明文引用立即释放
 ```
@@ -373,8 +373,8 @@ sequenceDiagram
 | 生物识别文案 | Mac 多为 Touch ID，文案须由 `availableBiometry()` 动态决定 |
 
 **Catalyst 下的两个已知差异**，实现时须实测：
-`UIPasteboard.expirationDate` 在 macOS 剪贴板上的落地行为；无 Touch ID 的 Mac 上
-`biometricOnly` 档必须自动禁用。
+Mac 上 `setItems` + `.expirationDate` 常无法被其他 App 粘贴，**现行做法是 Mac 不写系统过期**；
+无 Touch ID 的 Mac 上 `biometricOnly` 档必须自动禁用。
 
 ### A5. 系统权限与工程配置
 
@@ -441,7 +441,7 @@ sequenceDiagram
 | ApiRelayTests | ✅ | T003 |
 | `ENABLE_USER_SELECTED_FILES` / MainActor 隔离 + Keychain `actor` | ✅ | 已落地 |
 | 内购产品 ID / 家庭共享定稿（工程侧） | ✅ | T044a；Connect 侧创建随上架 |
-| CloudKit Production Deploy（T014b） | ✅ | **Checkpoint 2b** 通过（2026-08-05）；8 表 + §7.1 预留字段已在 Production |
+| CloudKit Production Deploy（T014b） | ✅ | **Checkpoint 2b** 通过（2026-08-05）；8 表 + 当时 §7.1 预留字段已在 Production。热修新增的 `UserPreferences` 时长 JSON **不在那次 Deploy 里**，正式包发出前须再 additive Deploy |
 | 商店元数据 / 隐私问卷 / 截图 / 提交清单 | ⬜ | **T063–T066** |
 | `main` + tag `release/1.0.0` + 提交审核 | ⬜ | **T062**（需授权；前置 2b + T063–T066） |
 | BGTaskScheduler 标识 | V2 | 本期不做 |
@@ -454,7 +454,7 @@ Developer Portal 侧：若尚未勾选 iCloud(CloudKit)+App Group，须在 T014b
 |------|------|----------|
 | **应用层门闩弱于系统级 ACL** | 越狱/改包设备上可绕过 | 已明示披露；文案禁用「无法绕过」表述；高价值场景建议用户不开启同步 |
 | iCloud 钥匙串同步延迟 | 新设备取不到明文 | `secretAvailable = false` 的显式状态 + 提示等待或手动补录 |
-| 剪贴板 `.expirationDate` 在 Catalyst 行为差异 | 明文残留 | 应用内 `Timer` 兜底 + 清除前校验内容仍是本产品写入的那份 |
+| 剪贴板 `.expirationDate` 在 Catalyst 无法稳定粘贴 | 若强行写系统过期，其他 App 粘不到 | Mac **不写**系统过期；应用内计时 + 正常退出；强制退出清不掉；设置处披露 |
 | 后台刷新不被系统调度 | 提醒延迟 | 文案表述为「下次刷新时检查」；提供手动刷新；前台进入时立即刷新 |
 | OpenAI/Claude 的 `api_key_id` 无法自动对应本地密钥 | 用量归属不明 | 提供手动关联流程；未关联用量归入「未关联」而非丢弃 |
 | **共享密钥的用量无法归属到单个工具** | 用户以为统计不准 | 单列「共享密钥」小计 + 明确说明成因；引导需要精确归属的用户走 V3 中转 |

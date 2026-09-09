@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 系统设置式说明按钮：放在行尾控件**之前**（子页行是 ⓘ 然后 〉）。
+/// 系统设置式说明按钮：紧贴行标题右侧（子页行是 标题 ⓘ 当前值 〉）。
 struct InlineHelpButton: View {
     var title: LocalizedStringKey
     var message: LocalizedStringResource

@@ -326,6 +326,7 @@ struct SettingsSecureField: View {
     }
 }
 
+/// 选项行：`标题　ⓘ　　✓`。ⓘ 紧贴标题（宪法 v2.8.0），勾选在最右。MUST NOT 把 ⓘ 挤到行尾贴着勾选。
 struct SettingsChoiceRow: View {
     var title: LocalizedStringKey
     var selected: Bool
@@ -336,27 +337,30 @@ struct SettingsChoiceRow: View {
     var action: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .center, spacing: 6) {
             Button(action: action) {
                 titleBlock
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minWidth: 0, alignment: .leading)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .disabled(!enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
 
             if let helpTitle, let helpMessage {
                 InlineHelpButton(title: helpTitle, message: helpMessage, showsTitle: false)
             }
 
             Button(action: action) {
-                Image(systemName: AppSymbols.Settings.checkmark)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .opacity(selected ? 1 : 0)
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
+                HStack(spacing: 0) {
+                    Spacer(minLength: 8)
+                    Image(systemName: AppSymbols.Settings.checkmark)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .opacity(selected ? 1 : 0)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .disabled(!enabled)
@@ -374,10 +378,13 @@ struct SettingsChoiceRow: View {
                 .font(.body)
                 .foregroundStyle(enabled ? Color.primary : Color.secondary)
                 .multilineTextAlignment(.leading)
+                .lineLimit(2)
+                .truncationMode(.tail)
             if let subtitle {
                 Text(subtitle)
                     .font(.footnote)
                     .foregroundStyle(.tertiary)
+                    .lineLimit(2)
             }
         }
     }

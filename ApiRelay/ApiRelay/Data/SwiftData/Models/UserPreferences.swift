@@ -9,8 +9,12 @@ final class UserPreferences {
     var id: UUID = UserPreferences.singletonID
     var appLockEnabled: Bool = false
     var autoLockSeconds: Int = 60
+    /// `nil` = 从未写过（加载时预填）；`"[]"` = 用户删光，不得再预填。
+    var autoLockDurationOptionsJSON: String? = nil
     var revealPolicy: String = RevealPolicy.noVerification.rawValue
+    var clipboardClearEnabled: Bool = true
     var clipboardClearSeconds: Int = 120
+    var clipboardClearDurationOptionsJSON: String? = nil
     var clipboardLocalOnly: Bool = false
     var hideInAppSwitcher: Bool = true
     var refreshIntervalMinutes: Int = 0
@@ -25,8 +29,11 @@ final class UserPreferences {
         id: UUID = UserPreferences.singletonID,
         appLockEnabled: Bool = false,
         autoLockSeconds: Int = 60,
+        autoLockDurationOptionsJSON: String? = nil,
         revealPolicy: RevealPolicy = .noVerification,
+        clipboardClearEnabled: Bool = true,
         clipboardClearSeconds: Int = 120,
+        clipboardClearDurationOptionsJSON: String? = nil,
         clipboardLocalOnly: Bool = false,
         hideInAppSwitcher: Bool = true,
         refreshIntervalMinutes: Int = 0,
@@ -40,8 +47,11 @@ final class UserPreferences {
         self.id = id
         self.appLockEnabled = appLockEnabled
         self.autoLockSeconds = autoLockSeconds
+        self.autoLockDurationOptionsJSON = autoLockDurationOptionsJSON
         self.revealPolicy = revealPolicy.rawValue
+        self.clipboardClearEnabled = clipboardClearEnabled
         self.clipboardClearSeconds = clipboardClearSeconds
+        self.clipboardClearDurationOptionsJSON = clipboardClearDurationOptionsJSON
         self.clipboardLocalOnly = clipboardLocalOnly
         self.hideInAppSwitcher = hideInAppSwitcher
         self.refreshIntervalMinutes = refreshIntervalMinutes

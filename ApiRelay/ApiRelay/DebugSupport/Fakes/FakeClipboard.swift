@@ -6,7 +6,7 @@ actor FakeClipboard: ClipboardServing {
     var journal = FakeJournal()
     private(set) var lastWritten: String?
 
-    func write(_ secret: String, expiresAfter: TimeInterval, localOnly: Bool) async throws {
+    func write(_ secret: String, expiresAfter: TimeInterval?, localOnly: Bool) async throws {
         _ = expiresAfter
         _ = localOnly
         try journal.record("write")

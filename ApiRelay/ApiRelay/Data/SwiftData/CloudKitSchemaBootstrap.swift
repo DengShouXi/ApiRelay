@@ -4,149 +4,122 @@ import SwiftData
 #if DEBUG
 /// T014b：把从未写出非 nil 的可选字段 / 未建实体逼进 CloudKit Development schema。
 ///
-/// 仅在 `APIRELAY_CLOUDKIT=1` 时运行。默认一次性；设
-/// `APIRELAY_CLOUDKIT_SCHEMA_BOOTSTRAP=1` 可强制再跑。
+/// 只有同时显式设置 `APIRELAY_CLOUDKIT=1` 与
+/// `APIRELAY_CLOUDKIT_SCHEMA_BOOTSTRAP=1` 才运行，且每个版本最多一次。
 /// Production 侧仍须在 Console 再 Deploy 一次。
 enum CloudKitSchemaBootstrap {
-    private static let defaultsKey = "ApiRelay.cloudKitSchemaBootstrap.v3"
+    private static let defaultsKey = "ApiRelay.cloudKitSchemaBootstrap.v4"
 
     @MainActor
     static func runIfNeeded(container: ModelContainer) {
         guard ProcessInfo.processInfo.environment["APIRELAY_CLOUDKIT"] == "1" else { return }
-        guard AppSchema.isICloudAccountAvailable() else {
-            print("[ApiRelay] CloudKitSchemaBootstrap skipped: no iCloud account on this device/simulator")
-            return
-        }
         let force = ProcessInfo.processInfo.environment["APIRELAY_CLOUDKIT_SCHEMA_BOOTSTRAP"] == "1"
-        guard force || !UserDefaults.standard.bool(forKey: defaultsKey) else { return }
+        // 仅显式人工动作可运行。普通 Debug 启动绝不能写 schema 探针。
+        guard force else { return }
+        guard !UserDefaults.standard.bool(forKey: defaultsKey) else { return }
 
         let context = ModelContext(container)
         do {
-            try seedAPIKeyOptionalFields(in: context)
-            try seedAccountAndToolNotes(in: context)
-            try seedAvatarFields(in: context)
-            try seedDeferredSyncedTypes(in: context)
+            // 探针只允许在全新的 Development 空库运行，避免改写真实账号、备注或密钥元数据。
+            guard try isCleanDevelopmentStore(context) else {
+                print("[ApiRelay] CloudKitSchemaBootstrap refused: synced store is not empty")
+                return
+            }
+            seedProbeRecords(in: context)
             try context.save()
             UserDefaults.standard.set(true, forKey: defaultsKey)
             print("[ApiRelay] CloudKitSchemaBootstrap: saved — wait for export, then check Development schema / Deploy")
         } catch {
-            print("[ApiRelay] CloudKitSchemaBootstrap failed: \(error)")
+            print("[ApiRelay] CloudKitSchemaBootstrap failed: \(CloudKitSyncMonitor.diagnosticMessage(for: error))")
         }
     }
 
-    private static func seedAccountAndToolNotes(in context: ModelContext) throws {
-        for account in try context.fetch(FetchDescriptor<UpstreamAccount>()) {
-            if account.notes == nil { account.notes = "schemaBootstrap" }
-            account.updatedAt = Date()
-        }
-        for tool in try context.fetch(FetchDescriptor<ConsumerTool>()) {
-            if tool.notes == nil { tool.notes = "schemaBootstrap" }
-            tool.updatedAt = Date()
-        }
+    private static func isCleanDevelopmentStore(_ context: ModelContext) throws -> Bool {
+        try context.fetch(FetchDescriptor<UpstreamAccount>()).isEmpty
+            && context.fetch(FetchDescriptor<APIKeyRecord>()).isEmpty
+            && context.fetch(FetchDescriptor<ConsumerTool>()).isEmpty
+            && context.fetch(FetchDescriptor<KeyAssignment>()).isEmpty
+            && context.fetch(FetchDescriptor<UsageSnapshot>()).isEmpty
+            && context.fetch(FetchDescriptor<BalanceSnapshot>()).isEmpty
+            && context.fetch(FetchDescriptor<PricingRule>()).isEmpty
+            && context.fetch(FetchDescriptor<UserPreferences>()).isEmpty
     }
 
-    private static func seedAPIKeyOptionalFields(in context: ModelContext) throws {
-        let keys = try context.fetch(FetchDescriptor<APIKeyRecord>())
+    private static func seedProbeRecords(in context: ModelContext) {
         let now = Date()
-        if keys.isEmpty {
-            let account = UpstreamAccount(
-                platform: "openai",
-                displayName: "[Schema Bootstrap — deletable]",
-                avatarSymbol: "sparkles",
-                avatarColor: "blue"
-            )
-            context.insert(account)
-            let key = APIKeyRecord(
-                accountId: account.id,
-                displayName: "[Schema Bootstrap — deletable]",
-                maskedHint: "sk-…boot",
-                providerKeyRef: "schemaBootstrap",
-                spendLimit: Decimal(1),
-                notes: "schemaBootstrap",
-                lastVerifiedAt: now,
-                lastCheckedAt: now,
-                lastCheckNote: "schemaBootstrap",
-                secretLength: 8,
-                avatarSymbol: "key.fill",
-                avatarColor: "accent"
-            )
-            context.insert(key)
-            return
-        }
-        for key in keys {
-            if key.providerKeyRef == nil { key.providerKeyRef = "schemaBootstrap" }
-            if key.spendLimit == nil { key.spendLimit = Decimal(1) }
-            if key.notes == nil { key.notes = "schemaBootstrap" }
-            if key.lastVerifiedAt == nil { key.lastVerifiedAt = now }
-            if key.lastCheckedAt == nil { key.lastCheckedAt = now }
-            if key.lastCheckNote == nil { key.lastCheckNote = "schemaBootstrap" }
-            key.updatedAt = now
-        }
-    }
-
-    /// 只写引导用的假记录，避免把用户条目标成「已自定义头像」。
-    private static func seedAvatarFields(in context: ModelContext) throws {
-        let marker = "Schema Bootstrap"
-        for account in try context.fetch(FetchDescriptor<UpstreamAccount>())
-        where account.displayName.contains(marker) && account.avatarSymbol == nil {
-            account.avatarSymbol = "sparkles"
-            account.avatarColor = "blue"
-        }
-        for key in try context.fetch(FetchDescriptor<APIKeyRecord>())
-        where key.displayName.contains(marker) && key.avatarSymbol == nil {
-            key.avatarSymbol = "key.fill"
-            key.avatarColor = "accent"
-        }
-        for tool in try context.fetch(FetchDescriptor<ConsumerTool>())
-        where tool.name.contains(marker) && tool.avatarSymbol == nil {
-            tool.avatarSymbol = "laptopcomputer"
-            tool.avatarColor = "indigo"
-        }
-    }
-
-    private static func seedDeferredSyncedTypes(in context: ModelContext) throws {
-        var pricingProbe = FetchDescriptor<PricingRule>()
-        pricingProbe.fetchLimit = 1
-        if try context.fetch(pricingProbe).isEmpty {
-            context.insert(
-                PricingRule(
-                    platform: "schemaBootstrap",
-                    inputPricePer1M: 0,
-                    outputPricePer1M: 0,
-                    source: "schemaBootstrap"
-                )
-            )
-        }
-        var balanceProbe = FetchDescriptor<BalanceSnapshot>()
-        balanceProbe.fetchLimit = 1
-        if try context.fetch(balanceProbe).isEmpty {
-            context.insert(
-                BalanceSnapshot(
-                    accountId: UUID(),
-                    currency: "USD",
-                    totalBalance: Decimal(0),
-                    isSufficient: true
-                )
-            )
-        }
-        var usageProbe = FetchDescriptor<UsageSnapshot>()
-        usageProbe.fetchLimit = 1
-        if try context.fetch(usageProbe).isEmpty {
-            context.insert(
-                UsageSnapshot(
-                    keyId: UUID(),
-                    periodStart: Date(),
-                    periodTimeZone: "UTC",
-                    inputTokens: 0,
-                    outputTokens: 0,
-                    totalTokens: 0,
-                    reportedCostUSD: Decimal(0),
-                    estimatedCostUSD: Decimal(0),
-                    modelName: "schemaBootstrap",
-                    capabilityNote: "schemaBootstrap"
-                )
-            )
-        }
+        let marker = "[Schema Bootstrap — deletable]"
+        let account = UpstreamAccount(
+            platform: "schemaBootstrap",
+            customPlatformName: marker,
+            displayName: marker,
+            customBaseURL: "https://example.invalid",
+            hasManagementCredential: false,
+            notes: marker,
+            avatarSymbol: "sparkles",
+            avatarColor: "blue",
+            createdAt: now,
+            updatedAt: now
+        )
+        let key = APIKeyRecord(
+            accountId: account.id,
+            displayName: marker,
+            providerKeyRef: "schema-bootstrap-record",
+            spendLimit: Decimal(1),
+            notes: marker,
+            createdAt: now,
+            updatedAt: now,
+            lastVerifiedAt: now,
+            lastCheckedAt: now,
+            lastCheckNote: "schemaBootstrap",
+            avatarSymbol: "key.fill",
+            avatarColor: "accent"
+        )
+        let tool = ConsumerTool(
+            name: marker,
+            iconSymbol: "laptopcomputer",
+            avatarSymbol: "laptopcomputer",
+            avatarColor: "indigo",
+            notes: marker,
+            createdAt: now,
+            updatedAt: now
+        )
+        context.insert(account)
+        context.insert(key)
+        context.insert(tool)
+        context.insert(KeyAssignment(keyId: key.id, consumerToolId: tool.id, createdAt: now))
+        context.insert(PricingRule(
+            platform: "schemaBootstrap",
+            inputPricePer1M: 0,
+            outputPricePer1M: 0,
+            source: "schemaBootstrap"
+        ))
+        context.insert(BalanceSnapshot(
+            accountId: account.id,
+            currency: "USD",
+            totalBalance: Decimal(0),
+            grantedBalance: Decimal(0),
+            toppedUpBalance: Decimal(0),
+            isSufficient: true
+        ))
+        context.insert(UsageSnapshot(
+            keyId: key.id,
+            periodStart: now,
+            periodTimeZone: "UTC",
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            reportedCostUSD: Decimal(0),
+            estimatedCostUSD: Decimal(0),
+            pricingRuleId: UUID(),
+            modelName: "schemaBootstrap",
+            capabilityNote: "schemaBootstrap"
+        ))
+        context.insert(UserPreferences(
+            id: UUID(),
+            autoLockDurationOptionsJSON: "[0,60]",
+            clipboardClearEnabled: true,
+            clipboardClearDurationOptionsJSON: "[30,120]"
+        ))
     }
 }
 #endif

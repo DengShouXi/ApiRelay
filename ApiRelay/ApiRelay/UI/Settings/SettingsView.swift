@@ -227,51 +227,40 @@ struct SettingsView: View {
                                 }
                             }
                         }
-
-                        settingsDivider()
-
-                        settingsToggleRow(
-                            icon: AppSymbols.Settings.appLock,
-                            tint: .teal,
-                            title: "settings.appLock",
-                            detail: "settings.appLock.rowDetail",
-                            isOn: binding(\.appLockEnabled, prefs.appLockEnabled)
-                        )
                     }
 
                     settingsGroup(title: "settings.section.lockTiming") {
-                        settingsStepperRow(
+                        settingsDisclosureRow(
                             icon: AppSymbols.Settings.autoLock,
                             tint: .purple,
                             title: "settings.autoLock.label",
                             detail: "settings.autoLock.rowDetail",
-                            seconds: prefs.autoLockSeconds,
-                            value: Binding(
-                                get: { prefs.autoLockSeconds },
-                                set: { persistSyncedPatch(PreferencesPatch(autoLockSeconds: $0)) }
-                            ),
-                            range: 0...600,
-                            step: 30,
-                            enabled: prefs.appLockEnabled
-                        )
+                            status: autoLockHomeStatus(prefs)
+                        ) {
+                            DurationFeatureSettingsView(
+                                kind: .autoLock,
+                                prefs: prefsBinding,
+                                persist: persistSyncedPatch
+                            )
+                        }
 
                         settingsDivider()
 
-                        settingsStepperRow(
+                        settingsDisclosureRow(
                             icon: AppSymbols.Settings.clipboardClear,
                             tint: .pink,
                             title: "settings.clipboardClear.label",
                             detail: SettingsChrome.isMacDesktop
                                 ? "settings.clipboardClear.rowDetail.mac"
                                 : "settings.clipboardClear.rowDetail",
-                            seconds: prefs.clipboardClearSeconds,
-                            value: Binding(
-                                get: { prefs.clipboardClearSeconds },
-                                set: { persistSyncedPatch(PreferencesPatch(clipboardClearSeconds: $0)) }
-                            ),
-                            range: 30...600,
-                            step: 30
-                        )
+                            status: clipboardClearHomeStatus(prefs)
+                        ) {
+                            DurationFeatureSettingsView(
+                                kind: .clipboardClear,
+                                prefs: prefsBinding,
+                                persist: persistSyncedPatch
+                            )
+                        }
                     }
 
                     settingsGroup(
@@ -339,16 +328,37 @@ struct SettingsView: View {
                 }
 
                 settingsGroup(title: "settings.section.purchases") {
-                    HStack(alignment: .center, spacing: 8) {
+                    HStack(alignment: .center, spacing: 6) {
                         Button {
                             showPaywall = true
                         } label: {
-                            HStack(spacing: 12) {
-                                settingsLeading(
-                                    icon: AppSymbols.Settings.upgrade,
-                                    tint: .orange,
-                                    title: "settings.upgrade"
-                                )
+                            settingsLeading(
+                                icon: AppSymbols.Settings.upgrade,
+                                tint: .orange,
+                                title: "settings.upgrade"
+                            )
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityValue(
+                            Text(
+                                hasUnlimitedKeys
+                                    ? "settings.upgrade.status.owned"
+                                    : "settings.upgrade.status.action"
+                            )
+                        )
+                        InlineHelpButton(
+                            title: "settings.upgrade",
+                            message: hasUnlimitedKeys
+                                ? "settings.upgrade.rowDetail.owned"
+                                : "settings.upgrade.rowDetail",
+                            showsTitle: false
+                        )
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Spacer(minLength: 8)
                                 Text(
                                     hasUnlimitedKeys
                                         ? String(localized: "settings.upgrade.status.owned")
@@ -357,17 +367,12 @@ struct SettingsView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(hasUnlimitedKeys ? .secondary : Color.accentColor)
                                 .lineLimit(1)
+                                .layoutPriority(1)
                             }
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        InlineHelpButton(
-                            title: "settings.upgrade",
-                            message: hasUnlimitedKeys
-                                ? "settings.upgrade.rowDetail.owned"
-                                : "settings.upgrade.rowDetail",
-                            showsTitle: false
-                        )
+                        .accessibilityHidden(true)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -381,20 +386,15 @@ struct SettingsView: View {
 
                     settingsDivider()
 
-                    HStack(alignment: .center, spacing: 8) {
+                    HStack(alignment: .center, spacing: 6) {
                         Button {
                             Task { await restorePurchasesFromSettings() }
                         } label: {
-                            HStack(spacing: 12) {
-                                settingsLeading(
-                                    icon: AppSymbols.Settings.restorePurchases,
-                                    tint: .indigo,
-                                    title: "settings.restorePurchases"
-                                )
-                                if isRestoringPurchases {
-                                    ProgressView()
-                                }
-                            }
+                            settingsLeading(
+                                icon: AppSymbols.Settings.restorePurchases,
+                                tint: .indigo,
+                                title: "settings.restorePurchases"
+                            )
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -404,6 +404,20 @@ struct SettingsView: View {
                             message: "settings.restorePurchases.rowDetail",
                             showsTitle: false
                         )
+                        Button {
+                            Task { await restorePurchasesFromSettings() }
+                        } label: {
+                            HStack(spacing: 0) {
+                                Spacer(minLength: 8)
+                                if isRestoringPurchases {
+                                    ProgressView()
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isRestoringPurchases)
+                        .accessibilityHidden(true)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -421,7 +435,7 @@ struct SettingsView: View {
                 }
 
                 settingsGroup(title: "settings.section.danger", danger: true) {
-                    HStack(alignment: .center, spacing: 8) {
+                    HStack(alignment: .center, spacing: 6) {
                         Button {
                             confirmErase = true
                         } label: {
@@ -439,6 +453,7 @@ struct SettingsView: View {
                             message: "settings.eraseAll.rowDetail",
                             showsTitle: false
                         )
+                        Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -504,7 +519,7 @@ struct SettingsView: View {
             .padding(.leading, 54)
     }
 
-    /// 子页行：`标题　当前值　ⓘ　〉`。〉 在最右；点 ⓘ 只出说明。
+    /// 子页行：`标题　ⓘ　当前值　〉`。ⓘ 紧贴标题；〉 在最右；点 ⓘ 只出说明。
     private func settingsDisclosureRow<Destination: View>(
         icon: String,
         tint: Color,
@@ -513,30 +528,34 @@ struct SettingsView: View {
         status: String? = nil,
         @ViewBuilder destination: () -> Destination
     ) -> some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .center, spacing: 6) {
             NavigationLink {
                 destination()
             } label: {
-                HStack(spacing: 12) {
-                    settingsLeading(icon: icon, tint: tint, title: title)
+                settingsLeading(icon: icon, tint: tint, title: title)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityValue(Text(status ?? ""))
+            InlineHelpButton(title: title, message: detail, showsTitle: false)
+            NavigationLink {
+                destination()
+            } label: {
+                HStack(spacing: 6) {
+                    Spacer(minLength: 8)
                     if let status {
                         Text(status)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
+                            .layoutPriority(1)
                     }
+                    Image(systemName: AppSymbols.Settings.disclosure)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                 }
                 .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            InlineHelpButton(title: title, message: detail, showsTitle: false)
-            NavigationLink {
-                destination()
-            } label: {
-                Image(systemName: AppSymbols.Settings.disclosure)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
             }
             .buttonStyle(.borderless)
             .accessibilityHidden(true)
@@ -545,6 +564,7 @@ struct SettingsView: View {
         .padding(.vertical, 10)
     }
 
+    /// 图标 + 标题。标题按内容宽度排布，好让 ⓘ 紧贴文字，而不是被拉到行尾。
     private func settingsLeading(
         icon: String,
         tint: Color,
@@ -567,10 +587,10 @@ struct SettingsView: View {
                 .foregroundStyle(titleColor)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
+                .truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 0, alignment: .leading)
         }
-        .layoutPriority(1)
     }
 
     private func revealPolicySummary(_ policy: RevealPolicy) -> String {
@@ -600,55 +620,17 @@ struct SettingsView: View {
         detail: LocalizedStringResource,
         isOn: Binding<Bool>
     ) -> some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 6) {
             settingsLeading(icon: icon, tint: tint, title: title)
             InlineHelpButton(title: title, message: detail, showsTitle: false)
+            Spacer(minLength: 8)
             Toggle(title, isOn: isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
+                .layoutPriority(1)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-    }
-
-    private func settingsStepperRow(
-        icon: String,
-        tint: Color,
-        title: LocalizedStringKey,
-        detail: LocalizedStringResource,
-        seconds: Int,
-        value: Binding<Int>,
-        range: ClosedRange<Int>,
-        step: Int,
-        enabled: Bool = true
-    ) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            settingsLeading(icon: icon, tint: tint, title: title)
-            InlineHelpButton(title: title, message: detail, showsTitle: false)
-            // 数字与「秒」、步进器同一行横排，避免 120 被挤成竖着断行。
-            HStack(spacing: 6) {
-                Text("\(seconds)")
-                    .font(.body.monospacedDigit().weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Text("settings.duration.unit")
-                    .font(.subheadline)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                Stepper(title, value: value, in: range, step: step)
-                    .labelsHidden()
-                    .controlSize(.small)
-                    .disabled(!enabled)
-            }
-            .fixedSize(horizontal: true, vertical: false)
-            .layoutPriority(1)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(Text("settings.duration.seconds \(seconds)"))
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .opacity(enabled ? 1 : 0.45)
-        .allowsHitTesting(enabled)
     }
 
     private func settingsPickerRow<Selection: Hashable, Content: View>(
@@ -659,9 +641,10 @@ struct SettingsView: View {
         selection: Binding<Selection>,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 6) {
             settingsLeading(icon: icon, tint: tint, title: title)
             InlineHelpButton(title: title, message: detail, showsTitle: false)
+            Spacer(minLength: 8)
             Picker(title, selection: selection) {
                 content()
             }
@@ -669,7 +652,7 @@ struct SettingsView: View {
             .pickerStyle(.menu)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .layoutPriority(0)
+            .layoutPriority(1)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -693,6 +676,27 @@ struct SettingsView: View {
         )
     }
 
+    private var prefsBinding: Binding<PreferencesDTO> {
+        Binding(
+            get: { prefs! },
+            set: { prefs = $0 }
+        )
+    }
+
+    private func autoLockHomeStatus(_ prefs: PreferencesDTO) -> String {
+        guard prefs.appLockEnabled else {
+            return String(localized: "settings.duration.off")
+        }
+        return DurationOptionList.displayName(prefs.autoLockSeconds)
+    }
+
+    private func clipboardClearHomeStatus(_ prefs: PreferencesDTO) -> String {
+        guard prefs.clipboardClearEnabled else {
+            return String(localized: "settings.duration.off")
+        }
+        return DurationOptionList.displayName(prefs.clipboardClearSeconds)
+    }
+
     /// 写同步那份偏好（`UserPreferences` → CloudKit）的唯一入口。
     /// 先改内存让控件立刻跟手，再 `persist`（内部 `Task.detached`）。
     /// MUST NOT 在 MainActor 上 `await update`：`mainContext` 与 `@ModelActor` 的 save 互相等待，整窗转圈。
@@ -701,9 +705,12 @@ struct SettingsView: View {
         guard var current = prefs else { return }
         if let value = patch.appLockEnabled { current.appLockEnabled = value }
         if let value = patch.autoLockSeconds { current.autoLockSeconds = value }
+        if let value = patch.autoLockDurationOptions { current.autoLockDurationOptions = value }
         if let value = patch.hideInAppSwitcher { current.hideInAppSwitcher = value }
         if let value = patch.revealPolicy { current.revealPolicy = value }
+        if let value = patch.clipboardClearEnabled { current.clipboardClearEnabled = value }
         if let value = patch.clipboardClearSeconds { current.clipboardClearSeconds = value }
+        if let value = patch.clipboardClearDurationOptions { current.clipboardClearDurationOptions = value }
         if let value = patch.clipboardLocalOnly { current.clipboardLocalOnly = value }
         prefs = current
         environment.appPrivacy.applyLivePreferences(AppLockPreferences(current))
@@ -748,9 +755,11 @@ struct SettingsView: View {
         isRestoringPurchases = true
         defer { isRestoringPurchases = false }
         do {
-            try await environment.entitlements.restorePurchases()
-            await refreshEntitlementTier()
-            restoreStatus = String(localized: "settings.restorePurchases.done")
+            let tier = try await environment.entitlements.restorePurchases()
+            entitlementTier = tier
+            restoreStatus = tier == .free
+                ? String(localized: "settings.restorePurchases.none")
+                : String(localized: "settings.restorePurchases.done")
         } catch {
             restoreStatus = error.localizedDescription
         }
@@ -834,15 +843,16 @@ private struct RevealPolicySettingsView: View {
                 detail: "settings.policy.biometricOnly.detail"
             )
         case .none:
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .center, spacing: 6) {
                 Text("settings.policy.biometricOnly.unavailable")
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minWidth: 0, alignment: .leading)
                 InlineHelpButton(
                     title: "settings.policy.biometricOnly.unavailable",
                     message: "settings.policy.biometricOnly.unavailable.detail",
                     showsTitle: false
                 )
+                Spacer(minLength: 8)
                 Color.clear
                     .frame(width: 22, height: 22)
                     .accessibilityHidden(true)
@@ -1298,9 +1308,15 @@ struct PaywallView: View {
     private func loadProductAndTier() async {
         isLoadingProduct = true
         defer { isLoadingProduct = false }
+
         do {
             let tier = try await environment.entitlements.currentTier()
             alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
+        } catch {
+            alreadyOwned = false
+        }
+
+        do {
             let products = try await Product.products(
                 for: [EntitlementService.unlimitedKeysProductID]
             )
@@ -1319,8 +1335,7 @@ struct PaywallView: View {
         isPurchasing = true
         defer { isPurchasing = false }
         do {
-            try await environment.entitlements.purchaseUnlimitedKeys()
-            let tier = try await environment.entitlements.currentTier()
+            let tier = try await environment.entitlements.purchaseUnlimitedKeys()
             alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
             message = String(localized: "paywall.success")
             if alreadyOwned {
@@ -1338,10 +1353,11 @@ struct PaywallView: View {
         isRestoring = true
         defer { isRestoring = false }
         do {
-            try await environment.entitlements.restorePurchases()
-            let tier = try await environment.entitlements.currentTier()
+            let tier = try await environment.entitlements.restorePurchases()
             alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
-            message = String(localized: "paywall.restored")
+            message = alreadyOwned
+                ? String(localized: "paywall.restored")
+                : String(localized: "paywall.restore.none")
         } catch {
             message = error.localizedDescription
         }

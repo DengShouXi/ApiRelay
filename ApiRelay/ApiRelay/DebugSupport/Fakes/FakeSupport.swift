@@ -53,8 +53,11 @@ extension PreferencesDTO {
         PreferencesDTO(
             appLockEnabled: false,
             autoLockSeconds: 60,
+            autoLockDurationOptions: DurationOptionList.autoLockFactory,
             revealPolicy: .noVerification,
+            clipboardClearEnabled: true,
             clipboardClearSeconds: 120,
+            clipboardClearDurationOptions: DurationOptionList.clipboardFactory,
             clipboardLocalOnly: true,
             hideInAppSwitcher: true,
             refreshIntervalMinutes: 60,
@@ -85,8 +88,11 @@ extension PreferencesDTO {
         var next = self
         if let v = patch.appLockEnabled { next.appLockEnabled = v }
         if let v = patch.autoLockSeconds { next.autoLockSeconds = v }
+        if let v = patch.autoLockDurationOptions { next.autoLockDurationOptions = v }
         if let v = patch.revealPolicy { next.revealPolicy = v }
+        if let v = patch.clipboardClearEnabled { next.clipboardClearEnabled = v }
         if let v = patch.clipboardClearSeconds { next.clipboardClearSeconds = v }
+        if let v = patch.clipboardClearDurationOptions { next.clipboardClearDurationOptions = v }
         if let v = patch.clipboardLocalOnly { next.clipboardLocalOnly = v }
         if let v = patch.hideInAppSwitcher { next.hideInAppSwitcher = v }
         if let v = patch.refreshIntervalMinutes { next.refreshIntervalMinutes = v }

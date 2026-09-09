@@ -19,7 +19,7 @@ final class DevicePreferences {
     /// 按使用方中间栏分区排序（FR-064）。
     var consumerSectionSortCriterion: String = SectionSortCriterion.name.rawValue
     var consumerSectionSortAscending: Bool = true
-    /// 本机默认头像（空 = 用内置）。仅影响未单独覆盖的条目。
+    /// 遗留：界面 MUST NOT 读；设置 MUST NOT 提供改默认。未单独覆盖的条目走产品写死的默认。
     var defaultKeyAvatarSymbol: String = ""
     var defaultKeyAvatarColor: String = ""
     var defaultCustomAccountAvatarSymbol: String = ""

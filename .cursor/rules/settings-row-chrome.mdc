@@ -7,6 +7,10 @@ alwaysApply: true
 
 权威条文：`ApiRelay/.specify/memory/constitution.md` → Platform Experience Standards → **设置列表行**、**界面呈现**。
 
-- 只有推进去另一整页的行才画 〉，走 `settingsDisclosureRow`。顺序：`标题　当前值　ⓘ　〉`。
+- 只有推进去另一整页的行才画 〉，走 `settingsDisclosureRow`。
+- 现行顺序（宪法 v2.8.0）：子页行 `标题　ⓘ　当前值　〉`；本页控件行 `标题　ⓘ　控件`。
+  ⓘ MUST 紧贴标题右侧。MUST NOT 回退到 v2.4.0 的 `标题　当前值　ⓘ　〉`（ⓘ 贴在 〉 旁）。
 - 设置下一层用导航推入；购买/确认/选文件用 sheet 或对话框；本页控件不另开界面。
+- 自动锁定、剪贴板自动清除：设置首页**各一行子页**（开关 + 可增删时长列表在子页里）。
+  MUST NOT 拆成首页「开关 + 步进器」两行，MUST NOT 做成不可删的固定档菜单。
 - MUST NOT 在本文件另写一套与宪法冲突的细则。

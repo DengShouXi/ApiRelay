@@ -182,6 +182,9 @@ struct VaultHomeView: View {
             resetTrashSelectMode()
             Task { await viewModel.handleUserDataDidErase() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .apiRelayCloudMetadataDidImport)) { _ in
+            Task { await viewModel.refresh() }
+        }
         .onOpenURL { url in
             handleIncomingBackupURL(url)
         }
@@ -3113,14 +3116,14 @@ private struct AccountPlaceholderSheet: View {
     }
 
     private var syncHeadline: String {
-        if !status.mirroringEnabled {
-            return String(localized: "vault.sync.headline.offline")
-        }
         if isActivelySyncing {
             return String(localized: "vault.sync.headline.syncing")
         }
-        if let failure = status.lastFailureMessage, !failure.isEmpty, status.lastSuccessAt == nil {
+        if let failure = status.lastFailureMessage, !failure.isEmpty {
             return String(localized: "vault.sync.headline.failed")
+        }
+        if !status.mirroringEnabled {
+            return String(localized: "vault.sync.headline.offline")
         }
         if status.lastSuccessAt != nil {
             return String(localized: "vault.sync.headline.synced")
@@ -3129,17 +3132,14 @@ private struct AccountPlaceholderSheet: View {
     }
 
     private var syncHeadlineColor: Color {
-        if !status.mirroringEnabled { return .secondary }
-        if let failure = status.lastFailureMessage, !failure.isEmpty, !isActivelySyncing, status.lastSuccessAt == nil {
+        if let failure = status.lastFailureMessage, !failure.isEmpty, !isActivelySyncing {
             return .red
         }
+        if !status.mirroringEnabled { return .secondary }
         return .primary
     }
 
     private var syncDetail: String {
-        if !status.mirroringEnabled {
-            return String(localized: "vault.sync.detail.offline")
-        }
         if isActivelySyncing {
             switch status.activity {
             case .exporting: return String(localized: "vault.sync.detail.exporting")
@@ -3148,8 +3148,11 @@ private struct AccountPlaceholderSheet: View {
             case .idle: return String(localized: "vault.sync.headline.syncing")
             }
         }
-        if let failure = status.lastFailureMessage, !failure.isEmpty, status.lastSuccessAt == nil {
+        if let failure = status.lastFailureMessage, !failure.isEmpty {
             return failure
+        }
+        if !status.mirroringEnabled {
+            return String(localized: "vault.sync.detail.offline")
         }
         if let date = status.lastSuccessAt {
             return String(localized: "vault.sync.lastSuccess.at \(Self.formatSyncDate(date))")
@@ -3209,7 +3212,7 @@ private struct AccountPlaceholderSheet: View {
         let outcome = await onSyncNow()
         await refreshStatus()
         switch outcome {
-        case .uploaded, .nothingToUpload, .localOnly:
+        case .uploaded, .refreshed, .nothingToUpload, .localOnly:
             syncFeedback = nil
         case .timedOut:
             syncFeedbackIsError = true

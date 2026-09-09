@@ -2,7 +2,7 @@ import Foundation
 
 protocol CloudSyncServing: Actor {
     func snapshot() async -> CloudSyncStatusDTO
-    /// 催元数据：等到本次 CloudKit 导入/导出结束，或确认本机无待传。明文无法催。
+    /// 刷新并等待可观测的 CloudKit 活动；系统不提供强制同步 API。
     func requestMetadataSync() async -> CloudSyncNowOutcome
 }
 
@@ -20,7 +20,8 @@ actor CloudSyncService: CloudSyncServing {
             mirroringEnabled: monitor.mirroringEnabled,
             activity: await monitor.activity(),
             lastSuccessAt: await monitor.lastSuccessAt(),
-            lastFailureMessage: await monitor.lastFailureMessage()
+            lastFailureMessage: await monitor.lastFailureMessage(),
+            lastFailureAt: await monitor.lastFailureAt()
         )
     }
 
@@ -39,8 +40,8 @@ actor CloudSyncService: CloudSyncServing {
             activeTimeout: .seconds(20)
         )
         switch wait {
-        case .succeeded(let date):
-            return .uploaded(date)
+        case .succeeded(let date, let phase):
+            return phase == .export ? .uploaded(date) : .refreshed(date)
         case .nothingPending:
             return .nothingToUpload(lastSuccess: await monitor.lastSuccessAt())
         case .timedOut:

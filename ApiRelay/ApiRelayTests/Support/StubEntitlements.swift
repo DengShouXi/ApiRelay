@@ -24,10 +24,11 @@ actor StubEntitlements: EntitlementServing {
 
     func refreshFromStore() async throws {}
 
-    func restorePurchases() async throws {}
+    func restorePurchases() async throws -> EntitlementTier { tier }
 
-    func purchaseUnlimitedKeys() async throws {
+    func purchaseUnlimitedKeys() async throws -> EntitlementTier {
         tier = .unlimitedKeys
+        return tier
     }
 
     func startListening() {}

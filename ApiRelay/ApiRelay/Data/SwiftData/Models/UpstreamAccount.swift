@@ -11,7 +11,7 @@ final class UpstreamAccount {
     var hasManagementCredential: Bool = false
     /// 可选备注（非密文）。
     var notes: String?
-    /// 用户在编辑里选的头像；nil = 跟设置默认 / 平台预置。
+    /// 用户在编辑里选的头像；nil = 跟产品写死的默认 / 平台预置（不跟设置默认）。
     var avatarSymbol: String?
     var avatarColor: String?
     var createdAt: Date = Date()

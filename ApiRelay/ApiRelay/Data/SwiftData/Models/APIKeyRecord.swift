@@ -27,7 +27,7 @@ final class APIKeyRecord {
     var secretLength: Int?
     /// 分区内展示顺序（越小越靠前）；同值时再按 createdAt 新→旧。
     var sortOrder: Int = 0
-    /// 用户在编辑里选的头像；nil = 跟设置里的密钥默认。
+    /// 用户在编辑里选的头像；nil = 跟产品写死的密钥默认（设置不再改默认）。
     var avatarSymbol: String?
     var avatarColor: String?
 

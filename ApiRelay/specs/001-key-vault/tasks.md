@@ -157,7 +157,8 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 ### 剪贴板
 
 - [x] **T020** `Business/Vault/ClipboardServing.swift` + `SecureClipboard.swift`：
-      `UIPasteboard` + `.expirationDate` + `.localOnly`。
+      iPhone：`UIPasteboard` + `.expirationDate` + `.localOnly`。
+      Mac：不写系统过期（落地见 T054 / research §2）。
       `clearIfStillOurs()` 兜底清除 **MUST 先校验剪贴板内容仍是本产品写入的那一份**，
       否则会误清用户后续复制的内容（FR-005）。
 
@@ -212,7 +213,7 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 - [x] **T031** 主密码输入界面（作为门闩的一档）与设置/修改/重置流程界面。
 
 **Checkpoint 3（V1 已具备独立产品价值）**：能录入、列表不展示密钥字符、按四档中任一方式验证后查看/复制、
-剪贴板 2 分钟后自动清除（含杀死 App 后仍生效）、免费 3 把上限生效。
+剪贴板在进程存活时按所选时长自动清除（出厂默认 2 分钟；Mac / 强制退出不承诺仍清）、免费 3 把上限生效。
 按 [quickstart.md](./quickstart.md) §1 全部条目验收，含两台真机的同步与通用剪贴板验证。
 
 ---
@@ -254,6 +255,8 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 - [x] **T038** `Business/System/EntitlementService.swift`：StoreKit 2；
       `Transaction.currentEntitlements` 为真相源，`EntitlementSnapshot` 仅离线兜底；
       监听 `Transaction.updates`（data-model §3.8）。
+      放行规则见 `EntitlementGrantPolicy` 与 research §6：MUST NOT 要求交易环境与 App 包完全相等；
+      只挡非 Xcode 包里的 `.xcode` 假交易；`.verified` 成功后不得因再查档位失败而报购买失败。
 - [x] **T039** Debug override 通道（便于 IAP 审核前验收付费逻辑），**MUST 仅在 DEBUG 构建可用**。
 - [x] **T040** `restorePurchases()` 与界面入口——**苹果审核必查项，缺失会被拒**（FR-028）。
 - [x] **T041** 降级策略：超出免费额度的密钥**只读保留，可看可删，不强制清空**，
@@ -287,10 +290,11 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       **⚠️ 格式必须自 V1 起就留两个字段：`purpose`（`fullBackup` / `transfer`）与 `scope`
       （导出了哪些密钥）。** V1 只用 `fullBackup`，但 V2 的加密传递（FR-047）依赖 `transfer`。
       不留这两个字段，V2 就得做破坏性格式升级，已导出的备份将无法被新版本正确识别用途。
-- [x] **T047** App 锁与自动锁定时长；应用切换器遮罩（不泄露密钥列表）。
-- [x] **T048** `UI/Settings/`：按 FR-021 的 **V1 设置项**（打开 App 需身份确认、取出明文的验证方式、
-      主密码设置/修改、剪贴板清除时长、禁用通用剪贴板、切换器遮罩、自动锁定、外观、默认视角、
+- [x] **T047** App 锁与自动锁定时长（设置首页一行进子页：开关 + 可增删时长列表；MUST NOT 拆成首页两行或步进器）；应用切换器遮罩（不泄露密钥列表）。
+- [x] **T048** `UI/Settings/`：按 FR-021 的 **V1 设置项**（**自动锁定**子页含打开 App 需确认的开关与时长列表、取出明文的验证方式、
+      主密码设置/修改、剪贴板自动清除子页（可关 + 可增删时长）、禁用通用剪贴板、切换器遮罩、外观、默认视角、
       **清除全部数据**）。
+      MUST NOT 在设置首页把「打开 App 需要身份确认」与「自动锁定时长」拆成两行，MUST NOT 把时长做成首页步进器或不可删固定档。
       **FR-021b 的 V2 设置项（刷新间隔、货币汇率、单价规则、三类提醒）本期不做，不显示占位入口。**
       **「取出密钥明文的验证方式」MUST 是单一设置项，同时管辖查看与复制**——
       不得拆成两个开关（宪法 VIII、quickstart §1.3）。
@@ -316,8 +320,9 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 - [x] **T051** [P] 窗口尺寸 `defaultSize(900, 700)`、最小 800×600。
 - [x] **T052** [P] 菜单栏 `Commands`：Settings ⌘,、New Key ⌘N。（Refresh ⌘R 属 V2。）
 - [x] **T053** [P] 鼠标交互：列表 hover、右键菜单（复制 / 查看 / 删除）；⌘C 复制**仍须过门闩**。
-- [x] **T054** ⚠️ 真机实测 `UIPasteboard.expirationDate` 在 macOS 剪贴板上的实际行为；
-      若与 iOS 不一致，启用应用内 `Timer` 兜底（plan.md A4）。
+- [x] **T054** ⚠️ 真机实测 `UIPasteboard.expirationDate` 在 macOS 剪贴板上的实际行为。
+      **结论**：Mac 上系统过期与其他 App 粘贴不能两全；现行不写系统过期，应用内计时 + 正常退出。
+      MUST NOT 再为「与 iOS 一致」给 Mac 加回 `.expirationDate`。
 - [x] **T055** ⚠️ 在无 Touch ID 的 Mac 上验证 `biometricOnly` 档自动禁用。
 
 **Checkpoint 7**（FR-034）：iPhone 与 Mac（Catalyst）主流程均可用；业务能力两端一致；

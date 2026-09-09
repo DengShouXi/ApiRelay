@@ -73,18 +73,25 @@ enum AppSchema: Sendable {
             return try makeLocalDiskContainer()
         }
         #endif
-        // 模拟器未登录 iCloud 时强开 CloudKit 只会刷 CKAccountStatusNoAccount。
-        if !isICloudAccountAvailable() {
-            print("[ApiRelay] No iCloud account; using local SwiftData store")
-            setCloudKitMirroringEnabled(false)
-            return try makeLocalDiskContainer()
-        }
         do {
             let container = try makeCloudKitContainer()
             setCloudKitMirroringEnabled(true)
             return container
         } catch {
-            // 容器未在 Portal 勾选、或首次签名未完成时不阻断启动。
+            // 保持离线可用，但必须留下原因；此前静默回退会让两台设备看起来都“已登录却不同步”。
+            let defaults = AppRuntime.userDefaultsForCurrentRuntime()
+            defaults.set(
+                CloudKitSyncMonitor.diagnosticMessage(for: error),
+                forKey: CloudKitSyncMonitor.lastFailureDefaultsKey
+            )
+            defaults.set(
+                Date().timeIntervalSince1970,
+                forKey: CloudKitSyncMonitor.lastFailureAtDefaultsKey
+            )
+            defaults.set(
+                CloudKitPipelinePhase.setup.rawValue,
+                forKey: CloudKitSyncMonitor.lastFailurePhaseDefaultsKey
+            )
             setCloudKitMirroringEnabled(false)
             return try makeLocalDiskContainer()
         }
@@ -140,21 +147,6 @@ enum AppSchema: Sendable {
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-    }
-
-    /// 启动期短超时探测；无账号时勿打开 CloudKit mirroring。
-    nonisolated static func isICloudAccountAvailable() -> Bool {
-        final class Box: @unchecked Sendable {
-            var status: CKAccountStatus = .couldNotDetermine
-        }
-        let box = Box()
-        let sem = DispatchSemaphore(value: 0)
-        CKContainer(identifier: cloudKitContainerID).accountStatus { status, _ in
-            box.status = status
-            sem.signal()
-        }
-        _ = sem.wait(timeout: .now() + 2)
-        return box.status == .available
     }
 
     /// 单元测试 / Preview：双配置均内存、无 CloudKit。
