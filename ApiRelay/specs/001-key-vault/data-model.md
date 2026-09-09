@@ -571,7 +571,7 @@ Development 与 Production 是**两套独立 schema**。下列清单 MUST 在 **
 | `UsageSnapshot` | 时区口径字段（FR-019a）、`dataSource` |
 | `BalanceSnapshot` | — |
 | `PricingRule` | — |
-| `UserPreferences` | 仅安全相关偏好（FR-060）。热修 additive：`autoLockDurationOptionsJSON`、`clipboardClearDurationOptionsJSON`（2026-08 的 2b **未含**这两项；发出写这两字段的正式包前 MUST 再 Deploy Production） |
+| `UserPreferences` | 仅安全相关偏好（FR-060）。热修 additive：`autoLockDurationOptionsJSON`、`clipboardClearDurationOptionsJSON`（2026-08 的 2b **未含**这两项；**2026-09-10** Production 的 `CD_UserPreferences` 已确认有这两字段，Deploy 差异为 0。此后新 additive 字段发出正式包前仍 MUST Deploy Production） |
 
 **不进 CloudKit 的**：`EntitlementSnapshot`、`RefreshHealth`、`DevicePreferences`、Keychain。
 

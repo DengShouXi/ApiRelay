@@ -34,4 +34,4 @@ xcodebuild -scheme ApiRelay -destination 'platform=macOS,variant=Mac Catalyst' -
 
 ## 未勾时的结论
 
-机器项已过。双设备项未勾 = **不能**宣布同步卫生关账。下一步：入库 `v1.13.5` → 时长 JSON Production Deploy → Archive 1.0.1 (6) → T008。
+机器项已过。双设备项未勾 = **不能**宣布同步卫生关账。下一步：Archive **1.0.1 (6)**（时长 JSON 已在 Production）→ T008。`replicaSeed` / T006 仍跳过。
