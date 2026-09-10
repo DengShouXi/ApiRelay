@@ -403,6 +403,8 @@ enum RevealPolicy: String, Sendable {
 - 同一时间只服务一个系统验证请求；新请求取消旧请求（FR-068）。
 - 会话锁住时，取出明文 / 复制 / 新建 / 使用方 CRUD / 回收站恢复与永久删 / 指派 / 排序 MUST 先经 `SessionLockQuerying` 拒绝（FR-067、FR-070）。过期清扫锁下跳过。
 - 验证进行中 `isAuthenticationInProgress() == true` 时，同组闲置 MUST NOT `cancelCurrentAuthentication`（FR-072）。
+- 快照与解锁层按窗独立；会话锁仍进程级。`WindowPrivacyReducer.reduce` 是可测纯函数（FR-073）。
+- 窗口在场由 `ScenePresenceSignals` 判定；未知信号 MUST NOT 当成离屏。`appearsActive` 本 target 标未知（FR-074）。
 - 降低已同步安全等级：`persist` 成功后才改内存锁态（FR-069）；协议提供 `onSuccess`。
 - **自动刷新读取管理类凭证时 MUST NOT 调用本协议**（宪法 VIII、research §7）。
 

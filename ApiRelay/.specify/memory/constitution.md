@@ -1,6 +1,40 @@
 <!--
-Sync Impact Report（最新：v2.10.0 → v2.11.0）
+Sync Impact Report（最新：v2.12.0 → v2.13.0）
 ==========================================
+Version change: 2.12.0 → 2.13.0 (MINOR: 窗口在场信号夹具；未知 ≠ 离屏)
+
+Modified principles / requirements:
+  - VIII. 身份确认门闩
+      * 判定窗口在场 MUST 用可测信号夹具；缺的信号标未知；未知 MUST NOT 当成离屏。
+      * MUST NOT 用私有 API 猜测 `appearsActive`。
+
+Templates / downstream sync:
+  - `specs/001-key-vault/spec.md`（FR-074、补回 FR-072 条目）
+  - `specs/001-key-vault/contracts/module-interfaces.md`
+  - `specs/playbooks/锁-验收矩阵.md`
+  - `specs/playbooks/锁-加固计划.md`
+
+Follow-up TODOs: Wave 4 三端手测
+
+历史记录
+========
+Version change: 2.11.0 → 2.12.0 (MINOR: 快照与解锁层按窗独立；会话锁仍进程级)
+
+Modified principles / requirements:
+  - VIII. 身份确认门闩
+      * 快照遮罩与解锁层 MUST 按窗口独立；回到前台只揭当前操作窗。会话锁仍进程级。
+      * 应用级生命周期通知 MUST 只订阅一处。
+
+Templates / downstream sync:
+  - `specs/001-key-vault/spec.md`（FR-073、宪法修订记录）
+  - `specs/001-key-vault/contracts/module-interfaces.md`
+  - `specs/playbooks/锁-验收矩阵.md`
+  - `specs/playbooks/锁-加固计划.md`
+
+Follow-up TODOs: Wave 3 台前信号真值表；Wave 4 三端手测
+
+历史记录
+========
 Version change: 2.10.0 → 2.11.0 (MINOR: 降级须落盘成功才改锁态；写入口收口；快照≠计时；认证中不当闲置)
 
 Modified principles / requirements:
@@ -323,6 +357,10 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
   过期回收站清扫若会话锁住 MUST 跳过本轮，MUST NOT 弹门闩。
 - 快照遮罩与自动锁计时 MUST 拆开。台前同组闲置 MUST NOT 上锁、MUST NOT 开始计时、MUST NOT 留下
   白色锁屏；确认离屏才计时或立即锁。
+- 快照遮罩与解锁层 MUST 按窗口独立；会话锁 MUST 仍为进程级。回到前台 MUST 只揭当前操作窗，
+  MUST NOT 一次揭开所有显示器上的明文。应用级生命周期通知 MUST 只订阅一处。
+- 判定窗口在场 MUST 使用可测信号（scene 激活态、applicationState、Key、外观、appearsActive、
+  是否认证中）。缺的信号 MUST 标为未知；未知 MUST NOT 当成离屏。MUST NOT 用私有 API 猜测。
 - 系统身份验证同一时间 MUST 只服务一个请求；新请求 MUST 取消未完成的旧请求；真正离开 App 时
   MUST 取消全部未完成请求。系统验证进行中视为验证接管，MUST NOT 当同组闲置去 cancel。
 
@@ -493,9 +531,17 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
 **Rationale**: 这些不是「以后再优化」的选项，而是只有一次机会的选择。把它们集中登记，是为了避免
 它们被当成普通工程配置在实现阶段随手决定。
 
-**Version**: 2.11.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-09-10
+**Version**: 2.13.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-09-10
 
 <!--
+v2.13.0（MINOR，窗口在场信号夹具）：
+  - VIII：未知信号不得当成离屏；appearsActive 无公开 API 则保持未知。
+  - Sync Impact：spec FR-074、module-interfaces、playbooks/锁-验收矩阵.md、锁-加固计划.md。
+
+v2.12.0（MINOR，按窗遮罩 + 进程级锁）：
+  - VIII：快照与解锁层按窗独立；回到前台只揭当前操作窗；应用级生命周期通知只订一处。
+  - Sync Impact：spec FR-073、module-interfaces、playbooks/锁-验收矩阵.md、锁-加固计划.md。
+
 v2.11.0（MINOR，降级事务 + 写入口收口 + 快照≠计时 + 认证中态）：
   - VIII：降低已同步安全等级须 persist 成功才改内存锁态；使用方/回收站/指派/排序过闸；
     过期清扫锁下跳过；快照与计时拆开；验证进行中不得当闲置 cancel。

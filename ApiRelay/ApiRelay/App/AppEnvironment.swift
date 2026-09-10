@@ -97,6 +97,11 @@ final class AppEnvironment: ObservableObject {
             gate: gate,
             preferences: self.preferences,
             masterPassword: master,
+            windowsSnapshot: {
+                AppPrivacyController.liveWindowsSnapshot(
+                    authenticationInProgress: gate.isAuthenticationInProgress()
+                )
+            },
             sessionLockBox: sessionLock
         )
         if isTesting {

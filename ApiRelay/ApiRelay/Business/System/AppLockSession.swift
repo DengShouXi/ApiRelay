@@ -228,29 +228,6 @@ enum AppLockScenePresence: Equatable, Sendable {
     case onScreenIdle
     /// 人正在用我们（本窗是 Key，或系统验证框还盖在我们头上）。
     case userFacing
-
-    /// 把系统信号收成三态。调用方负责读 UIKit；本函数无 UIKit，便于单测。
-    ///
-    /// `applicationIsActive == false`（Face ID / 控制中心）不要看 Key Window：
-    /// 系统框会把 Key 抢走，不得当成「点到了别的软件」去取消正在进行的验证。
-    /// App 仍是 `.active` 时（iPadOS 26 台前同组）才看 `hostHasKeyOrActiveWindow`。
-    nonisolated static func resolve(
-        hasForegroundActive: Bool,
-        hasForegroundInactive: Bool,
-        applicationIsActive: Bool,
-        hostHasKeyOrActiveWindow: Bool
-    ) -> AppLockScenePresence {
-        if !hasForegroundActive && !hasForegroundInactive {
-            return .offScreen
-        }
-        if applicationIsActive {
-            return hostHasKeyOrActiveWindow ? .userFacing : .onScreenIdle
-        }
-        if hasForegroundActive {
-            return .userFacing
-        }
-        return .onScreenIdle
-    }
 }
 
 /// 本机上次的 App 锁开关。冷启动等不及 CloudKit / SwiftData 时用它决定要不要挡首帧。

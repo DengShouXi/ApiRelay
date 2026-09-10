@@ -1,7 +1,4 @@
 import SwiftUI
-#if canImport(UIKit)
-import UIKit
-#endif
 
 struct ContentView: View {
     @EnvironmentObject private var environment: AppEnvironment
@@ -14,19 +11,29 @@ struct ContentView: View {
 
 private struct PrivacyGatedVault: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var privacy: AppPrivacyController
+
+    private var hidesVault: Bool {
+        privacy.session.isSessionLocked
+    }
+
+    /// 解锁层跟全局锁走，但只出现在正在操作的那一扇。
+    private var showsUnlockChrome: Bool {
+        privacy.session.isSessionLocked && scenePhase == .active
+    }
 
     var body: some View {
         ZStack {
             VaultRoot(environment: environment)
-                .opacity(privacy.session.showsAppLockUI ? 0 : 1)
-                .allowsHitTesting(!privacy.session.showsAppLockUI)
-                .accessibilityHidden(privacy.session.showsAppLockUI)
-                .animation(nil, value: privacy.session.showsAppLockUI)
+                .opacity(hidesVault ? 0 : 1)
+                .allowsHitTesting(!hidesVault)
+                .accessibilityHidden(hidesVault)
+                .animation(nil, value: hidesVault)
 
             AppLockCoverView(
-                showsUnlockChrome: privacy.session.needsUnlockPrompt || privacy.securityPreferencesUnavailable,
-                showsLockMark: privacy.session.showsAppLockUI,
+                showsUnlockChrome: showsUnlockChrome && (privacy.session.needsUnlockPrompt || privacy.securityPreferencesUnavailable),
+                showsLockMark: hidesVault && scenePhase == .active,
                 usesMasterPassword: privacy.usesMasterPasswordUnlock,
                 masterPasswordMissing: privacy.masterPasswordMissing,
                 biometryUnavailableForUnlock: privacy.biometryUnavailableForUnlock,
@@ -47,30 +54,14 @@ private struct PrivacyGatedVault: View {
                     Task { await privacy.recoverFromUnavailableBiometry() }
                 }
             )
-            .opacity(privacy.session.showsAppLockUI ? 1 : 0)
-            .allowsHitTesting(privacy.session.showsAppLockUI)
-            .accessibilityHidden(!privacy.session.showsAppLockUI)
-            .animation(nil, value: privacy.session.showsAppLockUI)
+            .opacity(showsUnlockChrome ? 1 : 0)
+            .allowsHitTesting(showsUnlockChrome)
+            .accessibilityHidden(!showsUnlockChrome)
+            .animation(nil, value: showsUnlockChrome)
         }
         .task {
             await privacy.start()
         }
-        #if canImport(UIKit)
-        // 只听应用级通知。某一扇窗 deactivate（Mac 的 sheet、台前同组点 Xcode）
-        // 不是离开 App，不得上锁、不得弹触控 ID。
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
-            privacy.handleWillResignActive()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
-            privacy.handleDidEnterBackground()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            privacy.handleWillEnterForeground()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            privacy.handleDidBecomeActive()
-        }
-        #endif
         .onReceive(NotificationCenter.default.publisher(for: .userDataDidErase)) { _ in
             Task { await privacy.reloadAfterErase() }
         }

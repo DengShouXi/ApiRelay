@@ -43,6 +43,7 @@ final class AppPrivacyController: ObservableObject {
     /// Mac 上不得从生命周期自动弹出触控 ID：台前同一组里的其它软件也会收到 foreground。
     private let autoPromptsSystemAuth: Bool
     private let scenePresence: @MainActor () -> AppLockScenePresence
+    private let windowsSnapshot: @MainActor () -> [WindowPrivacyInput]
     private let sessionLockBox: SessionLockBox?
     private var didStart = false
     private var cancelledCurrentLock = false
@@ -50,6 +51,14 @@ final class AppPrivacyController: ObservableObject {
     /// 只有经历过 `willEnterForeground` 且当前人正在用我们，才自动弹系统验证。
     private var shouldAutoPromptOnBecomeActive = false
     private var hostFocusCancellables: Set<AnyCancellable> = []
+    private var applicationLifecycleObservers: [NSObjectProtocol] = []
+    /// 最近一次按窗汇总。测试读 `coveredIDs` / `unlockChromeIDs`。
+    private(set) var windowPrivacy = WindowPrivacyReduction(
+        processPresence: .offScreen,
+        startIdleTimer: true,
+        surfaces: [:]
+    )
+    var applicationLifecycleObserverCount: Int { applicationLifecycleObservers.count }
     #if canImport(UIKit)
     private var hostTraitRegistrations: [any UITraitChangeRegistration] = []
     #endif
@@ -63,6 +72,7 @@ final class AppPrivacyController: ObservableObject {
         launchAppLockEnabled: Bool? = nil,
         autoPromptsSystemAuth: Bool = AppPrivacyController.defaultAutoPromptsSystemAuth,
         scenePresence: @escaping @MainActor () -> AppLockScenePresence = AppPrivacyController.liveScenePresence,
+        windowsSnapshot: (@MainActor () -> [WindowPrivacyInput])? = nil,
         sessionLockBox: SessionLockBox? = nil
     ) {
         self.gate = gate
@@ -71,7 +81,11 @@ final class AppPrivacyController: ObservableObject {
         self.installsSnapshotCover = installsSnapshotCover
         self.enablesUnlockPrompt = enablesUnlockPrompt
         self.autoPromptsSystemAuth = autoPromptsSystemAuth
-        self.scenePresence = scenePresence
+        let snapshot = windowsSnapshot ?? {
+            [WindowPrivacyInput(id: WindowPrivacyInput.syntheticProcessID, presence: scenePresence())]
+        }
+        self.windowsSnapshot = snapshot
+        self.scenePresence = { WindowPrivacyReducer.processPresence(of: snapshot()) }
         self.sessionLockBox = sessionLockBox
         var launch = AppLockSession.unready()
         let cached = launchAppLockEnabled ?? AppLockLaunchCache.read()
@@ -96,37 +110,63 @@ final class AppPrivacyController: ObservableObject {
     }
 
     static func liveScenePresence() -> AppLockScenePresence {
+        WindowPrivacyReducer.processPresence(of: liveWindowsSnapshot())
+    }
+
+    static func liveWindowsSnapshot(authenticationInProgress: Bool = false) -> [WindowPrivacyInput] {
         #if canImport(UIKit)
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let hasForegroundActive = scenes.contains { $0.activationState == .foregroundActive }
-        let hasForegroundInactive = scenes.contains { $0.activationState == .foregroundInactive }
-        return AppLockScenePresence.resolve(
-            hasForegroundActive: hasForegroundActive,
-            hasForegroundInactive: hasForegroundInactive,
-            applicationIsActive: UIApplication.shared.applicationState == .active,
-            hostHasKeyOrActiveWindow: hostHasKeyOrActiveWindow(in: scenes)
-        )
+        let appActive = UIApplication.shared.applicationState == .active
+        return UIApplication.shared.connectedScenes.compactMap { scene -> WindowPrivacyInput? in
+            guard let windowScene = scene as? UIWindowScene else { return nil }
+            return WindowPrivacyInput(
+                id: windowScene.session.persistentIdentifier,
+                presence: AppLockScenePresence.resolve(
+                    liveSignals(
+                        for: windowScene,
+                        applicationIsActive: appActive,
+                        authenticationInProgress: authenticationInProgress
+                    )
+                )
+            )
+        }
         #else
-        return .userFacing
+        return [WindowPrivacyInput(id: WindowPrivacyInput.syntheticProcessID, presence: .userFacing)]
         #endif
     }
 
     /// 本窗仍算「人在用」：有 Key，或外观仍是 active（Face ID 可能抢走 Key，但外观不该变成闲置）。
     /// 外观已是 inactive 的窗即使还占着 Key，在 iPadOS 26 台前也当成闲置。
     #if canImport(UIKit)
+    static func liveSignals(
+        for scene: UIWindowScene,
+        applicationIsActive: Bool,
+        authenticationInProgress: Bool
+    ) -> ScenePresenceSignals {
+        let windows = scene.windows.filter { !$0.isHidden }
+        let appearance: PresenceSignal<Bool>
+        if windows.contains(where: { $0.traitCollection.activeAppearance == .active }) {
+            appearance = .known(true)
+        } else if windows.contains(where: { $0.traitCollection.activeAppearance == .inactive }) {
+            appearance = .known(false)
+        } else {
+            appearance = .unknown
+        }
+        return ScenePresenceSignals(
+            sceneIsForegroundActive: .known(scene.activationState == .foregroundActive),
+            sceneIsForegroundInactive: .known(scene.activationState == .foregroundInactive),
+            applicationIsActive: .known(applicationIsActive),
+            isKeyWindow: .known(windows.contains(where: \.isKeyWindow)),
+            activeAppearanceIsActive: appearance,
+            appearsActive: .unknown,
+            authenticationInProgress: authenticationInProgress
+        )
+    }
+
     static func hostHasKeyOrActiveWindow(in scenes: [UIWindowScene]) -> Bool {
-        let windows = scenes
-            .filter { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
-            .flatMap(\.windows)
-            .filter { !$0.isHidden }
-        return windows.contains { window in
-            if window.traitCollection.activeAppearance == .inactive {
-                return false
-            }
-            if window.traitCollection.activeAppearance == .active {
-                return true
-            }
-            return window.isKeyWindow
+        scenes.contains { scene in
+            AppLockScenePresence.hostIsUserFacing(
+                liveSignals(for: scene, applicationIsActive: true, authenticationInProgress: false)
+            )
         }
     }
     #endif
@@ -135,6 +175,9 @@ final class AppPrivacyController: ObservableObject {
         guard !didStart else { return }
         didStart = true
         startObservingHostFocus()
+        if !AppRuntime.isRunningTests {
+            installApplicationLifecycleObservers()
+        }
         await reloadSecurityPreferences(isStart: true)
         await refreshMasterPasswordAvailability()
         refreshBiometryAvailability()
@@ -215,7 +258,9 @@ final class AppPrivacyController: ObservableObject {
     func handleWillResignActive(now: Date = Date()) {
         switch scenePresence() {
         case .userFacing:
-            // 控制中心 / Face ID 抢前台：本窗仍在操作。不得盖罩、不得当离开去 cancel。
+            // 控制中心 / Face ID 抢前台：本窗仍在操作。不得当离开去 cancel。
+            // 其它已离屏的窗仍按汇总盖快照。
+            syncSnapshotCoverImmediately()
             return
         case .onScreenIdle:
             cancelAuthenticationIfUserMovedToAnotherApp()
@@ -242,6 +287,7 @@ final class AppPrivacyController: ObservableObject {
         guard scenePresence() == .offScreen else {
             shouldAutoPromptOnBecomeActive = false
             cancelAuthenticationIfUserMovedToAnotherApp()
+            syncSnapshotCoverImmediately()
             return
         }
         var next = session
@@ -271,6 +317,7 @@ final class AppPrivacyController: ObservableObject {
         case .onScreenIdle, .offScreen:
             shouldAutoPromptOnBecomeActive = false
             cancelAuthenticationIfUserMovedToAnotherApp()
+            syncSnapshotCoverImmediately()
         }
     }
 
@@ -280,12 +327,11 @@ final class AppPrivacyController: ObservableObject {
         next.noteDidBecomeActive(now: now)
         session = next
         if session.isSessionLocked {
-            // 路径 2：已锁 — 立刻拿掉 UIKit 截屏遮罩，把点击交给 SwiftUI 解锁层；
-            // 系统 Face ID / 点「解锁」成功后 finishUnlockSucceeded 自动进内容。
-            // MUST NOT 延迟摘罩：遮罩若还能点，会把解锁按钮挡死，表现为「解锁了进不去」。
+            // 路径 2：已锁 — 只揭当前操作窗的截屏遮罩，把点击交给 SwiftUI 解锁层。
+            // MUST NOT 一次摘掉其它显示器上的罩。
             snapshotCoverTask?.cancel()
             snapshotCoverTask = nil
-            applySnapshotCover(shouldShow: false)
+            syncSnapshotCoverImmediately()
         } else {
             // 路径 1：未锁 — 直接进内容；截屏遮罩只为多任务预览，可略延迟摘且不可抢点击。
             scheduleSnapshotCoverSyncAfterActivation()
@@ -554,44 +600,83 @@ final class AppPrivacyController: ObservableObject {
         unlockError = nil
         snapshotCoverTask?.cancel()
         snapshotCoverTask = nil
-        // 强制摘掉截屏层，确保解锁后立刻进入内容（路径 2）。
-        applySnapshotCover(shouldShow: false)
+        // 解锁后仍只按窗揭罩：离屏窗保持快照。
+        syncSnapshotCoverImmediately()
     }
 
     private func syncSnapshotCoverImmediately() {
         snapshotCoverTask?.cancel()
         snapshotCoverTask = nil
-        applySnapshotCover(shouldShow: session.showsSnapshotCover)
+        windowPrivacy = currentWindowPrivacy()
+        applySnapshotCovers(coveredIDs: windowPrivacy.coveredIDs, removesUncovered: true)
     }
 
     /// 真正回到前台后再摘遮罩；若在延迟内又 inactive，则保持遮罩（切换器截屏窗口）。
+    /// 离屏窗立刻盖上；操作窗延迟揭开，避免切换器那一帧拍到明文。
     private func scheduleSnapshotCoverSyncAfterActivation() {
-        if session.showsSnapshotCover {
-            syncSnapshotCoverImmediately()
-            return
-        }
         snapshotCoverTask?.cancel()
+        windowPrivacy = currentWindowPrivacy()
+        applySnapshotCovers(coveredIDs: windowPrivacy.coveredIDs, removesUncovered: false)
         snapshotCoverTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
-            guard !session.isInactive else {
-                applySnapshotCover(shouldShow: session.showsSnapshotCover)
-                return
-            }
-            applySnapshotCover(shouldShow: session.showsSnapshotCover)
+            syncSnapshotCoverImmediately()
         }
     }
 
-    private func applySnapshotCover(shouldShow: Bool) {
+    private func currentWindowPrivacy() -> WindowPrivacyReduction {
+        WindowPrivacyReducer.reduce(
+            windows: windowsSnapshot(),
+            hideInAppSwitcher: session.preferences.hideInAppSwitcher,
+            isSessionLocked: session.isSessionLocked,
+            hasBecomeActiveOnce: session.hasBecomeActiveOnce
+        )
+    }
+
+    private func applySnapshotCovers(coveredIDs: Set<String>, removesUncovered: Bool) {
         #if canImport(UIKit)
         guard installsSnapshotCover else { return }
         guard !AppRuntime.isRunningTests else { return }
         AppSwitcherSnapshotCover.sync(
-            shouldShow: shouldShow,
-            showsLockMark: session.isSessionLocked
+            coveredIDs: coveredIDs,
+            showsLockMark: session.isSessionLocked,
+            removesUncovered: removesUncovered
         )
         #endif
     }
+
+    /// 应用级通知只订一次。`ContentView` 每扇窗一份时不得再 `onReceive` 同一组。
+    /// `queue: nil`：与 UIKit 投递同步，才能在 `willResignActive` 返回前盖上切换器遮罩。
+    func installApplicationLifecycleObservers(on center: NotificationCenter = .default) {
+        guard applicationLifecycleObservers.isEmpty else { return }
+        #if canImport(UIKit)
+        applicationLifecycleObservers = [
+            observe(center, UIApplication.willResignActiveNotification) { $0.handleWillResignActive() },
+            observe(center, UIApplication.didEnterBackgroundNotification) { $0.handleDidEnterBackground() },
+            observe(center, UIApplication.willEnterForegroundNotification) { $0.handleWillEnterForeground() },
+            observe(center, UIApplication.didBecomeActiveNotification) { $0.handleDidBecomeActive() }
+        ]
+        #endif
+    }
+
+    #if canImport(UIKit)
+    private func observe(
+        _ center: NotificationCenter,
+        _ name: Notification.Name,
+        _ handler: @escaping @MainActor (AppPrivacyController) -> Void
+    ) -> NSObjectProtocol {
+        center.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in
+            guard let self else { return }
+            if Thread.isMainThread {
+                MainActor.assumeIsolated {
+                    handler(self)
+                }
+            } else {
+                Task { @MainActor in handler(self) }
+            }
+        }
+    }
+    #endif
 
     /// iPadOS 26 同组切主窗不走应用级 resign。听 Key 与 `activeAppearance`，才能把 Face ID 从别人头上收掉。
     private func startObservingHostFocus() {
@@ -641,40 +726,52 @@ final class AppPrivacyController: ObservableObject {
 enum AppSwitcherSnapshotCover {
     static let viewTag = 71_080_301
 
-    static func sync(shouldShow: Bool, showsLockMark: Bool = false) {
-        let windows = allWindows()
-        for window in windows {
-            let existing = window.viewWithTag(viewTag) as? SnapshotCoverView
-            if shouldShow {
-                if let existing {
-                    existing.setShowsLockMark(showsLockMark)
-                    existing.isHidden = false
-                    window.bringSubviewToFront(existing)
-                } else {
-                    let cover = SnapshotCoverView(frame: window.bounds)
-                    cover.setShowsLockMark(showsLockMark)
-                    window.addSubview(cover)
-                }
-                window.layoutIfNeeded()
-            } else {
-                existing?.removeFromSuperview()
+    static func sync(
+        coveredIDs: Set<String>,
+        showsLockMark: Bool = false,
+        removesUncovered: Bool = true
+    ) {
+        let scenes = allScenes()
+        let coverAll = coveredIDs.contains(WindowPrivacyInput.syntheticProcessID)
+        for scene in scenes {
+            let shouldShow = coverAll || coveredIDs.contains(scene.session.persistentIdentifier)
+            for window in visibleWindows(in: scene) {
+                apply(shouldShow: shouldShow, to: window, showsLockMark: showsLockMark, removesUncovered: removesUncovered)
             }
         }
     }
 
-    private static func allWindows() -> [UIWindow] {
-        var windows = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows)
-            .filter { !$0.isHidden }
-        // 切后台瞬间部分窗口可能暂时 isHidden；至少保住 keyWindow。
-        if windows.isEmpty {
-            windows = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap(\.windows)
-                .filter(\.isKeyWindow)
+    private static func apply(
+        shouldShow: Bool,
+        to window: UIWindow,
+        showsLockMark: Bool,
+        removesUncovered: Bool
+    ) {
+        let existing = window.viewWithTag(viewTag) as? SnapshotCoverView
+        if shouldShow {
+            if let existing {
+                existing.setShowsLockMark(showsLockMark)
+                existing.isHidden = false
+                window.bringSubviewToFront(existing)
+            } else {
+                let cover = SnapshotCoverView(frame: window.bounds)
+                cover.setShowsLockMark(showsLockMark)
+                window.addSubview(cover)
+            }
+            window.layoutIfNeeded()
+        } else if removesUncovered {
+            existing?.removeFromSuperview()
         }
-        return windows
+    }
+
+    private static func allScenes() -> [UIWindowScene] {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    }
+
+    private static func visibleWindows(in scene: UIWindowScene) -> [UIWindow] {
+        let visible = scene.windows.filter { !$0.isHidden }
+        if !visible.isEmpty { return visible }
+        return scene.windows.filter(\.isKeyWindow)
     }
 }
 

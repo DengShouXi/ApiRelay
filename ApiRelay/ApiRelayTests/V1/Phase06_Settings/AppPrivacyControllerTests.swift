@@ -430,6 +430,75 @@ final class AppPrivacyControllerTests: XCTestCase {
         XCTAssertEqual(cancelledWhenIdle, 1, "已确认闲置且未在验证则必须 cancel")
     }
 
+    func testSameGroupUnfocusFromSignalsDoesNotLock() async throws {
+        let safari = AppLockScenePresence.resolve(
+            ScenePresenceSignals.known(
+                sceneIsForegroundActive: true,
+                sceneIsForegroundInactive: false,
+                applicationIsActive: true,
+                isKeyWindow: false,
+                activeAppearanceIsActive: false
+            )
+        )
+        XCTAssertEqual(safari, .onScreenIdle)
+        let sut = try await makeHarness(
+            appLock: false,
+            hide: true,
+            seconds: 0,
+            scenePresence: { safari }
+        ).controller
+        await sut.start()
+        sut.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: true
+        ))
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        sut.handleWillResignActive(now: t0.addingTimeInterval(2))
+        XCTAssertFalse(sut.session.isSessionLocked, "T-W3：同组失焦无验证框不得锁")
+        XCTAssertNil(sut.session.lastLeftMonotonic)
+    }
+
+    func testAuthInProgressFromSignalsDoesNotCancelWhenKeyStolen() async throws {
+        let container = try AppSchema.makeInMemoryContainer()
+        var patch = PreferencesPatch()
+        patch.appLockEnabled = true
+        let preferences = PreferencesService(modelContainer: container)
+        try await preferences.update(patch)
+        let keychain = KeychainStore.makeForTests()
+        let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
+        try? await master.reset()
+        let gate = FakeRevealGate()
+        let auth = AuthBox()
+        let sut = AppPrivacyController(
+            gate: gate,
+            preferences: preferences,
+            masterPassword: master,
+            installsSnapshotCover: false,
+            enablesUnlockPrompt: false,
+            scenePresence: {
+                AppLockScenePresence.resolve(
+                    ScenePresenceSignals.known(
+                        sceneIsForegroundActive: true,
+                        sceneIsForegroundInactive: false,
+                        applicationIsActive: true,
+                        isKeyWindow: false,
+                        activeAppearanceIsActive: nil,
+                        authenticationInProgress: auth.value
+                    )
+                )
+            }
+        )
+        await sut.start()
+        sut.handleDidBecomeActive()
+        await gate.setAuthenticationInProgress(true)
+        auth.value = true
+        sut.handleHostFocusDidChange()
+        let cancelled = await gate.cancelCallCount()
+        XCTAssertEqual(cancelled, 0, "T-W3：状态 C 抢走 Key 不得 cancel")
+    }
+
     func testSameStageBackgroundDoesNotLockOrCover() async throws {
         let sut = try await makeHarness(
             appLock: false,
@@ -510,15 +579,107 @@ final class AppPrivacyControllerTests: XCTestCase {
         XCTAssertTrue(sut.session.needsUnlockPrompt, "回来后必须能点解锁；自动弹验证另走 willEnterForeground")
     }
 
+    func testTwoScenesUserFacingDoesNotStartTimerAndCoversOnlyOffScreen() async throws {
+        let windows = WindowsBox(initial: [
+            WindowPrivacyInput(id: "A", presence: .userFacing),
+            WindowPrivacyInput(id: "B", presence: .offScreen)
+        ])
+        let sut = try await makeHarness(
+            appLock: false,
+            hide: true,
+            seconds: 0,
+            windowsSnapshot: { windows.value }
+        ).controller
+        await sut.start()
+        sut.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: true
+        ))
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        sut.handleDidEnterBackground(now: t0.addingTimeInterval(2))
+        XCTAssertNil(sut.session.lastLeftMonotonic, "T-W2-01：一扇仍在操作则不得开始计时")
+        XCTAssertFalse(sut.session.isSessionLocked)
+        XCTAssertEqual(sut.windowPrivacy.coveredIDs, ["B"])
+        XCTAssertFalse(sut.windowPrivacy.surface(for: "A").showsSnapshotCover)
+    }
+
+    func testAllScenesOffScreenStartsImmediateLock() async throws {
+        let windows = WindowsBox(initial: [
+            WindowPrivacyInput(id: "A", presence: .offScreen),
+            WindowPrivacyInput(id: "B", presence: .offScreen)
+        ])
+        let sut = try await makeHarness(
+            appLock: false,
+            hide: true,
+            seconds: 0,
+            windowsSnapshot: { windows.value }
+        ).controller
+        await sut.start()
+        sut.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: true
+        ))
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        sut.handleDidEnterBackground(now: t0.addingTimeInterval(2))
+        XCTAssertTrue(sut.session.isSessionLocked, "T-W2-02：全部离屏且「立即」则锁")
+        XCTAssertNotNil(sut.session.lastLeftMonotonic)
+        XCTAssertEqual(sut.windowPrivacy.coveredIDs, ["A", "B"])
+    }
+
+    func testLockedBecomeActiveUncoversOnlyCurrentScene() async throws {
+        let windows = WindowsBox(initial: [
+            WindowPrivacyInput(id: "A", presence: .userFacing),
+            WindowPrivacyInput(id: "B", presence: .offScreen)
+        ])
+        let sut = try await makeHarness(
+            appLock: true,
+            hide: true,
+            seconds: 60,
+            windowsSnapshot: { windows.value }
+        ).controller
+        await sut.start()
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        XCTAssertTrue(sut.session.isSessionLocked)
+        XCTAssertEqual(sut.windowPrivacy.unlockChromeIDs, ["A"], "T-W2-03：只在回到前台的那一扇出解锁")
+        XCTAssertEqual(sut.windowPrivacy.coveredIDs, ["B"])
+        XCTAssertFalse(sut.windowPrivacy.surface(for: "A").showsSnapshotCover)
+    }
+
+    func testApplicationLifecycleObserversInstallOnce() async throws {
+        let sut = try await makeController(appLock: false, hide: true, seconds: 60)
+        let center = NotificationCenter()
+        sut.installApplicationLifecycleObservers(on: center)
+        XCTAssertEqual(sut.applicationLifecycleObserverCount, 4, "T-W2-04：应用级通知只订一份")
+        sut.installApplicationLifecycleObservers(on: center)
+        XCTAssertEqual(sut.applicationLifecycleObserverCount, 4)
+        await sut.start()
+        sut.installApplicationLifecycleObservers(on: center)
+        XCTAssertEqual(sut.applicationLifecycleObserverCount, 4, "第二扇窗再 start 也不得加订")
+    }
+
     private struct Harness {
         let controller: AppPrivacyController
         let master: MasterPasswordService
         let preferences: PreferencesService
     }
 
+    private final class AuthBox: @unchecked Sendable {
+        var value = false
+    }
+
     private final class PresenceBox: @unchecked Sendable {
         var value: AppLockScenePresence
         init(initial: AppLockScenePresence) { value = initial }
+    }
+
+    private final class WindowsBox: @unchecked Sendable {
+        var value: [WindowPrivacyInput]
+        init(initial: [WindowPrivacyInput]) { value = initial }
     }
 
     private func makeController(
@@ -551,7 +712,8 @@ final class AppPrivacyControllerTests: XCTestCase {
         deviceOwnerAuth: (@Sendable (String, LAPolicy) async throws -> Void)? = nil,
         enablesUnlockPrompt: Bool = false,
         autoPromptsSystemAuth: Bool = false,
-        scenePresence: @escaping @MainActor () -> AppLockScenePresence = { .offScreen }
+        scenePresence: @escaping @MainActor () -> AppLockScenePresence = { .offScreen },
+        windowsSnapshot: (@MainActor () -> [WindowPrivacyInput])? = nil
     ) async throws -> Harness {
         let container = try AppSchema.makeInMemoryContainer()
         let preferences = PreferencesService(modelContainer: container)
@@ -586,7 +748,8 @@ final class AppPrivacyControllerTests: XCTestCase {
             installsSnapshotCover: false,
             enablesUnlockPrompt: enablesUnlockPrompt,
             autoPromptsSystemAuth: autoPromptsSystemAuth,
-            scenePresence: scenePresence
+            scenePresence: scenePresence,
+            windowsSnapshot: windowsSnapshot
         )
         return Harness(controller: controller, master: master, preferences: preferences)
     }
