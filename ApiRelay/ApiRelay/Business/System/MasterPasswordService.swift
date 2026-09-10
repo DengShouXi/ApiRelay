@@ -43,6 +43,8 @@ actor MasterPasswordService: MasterPasswordServing {
     private let keychain: KeychainStoring
     private let account = KeychainStore.masterPasswordAccount
     private(set) var calibratedIterations: UInt32
+    private var consecutiveFailures = 0
+    private var retryAllowedAtUptime: TimeInterval?
 
     init(keychain: KeychainStoring, calibratedIterations: UInt32? = nil) {
         self.keychain = keychain
@@ -70,10 +72,25 @@ actor MasterPasswordService: MasterPasswordServing {
     }
 
     func verify(_ password: String) async throws -> Bool {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let until = retryAllowedAtUptime, now < until {
+            throw ApiRelayError.masterPasswordRetryDelayed(secondsRemaining: Int(ceil(until - now)))
+        }
         let stored = try await keychain.read(service: .masterpw, account: account)
         guard let parts = Self.decodePayload(stored) else { return false }
         let derived = try Self.derive(password: password, salt: parts.salt, iterations: parts.iterations)
-        return Self.constantTimeEqual(derived, parts.hash)
+        let ok = Self.constantTimeEqual(derived, parts.hash)
+        if ok {
+            consecutiveFailures = 0
+            retryAllowedAtUptime = nil
+        } else {
+            consecutiveFailures += 1
+            if consecutiveFailures >= 3 {
+                let delay = min(pow(2.0, Double(consecutiveFailures - 2)), 60)
+                retryAllowedAtUptime = now + delay
+            }
+        }
+        return ok
     }
 
     func changePassword(current: String, new: String) async throws {
@@ -84,6 +101,8 @@ actor MasterPasswordService: MasterPasswordServing {
     }
 
     func reset() async throws {
+        consecutiveFailures = 0
+        retryAllowedAtUptime = nil
         try await keychain.delete(service: .masterpw, account: account)
     }
 

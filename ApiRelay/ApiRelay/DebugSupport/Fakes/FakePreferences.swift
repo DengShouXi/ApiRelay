@@ -29,19 +29,38 @@ actor FakePreferences: PreferencesServing {
         }
     }
 
+    private var loadError: Error?
+    private var updateError: Error?
+
+    func setLoadError(_ error: Error?) {
+        loadError = error
+    }
+
+    func setUpdateError(_ error: Error?) {
+        updateError = error
+    }
+
     func load() async throws -> PreferencesDTO {
         try journal.record("load")
+        if let loadError { throw loadError }
         return store.load()
     }
 
     func update(_ patch: PreferencesPatch) async throws {
         try journal.record("update")
+        if let updateError { throw updateError }
         store.apply(patch)
     }
 
-    nonisolated func persist(_ patch: PreferencesPatch) {
-        store.apply(patch)
-        Task { await self.notePersist() }
+    nonisolated func persist(_ patch: PreferencesPatch, onFailure: (@Sendable (Error) -> Void)?) {
+        Task {
+            do {
+                try await self.update(patch)
+                await self.notePersist()
+            } catch {
+                onFailure?(error)
+            }
+        }
     }
 
     func purgeAllRecordsForErase() async throws {

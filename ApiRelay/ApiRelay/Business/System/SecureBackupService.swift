@@ -45,11 +45,13 @@ actor SecureBackupService: SecureBackupServing {
     private let keys: APIKeyRecordRepository
     private let tools: ConsumerToolRepository
     private let assignments: KeyAssignmentRepository
+    private let sessionLock: any SessionLockQuerying
 
     init(
         gate: RevealGateServing,
         keychain: KeychainStoring,
-        modelContainer: ModelContainer
+        modelContainer: ModelContainer,
+        sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock()
     ) {
         self.gate = gate
         self.keychain = keychain
@@ -57,6 +59,7 @@ actor SecureBackupService: SecureBackupServing {
         self.keys = APIKeyRecordRepository(modelContainer: modelContainer)
         self.tools = ConsumerToolRepository(modelContainer: modelContainer)
         self.assignments = KeyAssignmentRepository(modelContainer: modelContainer)
+        self.sessionLock = sessionLock
     }
 
     func inspectProtection(_ data: Data) throws -> BackupFileProtection {
@@ -70,6 +73,7 @@ actor SecureBackupService: SecureBackupServing {
     }
 
     func exportBackup(passphrase: String? = nil, purpose: BackupPurpose = .fullBackup) async throws -> BackupExportResult {
+        if sessionLock.isSessionLocked() { throw ApiRelayError.sessionLocked }
         try await gate.confirmMandatory(reason: String(localized: "gate.exportBackup"))
         let encoded = try await encodeVaultJSON(purpose: purpose)
         let data: Data
@@ -92,6 +96,7 @@ actor SecureBackupService: SecureBackupServing {
     }
 
     func importBackup(data: Data, passphrase: String?) async throws -> ImportSummary {
+        if sessionLock.isSessionLocked() { throw ApiRelayError.sessionLocked }
         try await gate.confirmMandatory(reason: String(localized: "gate.importBackup"))
         let json: Data
         switch try inspectProtection(data) {

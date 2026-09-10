@@ -13,6 +13,7 @@ actor KeyVaultService: KeyVaultServing {
     private let assignmentsRepo: KeyAssignmentRepository
     private let userPrefsRepo: UserPreferencesRepository
     private let entitlements: EntitlementServing
+    private let sessionLock: any SessionLockQuerying
     /// 创建 / 恢复会跨多个 actor await；显式串行化，避免并发请求同时看到旧计数而越过免费线。
     private var activationMutationLocked = false
     private var activationMutationWaiters: [CheckedContinuation<Void, Never>] = []
@@ -22,7 +23,8 @@ actor KeyVaultService: KeyVaultServing {
         gate: RevealGateServing,
         clipboard: ClipboardServing,
         modelContainer: ModelContainer,
-        entitlements: EntitlementServing
+        entitlements: EntitlementServing,
+        sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock()
     ) {
         self.keychain = keychain
         self.gate = gate
@@ -32,6 +34,13 @@ actor KeyVaultService: KeyVaultServing {
         self.assignmentsRepo = KeyAssignmentRepository(modelContainer: modelContainer)
         self.userPrefsRepo = UserPreferencesRepository(modelContainer: modelContainer)
         self.entitlements = entitlements
+        self.sessionLock = sessionLock
+    }
+
+    private func rejectIfSessionLocked() throws {
+        if sessionLock.isSessionLocked() {
+            throw ApiRelayError.sessionLocked
+        }
     }
 
     func accounts() async throws -> [UpstreamAccountDTO] {
@@ -47,10 +56,12 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func createAccount(_ draft: UpstreamAccountDraft) async throws -> UUID {
-        try await accountsRepo.insert(draft)
+        try rejectIfSessionLocked()
+        return try await accountsRepo.insert(draft)
     }
 
     func updateAccount(_ id: UUID, patch: UpstreamAccountPatch) async throws {
+        try rejectIfSessionLocked()
         guard try await accountsRepo.fetch(id: id) != nil else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
         }
@@ -64,6 +75,7 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func deleteAccount(_ id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.deleteAccount"))
         let related = try await keysRepo.fetch(accountId: id, lifecycles: [.active, .revokedUpstream])
         for key in related {
@@ -77,6 +89,7 @@ actor KeyVaultService: KeyVaultServing {
         secret: String,
         acknowledgePossibleDuplicate: Bool
     ) async throws -> UUID {
+        try rejectIfSessionLocked()
         let normalized = try Self.normalizeSecret(secret)
         await acquireActivationMutation()
         defer { releaseActivationMutation() }
@@ -109,10 +122,12 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func updateKey(_ id: UUID, patch: KeyPatch) async throws {
+        try rejectIfSessionLocked()
         try await keysRepo.update(id: id, patch: patch)
     }
 
     func editKey(_ id: UUID, draft: KeyEditDraft) async throws {
+        try rejectIfSessionLocked()
         guard let key = try await keysRepo.fetch(id: id) else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
         }
@@ -186,6 +201,7 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func deleteKey(_ id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.deleteKey"))
         try await softDeleteKeyMetadata(id)
     }
@@ -256,6 +272,7 @@ actor KeyVaultService: KeyVaultServing {
         purpose: RevealPurpose,
         masterPassword: String?
     ) async throws -> String {
+        try rejectIfSessionLocked()
         _ = purpose
         try await ensureActiveForReveal(keyId)
         try await runGate(masterPassword: masterPassword)
@@ -267,6 +284,7 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func copySecretToClipboard(keyId: UUID, masterPassword: String?) async throws {
+        try rejectIfSessionLocked()
         try await ensureActiveForReveal(keyId)
         try await runGate(masterPassword: masterPassword)
         let secret: String
@@ -280,6 +298,7 @@ actor KeyVaultService: KeyVaultServing {
 
     /// 将已通过门闩取出的明文写入剪贴板。MUST NOT 再走门闩。
     func copyRevealedSecretToClipboard(_ secret: String) async throws {
+        try rejectIfSessionLocked()
         try await writeSecretToClipboard(secret)
     }
 

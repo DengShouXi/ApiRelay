@@ -19,9 +19,11 @@ struct AppLockCoverView: View {
     var masterPasswordMissing: Bool
     /// 策略是「仅生物识别」但本机没有可用生物识别：同样把恢复出口摆到主位。
     var biometryUnavailableForUnlock: Bool = false
+    var securityPreferencesUnavailable: Bool = false
     var isBusy: Bool
     var errorText: String?
     var onUnlock: () -> Void
+    var onRetrySecurityPreferences: () -> Void = {}
     var onUnlockWithMasterPassword: (String) -> Void
     var onRecoverFromLostMasterPassword: () -> Void
     var onRecoverFromUnavailableBiometry: () -> Void = {}
@@ -128,12 +130,14 @@ struct AppLockCoverView: View {
     }
 
     private var titleKey: LocalizedStringKey {
+        if securityPreferencesUnavailable { return "appLock.preferencesUnavailable.title" }
         if masterPasswordMissing { return "appLock.masterPassword.missing.title" }
         if biometryUnavailableForUnlock { return "appLock.biometry.unavailable.title" }
         return usesMasterPassword ? "vault.masterPassword.title" : "appLock.coverTitle"
     }
 
     private var hintKey: LocalizedStringKey? {
+        if securityPreferencesUnavailable { return "appLock.preferencesUnavailable.hint" }
         if masterPasswordMissing { return "appLock.masterPassword.missing.hint" }
         if biometryUnavailableForUnlock { return "appLock.biometry.unavailable.hint" }
         return usesMasterPassword ? "appLock.masterPassword.hint" : nil
@@ -151,7 +155,9 @@ struct AppLockCoverView: View {
 
     private var unlockButton: some View {
         Button(unlockButtonTitle) {
-            if masterPasswordMissing {
+            if securityPreferencesUnavailable {
+                onRetrySecurityPreferences()
+            } else if masterPasswordMissing {
                 onRecoverFromLostMasterPassword()
             } else if biometryUnavailableForUnlock {
                 onRecoverFromUnavailableBiometry()
@@ -166,6 +172,7 @@ struct AppLockCoverView: View {
     }
 
     private var unlockButtonTitle: LocalizedStringKey {
+        if securityPreferencesUnavailable { return "appLock.preferencesUnavailable.retry" }
         if masterPasswordMissing { return "appLock.masterPassword.missing.action" }
         if biometryUnavailableForUnlock { return "appLock.biometry.unavailable.action" }
         return "appLock.unlock"

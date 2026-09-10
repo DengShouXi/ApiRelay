@@ -68,7 +68,8 @@ final class AppPrivacyControllerTests: XCTestCase {
             preferences: preferences,
             masterPassword: master,
             installsSnapshotCover: false,
-            enablesUnlockPrompt: false
+            enablesUnlockPrompt: false,
+            scenePresence: { .offScreen }
         )
         XCTAssertTrue(sut.session.isPreferencesReady)
         XCTAssertFalse(sut.session.isSessionLocked)
@@ -308,6 +309,147 @@ final class AppPrivacyControllerTests: XCTestCase {
         XCTAssertEqual(saved.revealPolicy, .biometricOrPasscode)
     }
 
+    func testLoadFailureKeepsCachedLockAndDoesNotDisableCache() async throws {
+        AppLockLaunchCache.write(true)
+        let prefs = FakePreferences()
+        await prefs.setLoadError(ApiRelayError.networkUnavailable)
+        let keychain = KeychainStore.makeForTests()
+        let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
+        try? await master.reset()
+        let sut = AppPrivacyController(
+            gate: RevealGate(masterPassword: master, authenticateDeviceOwner: { _, _ in }),
+            preferences: prefs,
+            masterPassword: master,
+            installsSnapshotCover: false,
+            enablesUnlockPrompt: false
+        )
+        XCTAssertTrue(sut.session.isSessionLocked)
+        await sut.start()
+        XCTAssertTrue(sut.securityPreferencesUnavailable)
+        XCTAssertTrue(sut.session.isSessionLocked, "读失败不得按默认关锁放行")
+        XCTAssertEqual(AppLockLaunchCache.read(), true)
+    }
+
+    func testPhoneResignDoesNotImmediateLockUntilBackground() async throws {
+        let sut = try await makeController(appLock: false, hide: false, seconds: 0)
+        await sut.start()
+        sut.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: false
+        ))
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        XCTAssertFalse(sut.session.isSessionLocked)
+        sut.handleWillResignActive(now: t0.addingTimeInterval(2))
+        XCTAssertFalse(sut.session.isSessionLocked, "iPhone：resign 不是离开，控制中心不得立即锁")
+        XCTAssertTrue(sut.session.isInactive)
+        sut.handleDidEnterBackground(now: t0.addingTimeInterval(2.1))
+        XCTAssertTrue(sut.session.isSessionLocked)
+    }
+
+    func testSameStageResignDoesNotLockOrCover() async throws {
+        let sut = try await makeHarness(
+            appLock: false,
+            hide: true,
+            seconds: 0,
+            scenePresence: { .onScreenIdle }
+        ).controller
+        await sut.start()
+        sut.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: true
+        ))
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        sut.handleWillResignActive(now: t0.addingTimeInterval(2))
+        XCTAssertFalse(sut.session.isSessionLocked, "台前同一组里点别的软件：窗还在，不得锁")
+        XCTAssertFalse(sut.session.isInactive, "也不得盖成只有锁图标的白屏")
+        XCTAssertFalse(sut.session.showsSnapshotCover)
+        XCTAssertFalse(sut.session.needsUnlockPrompt)
+    }
+
+    func testSameStageBackgroundDoesNotLockOrCover() async throws {
+        let sut = try await makeHarness(
+            appLock: false,
+            hide: true,
+            seconds: 0,
+            scenePresence: { .onScreenIdle }
+        ).controller
+        await sut.start()
+        sut.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: true
+        ))
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        sut.handleWillResignActive(now: t0.addingTimeInterval(2))
+        sut.handleDidEnterBackground(now: t0.addingTimeInterval(2.1))
+        XCTAssertFalse(sut.session.isSessionLocked, "Catalyst 误发 background 时窗还在，不得锁")
+        XCTAssertFalse(sut.session.isInactive)
+        XCTAssertFalse(sut.session.showsSnapshotCover)
+        XCTAssertFalse(sut.shouldAutomaticallyPromptUnlock())
+    }
+
+    func testMacDefaultDoesNotAutoPromptEvenWhenUserFacing() async throws {
+        let sut = try await makeHarness(
+            appLock: true,
+            hide: false,
+            seconds: 0,
+            enablesUnlockPrompt: true,
+            autoPromptsSystemAuth: false,
+            scenePresence: { .userFacing }
+        ).controller
+        await sut.start()
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleWillEnterForeground(now: t0)
+        sut.handleDidBecomeActive(now: t0.addingTimeInterval(0.1))
+        XCTAssertTrue(sut.session.needsUnlockPrompt, "已锁且人在用本窗：必须有解锁按钮")
+        XCTAssertFalse(sut.shouldAutomaticallyPromptUnlock(), "Mac 不得自己弹触控 ID")
+    }
+
+    func testPhoneAutoPromptRequiresUserFacingWindow() async throws {
+        let idle = try await makeHarness(
+            appLock: true,
+            hide: false,
+            seconds: 0,
+            enablesUnlockPrompt: true,
+            autoPromptsSystemAuth: true,
+            scenePresence: { .onScreenIdle }
+        ).controller
+        await idle.start()
+        idle.handleDidBecomeActive()
+        XCTAssertFalse(idle.shouldAutomaticallyPromptUnlock(), "焦点在组里别的软件：不得弹系统框")
+
+        let facing = try await makeHarness(
+            appLock: true,
+            hide: false,
+            seconds: 0,
+            enablesUnlockPrompt: true,
+            autoPromptsSystemAuth: true,
+            scenePresence: { .userFacing }
+        ).controller
+        await facing.start()
+        facing.handleDidBecomeActive()
+        XCTAssertTrue(facing.shouldAutomaticallyPromptUnlock())
+    }
+
+    func testBecomeActiveWithoutForegroundDoesNotClearLockNeedlessly() async throws {
+        let sut = try await makeController(appLock: true, hide: true, seconds: 60)
+        await sut.start()
+        XCTAssertTrue(sut.session.isSessionLocked)
+        XCTAssertTrue(sut.session.needsUnlockPrompt, "冷启动已在前台，应有解锁入口")
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        sut.handleWillResignActive(now: t0.addingTimeInterval(2))
+        XCTAssertTrue(sut.session.isSessionLocked)
+        XCTAssertFalse(sut.session.needsUnlockPrompt, "仍 inactive 时不得只出锁图标却无入口——等真正回来")
+        sut.handleDidBecomeActive(now: t0.addingTimeInterval(2.1))
+        XCTAssertTrue(sut.session.needsUnlockPrompt, "回来后必须能点解锁；自动弹验证另走 willEnterForeground")
+    }
+
     private struct Harness {
         let controller: AppPrivacyController
         let master: MasterPasswordService
@@ -341,7 +483,10 @@ final class AppPrivacyControllerTests: XCTestCase {
         revealPolicy: RevealPolicy = .noVerification,
         masterPassword: String? = nil,
         biometry: BiometryKind? = nil,
-        deviceOwnerAuth: (@Sendable (String, LAPolicy) async throws -> Void)? = nil
+        deviceOwnerAuth: (@Sendable (String, LAPolicy) async throws -> Void)? = nil,
+        enablesUnlockPrompt: Bool = false,
+        autoPromptsSystemAuth: Bool = false,
+        scenePresence: @escaping @MainActor () -> AppLockScenePresence = { .offScreen }
     ) async throws -> Harness {
         let container = try AppSchema.makeInMemoryContainer()
         let preferences = PreferencesService(modelContainer: container)
@@ -374,7 +519,9 @@ final class AppPrivacyControllerTests: XCTestCase {
             preferences: preferences,
             masterPassword: master,
             installsSnapshotCover: false,
-            enablesUnlockPrompt: false
+            enablesUnlockPrompt: enablesUnlockPrompt,
+            autoPromptsSystemAuth: autoPromptsSystemAuth,
+            scenePresence: scenePresence
         )
         return Harness(controller: controller, master: master, preferences: preferences)
     }

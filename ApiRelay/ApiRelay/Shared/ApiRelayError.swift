@@ -11,6 +11,10 @@ enum ApiRelayError: Error {
     case authenticationCancelled
     /// 设备无生物识别能力
     case biometryUnavailable
+    /// 会话锁未解开，敏感动作被业务闸拒绝。
+    case sessionLocked
+    /// 主密码连续错误后的等待；`secondsRemaining` 供界面倒计时。
+    case masterPasswordRetryDelayed(secondsRemaining: Int)
 
     // MARK: - 保管
     /// Keychain 操作失败
@@ -54,6 +58,10 @@ extension ApiRelayError: LocalizedError {
             return String(localized: "error.authenticationCancelled")
         case .biometryUnavailable:
             return String(localized: "error.biometryUnavailable")
+        case .sessionLocked:
+            return String(localized: "error.sessionLocked")
+        case .masterPasswordRetryDelayed(let seconds):
+            return String(localized: "error.masterPasswordRetryDelayed \(Int64(seconds))")
         case .keychainFailure(let status):
             // OSStatus 默认按 %d 进 Catalog；统一走已翻译的 %lld 条目。
             return String(localized: "error.keychainFailure \(Int64(status))")

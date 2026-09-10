@@ -9,9 +9,15 @@ import UIKit
 /// 没开 App 锁：冷启动直接进内容，软件不画锁。
 /// 开了 App 锁：冷启动与离开再进都走软件锁。
 /// 多任务遮罩只盖在 UIKit 窗口上、不画锁，避免被当成解锁页。
+///
+/// 「离开」只认整个 ApiRelay 离开当前空间。台前调度同一组里点 Xcode / Cursor：
+/// 窗还在屏上，那不是离开——不得上锁、不得盖白屏、不得弹触控 ID。
+/// 本 App 的 sheet / 另一扇窗切换同样不是离开。
 @MainActor
 final class AppPrivacyController: ObservableObject {
-    @Published private(set) var session: AppLockSession
+    @Published private(set) var session: AppLockSession {
+        didSet { sessionLockBox?.setLocked(session.isSessionLocked) }
+    }
     @Published private(set) var isUnlocking = false
     @Published private(set) var unlockError: String?
     /// 走「忘记主密码」出口的过程中。
@@ -20,6 +26,8 @@ final class AppPrivacyController: ObservableObject {
     @Published private(set) var masterPasswordMissing = false
     /// 策略是「仅生物识别」，本机却没有可用生物识别。反复点解锁永远过不去，只能走恢复出口。
     @Published private(set) var biometryUnavailableForUnlock = false
+    /// 安全偏好读失败：保持已知锁态，不得落到默认关锁。
+    @Published private(set) var securityPreferencesUnavailable = false
 
     /// 主密码档只出应用口令框，MUST NOT 再弹系统「iPhone 密码」。
     var usesMasterPasswordUnlock: Bool {
@@ -31,9 +39,15 @@ final class AppPrivacyController: ObservableObject {
     private let masterPassword: any MasterPasswordServing
     private let installsSnapshotCover: Bool
     private let enablesUnlockPrompt: Bool
+    /// Mac 上不得从生命周期自动弹出触控 ID：台前同一组里的其它软件也会收到 foreground。
+    private let autoPromptsSystemAuth: Bool
+    private let scenePresence: @MainActor () -> AppLockScenePresence
+    private let sessionLockBox: SessionLockBox?
     private var didStart = false
     private var cancelledCurrentLock = false
     private var snapshotCoverTask: Task<Void, Never>?
+    /// 只有经历过 `willEnterForeground` 且当前人正在用我们，才自动弹系统验证。
+    private var shouldAutoPromptOnBecomeActive = false
 
     init(
         gate: any RevealGateServing,
@@ -41,13 +55,19 @@ final class AppPrivacyController: ObservableObject {
         masterPassword: any MasterPasswordServing,
         installsSnapshotCover: Bool = true,
         enablesUnlockPrompt: Bool = true,
-        launchAppLockEnabled: Bool? = nil
+        launchAppLockEnabled: Bool? = nil,
+        autoPromptsSystemAuth: Bool = AppPrivacyController.defaultAutoPromptsSystemAuth,
+        scenePresence: @escaping @MainActor () -> AppLockScenePresence = AppPrivacyController.liveScenePresence,
+        sessionLockBox: SessionLockBox? = nil
     ) {
         self.gate = gate
         self.preferences = preferences
         self.masterPassword = masterPassword
         self.installsSnapshotCover = installsSnapshotCover
         self.enablesUnlockPrompt = enablesUnlockPrompt
+        self.autoPromptsSystemAuth = autoPromptsSystemAuth
+        self.scenePresence = scenePresence
+        self.sessionLockBox = sessionLockBox
         var launch = AppLockSession.unready()
         let cached = launchAppLockEnabled ?? AppLockLaunchCache.read()
         if cached == true {
@@ -57,13 +77,42 @@ final class AppPrivacyController: ObservableObject {
             launch.completeColdStart(with: .defaults)
         }
         self.session = launch
+        sessionLockBox?.setLocked(launch.isSessionLocked)
+    }
+
+    /// Mac（含 Catalyst）：切到台前同一组的其它软件也会 foreground，不得自动弹系统验证。
+    /// 用户点本窗「解锁」仍走 `requestUnlock`。
+    nonisolated static var defaultAutoPromptsSystemAuth: Bool {
+        #if targetEnvironment(macCatalyst)
+        false
+        #else
+        !ProcessInfo.processInfo.isiOSAppOnMac
+        #endif
+    }
+
+    static func liveScenePresence() -> AppLockScenePresence {
+        #if canImport(UIKit)
+        let states = UIApplication.shared.connectedScenes.map(\.activationState)
+        if states.contains(.foregroundActive) { return .userFacing }
+        if states.contains(.foregroundInactive) { return .onScreenIdle }
+        return .offScreen
+        #else
+        return .userFacing
+        #endif
     }
 
     func start() async {
         guard !didStart else { return }
         didStart = true
-        let prefs = await loadPreferencesOrDefaults()
-        applyStartPreferences(prefs)
+        await reloadSecurityPreferences(isStart: true)
+        await refreshMasterPasswordAvailability()
+        refreshBiometryAvailability()
+        syncSnapshotCoverImmediately()
+        promptUnlockIfNeeded()
+    }
+
+    func retrySecurityPreferences() async {
+        await reloadSecurityPreferences(isStart: false)
         await refreshMasterPasswordAvailability()
         refreshBiometryAvailability()
         syncSnapshotCoverImmediately()
@@ -129,30 +178,58 @@ final class AppPrivacyController: ObservableObject {
     }
 
     func reloadAfterErase() async {
-        applyLivePreferences(await loadPreferencesOrDefaults())
+        await reloadSecurityPreferences(isStart: false)
     }
 
     func handleWillResignActive(now: Date = Date()) {
-        cancelledCurrentLock = false
+        // 台前同一组里点了 Xcode：窗还在当前空间，只是失去 Key。
+        // 触控 ID 系统框也会让本 App resign。这两种都不是「离开 App」。
+        if scenePresence() != .offScreen {
+            cancelAuthenticationIfUserMovedToAnotherApp()
+            return
+        }
         snapshotCoverTask?.cancel()
         snapshotCoverTask = nil
         var next = session
         next.noteWillResignActive(now: now)
         session = next
+        if !isUnlocking && !isRecovering {
+            cancelledCurrentLock = false
+            gate.cancelCurrentAuthentication()
+        }
+        syncSnapshotCoverImmediately()
+    }
+
+    /// 应用已进后台。控制中心不会走到这里。
+    /// Catalyst 在台前同一组点别的软件时也会发 background——窗还在则忽略。
+    func handleDidEnterBackground(now: Date = Date()) {
+        guard scenePresence() == .offScreen else {
+            shouldAutoPromptOnBecomeActive = false
+            cancelAuthenticationIfUserMovedToAnotherApp()
+            return
+        }
+        var next = session
+        next.noteDidEnterBackground(now: now, uptime: ProcessInfo.processInfo.systemUptime)
+        session = next
+        shouldAutoPromptOnBecomeActive = false
+        gate.cancelCurrentAuthentication()
         syncSnapshotCoverImmediately()
     }
 
     func handleWillEnterForeground(now: Date = Date()) {
         var next = session
-        next.noteWillEnterForeground(now: now)
+        next.noteWillEnterForeground(now: now, uptime: ProcessInfo.processInfo.systemUptime)
         session = next
-        // 仍可能处于 inactive（切换器未结束）；遮罩去留跟 session，立即同步即可。
+        // 台前组被点亮但焦点在组里别的软件：不得预约触控 ID。
+        if scenePresence() == .userFacing {
+            shouldAutoPromptOnBecomeActive = true
+        }
         syncSnapshotCoverImmediately()
     }
 
     func handleDidBecomeActive(now: Date = Date()) {
         var next = session
-        next.noteWillEnterForeground(now: now)
+        next.noteWillEnterForeground(now: now, uptime: ProcessInfo.processInfo.systemUptime)
         next.noteDidBecomeActive(now: now)
         session = next
         if session.isSessionLocked {
@@ -166,7 +243,12 @@ final class AppPrivacyController: ObservableObject {
             // 路径 1：未锁 — 直接进内容；截屏遮罩只为多任务预览，可略延迟摘且不可抢点击。
             scheduleSnapshotCoverSyncAfterActivation()
         }
-        promptUnlockIfNeeded()
+        // 台前调度闪一下 active 不会先走 willEnterForeground，不得在这里自动弹触控 ID。
+        let shouldPrompt = shouldAutoPromptOnBecomeActive
+        shouldAutoPromptOnBecomeActive = false
+        if shouldPrompt, shouldAutomaticallyPromptUnlock() {
+            promptUnlockIfNeeded()
+        }
         // 主密码可能在别处（设置页、另一台设备）被清掉；生物识别也可能被系统关掉。
         Task {
             await refreshMasterPasswordAvailability()
@@ -222,7 +304,10 @@ final class AppPrivacyController: ObservableObject {
         defer { isRecovering = false }
 
         do {
-            try await gate.confirmMandatory(reason: String(localized: "gate.resetMasterPassword"))
+            try await gate.confirmMandatory(
+                reason: String(localized: "gate.resetMasterPassword"),
+                purpose: .recovery
+            )
         } catch ApiRelayError.authenticationCancelled {
             unlockError = nil
             return
@@ -253,7 +338,10 @@ final class AppPrivacyController: ObservableObject {
         defer { isRecovering = false }
 
         do {
-            try await gate.confirmMandatory(reason: String(localized: "gate.resetMasterPassword"))
+            try await gate.confirmMandatory(
+                reason: String(localized: "gate.resetMasterPassword"),
+                purpose: .recovery
+            )
         } catch ApiRelayError.authenticationCancelled {
             unlockError = nil
             return
@@ -280,11 +368,48 @@ final class AppPrivacyController: ObservableObject {
         return reason == "master_password_not_set"
     }
 
-    private func loadPreferencesOrDefaults() async -> AppLockPreferences {
-        guard let dto = try? await preferences.load() else {
-            return .defaults
+    private func reloadSecurityPreferences(isStart: Bool) async {
+        do {
+            let prefs = AppLockPreferences(try await preferences.load())
+            securityPreferencesUnavailable = false
+            if isStart {
+                applyStartPreferences(prefs)
+            } else {
+                applyLivePreferences(prefs)
+            }
+        } catch {
+            securityPreferencesUnavailable = true
+            if AppLockLaunchCache.read() == true {
+                var next = session
+                next.applyCachedLockEnabled()
+                session = next
+            }
         }
-        return AppLockPreferences(dto)
+    }
+
+    /// 生命周期要不要自己弹系统验证。测试可直接问，避免在测试进程里真的 `evaluatePolicy`。
+    func shouldAutomaticallyPromptUnlock() -> Bool {
+        guard enablesUnlockPrompt else { return false }
+        guard session.needsUnlockPrompt else { return false }
+        guard !usesMasterPasswordUnlock else { return false }
+        guard !cancelledCurrentLock else { return false }
+        guard !isUnlocking else { return false }
+        guard autoPromptsSystemAuth else { return false }
+        guard scenePresence() == .userFacing else { return false }
+        guard isHostApplicationFrontmost() else { return false }
+        return true
+    }
+
+    /// 人已经点到别的软件：进行中的触控 ID 必须立刻收掉，否则系统框会盖在 Xcode 上。
+    /// 触控 ID 框弹出时本进程仍是前台，不得当成「点走了」去取消。
+    private func cancelAuthenticationIfUserMovedToAnotherApp() {
+        guard !isHostApplicationFrontmost() else { return }
+        cancelledCurrentLock = true
+        gate.cancelCurrentAuthentication()
+    }
+
+    private func isHostApplicationFrontmost() -> Bool {
+        scenePresence() == .userFacing
     }
 
     private func promptUnlockIfNeeded(force: Bool = false) {
@@ -294,12 +419,17 @@ final class AppPrivacyController: ObservableObject {
         guard !usesMasterPasswordUnlock else { return }
         guard force || !cancelledCurrentLock else { return }
         guard !isUnlocking else { return }
-        Task { await promptUnlock() }
+        // Mac / 台前同一组：生命周期不得自己弹出系统框。点本窗「解锁」带 force。
+        if !force {
+            guard shouldAutomaticallyPromptUnlock() else { return }
+        }
+        Task { await promptUnlock(force: force) }
     }
 
-    private func promptUnlock() async {
+    private func promptUnlock(force: Bool = false) async {
         guard session.needsUnlockPrompt, !isUnlocking else { return }
         if usesMasterPasswordUnlock { return }
+        if !force, !shouldAutomaticallyPromptUnlock() { return }
         isUnlocking = true
         unlockError = nil
         defer { isUnlocking = false }
@@ -309,11 +439,15 @@ final class AppPrivacyController: ObservableObject {
                 return
             case .noVerification:
                 // App 锁开着但验证方式为「不验证」时，仍须有一次身份确认，否则开关空转。
-                try await gate.confirmMandatory(reason: String(localized: "gate.unlockApp"))
+                try await gate.confirmMandatory(
+                    reason: String(localized: "gate.unlockApp"),
+                    purpose: .unlockApp
+                )
             case .biometricOrPasscode:
                 try await gate.confirm(
                     reason: String(localized: "gate.unlockApp"),
-                    policy: .biometricOrPasscode
+                    policy: .biometricOrPasscode,
+                    purpose: .unlockApp
                 )
             case .biometricOnly:
                 // 预先识别死局，避免用户反复点解锁、每次都收到同一句「生物识别不可用」。
@@ -325,7 +459,8 @@ final class AppPrivacyController: ObservableObject {
                 }
                 try await gate.confirm(
                     reason: String(localized: "gate.unlockApp"),
-                    policy: .biometricOnly
+                    policy: .biometricOnly,
+                    purpose: .unlockApp
                 )
             }
             finishUnlockSucceeded()

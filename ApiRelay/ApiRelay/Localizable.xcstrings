@@ -254,6 +254,54 @@
         }
       }
     },
+    "appLock.preferencesUnavailable.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Security settings could not be read. The vault stays locked. You can retry."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时无法读取安全设置。保险库保持锁定。可以重试。"
+          }
+        }
+      }
+    },
+    "appLock.preferencesUnavailable.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
+          }
+        }
+      }
+    },
+    "appLock.preferencesUnavailable.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can’t Read Security Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取安全设置"
+          }
+        }
+      }
+    },
     "appLock.unlock" : {
       "localizations" : {
         "en" : {
@@ -382,6 +430,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "生物识别不可用。请在设置中改用「本机密码」档，或检查系统触控 ID / 面容 ID。"
+          }
+        }
+      }
+    },
+    "error.masterPasswordRetryDelayed %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many incorrect attempts. Try again in %lld seconds."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连续输错次数过多，请 %lld 秒后再试。"
+          }
+        }
+      }
+    },
+    "error.sessionLocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock the app first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先解锁应用。"
           }
         }
       }
@@ -848,6 +928,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "验证身份以取出明文"
+          }
+        }
+      }
+    },
+    "gate.changeSecuritySettings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm to lower security settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证身份以降低安全设置"
           }
         }
       }
@@ -3412,6 +3508,22 @@
         }
       }
     },
+    "settings.masterPassword.current" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current master password"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前主密码"
+          }
+        }
+      }
+    },
     "settings.masterPassword.label" : {
       "comment" : "Setting label for master password management",
       "extractionState" : "stale",
@@ -4125,6 +4237,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重装或换机后重新生效「无限密钥」。"
+          }
+        }
+      }
+    },
+    "settings.securityPersistFailed.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Security settings could not be saved. The previous values were kept."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全设置未能写入，已恢复为原来的值。"
+          }
+        }
+      }
+    },
+    "settings.securityPersistFailed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Save Security Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存安全设置"
           }
         }
       }

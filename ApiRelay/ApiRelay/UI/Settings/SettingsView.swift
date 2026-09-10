@@ -24,6 +24,7 @@ struct SettingsView: View {
     @State private var isRestoringPurchases = false
     @State private var showPaywall = false
     @State private var entitlementTier: EntitlementTier = .free
+    @State private var persistError = ""
 
     var body: some View {
         NavigationStack {
@@ -84,6 +85,18 @@ struct SettingsView: View {
                     }
                 } message: {
                     Text("settings.eraseAll.message")
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesPersistFailed)) { _ in
+                    persistError = String(localized: "settings.securityPersistFailed.message")
+                    Task { await reload() }
+                }
+                .alert("settings.securityPersistFailed.title", isPresented: Binding(
+                    get: { !persistError.isEmpty },
+                    set: { if !$0 { persistError = "" } }
+                )) {
+                    Button("settings.done", role: .cancel) {}
+                } message: {
+                    Text(persistError)
                 }
         }
         .background(SettingsChrome.groupedBackground(colorScheme).ignoresSafeArea())
@@ -189,7 +202,7 @@ struct SettingsView: View {
                                 environment: environment,
                                 currentPolicy: prefs.revealPolicy,
                                 applyPolicy: { value in
-                                    persistSyncedPatch(PreferencesPatch(revealPolicy: value))
+                                    await persistSyncedPatchAsync(PreferencesPatch(revealPolicy: value))
                                     await refreshMasterPasswordStatus()
                                 }
                             )
@@ -222,7 +235,10 @@ struct SettingsView: View {
                                     // 重置后若仍卡在主密码档，回退验证方式，避免无法查看/复制。
                                     let stillSet = (try? await environment.masterPassword.isSet()) ?? false
                                     if !stillSet, self.prefs?.revealPolicy == .masterPassword {
-                                        persistSyncedPatch(PreferencesPatch(revealPolicy: RevealPolicy.noVerification))
+                                        persistSyncedPatch(
+                                            PreferencesPatch(revealPolicy: RevealPolicy.noVerification),
+                                            skipReauth: true
+                                        )
                                     }
                                 }
                             }
@@ -702,19 +718,43 @@ struct SettingsView: View {
     /// MUST NOT 在 MainActor 上 `await update`：`mainContext` 与 `@ModelActor` 的 save 互相等待，整窗转圈。
     /// 也 MUST NOT 在写完后 `reload`，那会用尚未落盘的旧值把开关弹回去。
     private func persistSyncedPatch(_ patch: PreferencesPatch) {
-        guard var current = prefs else { return }
-        if let value = patch.appLockEnabled { current.appLockEnabled = value }
-        if let value = patch.autoLockSeconds { current.autoLockSeconds = value }
-        if let value = patch.autoLockDurationOptions { current.autoLockDurationOptions = value }
-        if let value = patch.hideInAppSwitcher { current.hideInAppSwitcher = value }
-        if let value = patch.revealPolicy { current.revealPolicy = value }
-        if let value = patch.clipboardClearEnabled { current.clipboardClearEnabled = value }
-        if let value = patch.clipboardClearSeconds { current.clipboardClearSeconds = value }
-        if let value = patch.clipboardClearDurationOptions { current.clipboardClearDurationOptions = value }
-        if let value = patch.clipboardLocalOnly { current.clipboardLocalOnly = value }
-        prefs = current
-        environment.appPrivacy.applyLivePreferences(AppLockPreferences(current))
-        environment.preferences.persist(patch)
+        persistSyncedPatch(patch, skipReauth: false)
+    }
+
+    private func persistSyncedPatch(_ patch: PreferencesPatch, skipReauth: Bool) {
+        Task { await persistSyncedPatchAsync(patch, skipReauth: skipReauth) }
+    }
+
+    private func persistSyncedPatchAsync(_ patch: PreferencesPatch, skipReauth: Bool = false) async {
+        guard let current = prefs else { return }
+        if !skipReauth, SecurityPolicyChange.weakens(patch, relativeTo: current) {
+            do {
+                try await environment.gate.confirmMandatory(
+                    reason: String(localized: "gate.changeSecuritySettings"),
+                    purpose: .settings
+                )
+            } catch ApiRelayError.authenticationCancelled {
+                return
+            } catch {
+                persistError = error.localizedDescription
+                return
+            }
+        }
+        var next = current
+        if let value = patch.appLockEnabled { next.appLockEnabled = value }
+        if let value = patch.autoLockSeconds { next.autoLockSeconds = value }
+        if let value = patch.autoLockDurationOptions { next.autoLockDurationOptions = value }
+        if let value = patch.hideInAppSwitcher { next.hideInAppSwitcher = value }
+        if let value = patch.revealPolicy { next.revealPolicy = value }
+        if let value = patch.clipboardClearEnabled { next.clipboardClearEnabled = value }
+        if let value = patch.clipboardClearSeconds { next.clipboardClearSeconds = value }
+        if let value = patch.clipboardClearDurationOptions { next.clipboardClearDurationOptions = value }
+        if let value = patch.clipboardLocalOnly { next.clipboardLocalOnly = value }
+        prefs = next
+        environment.appPrivacy.applyLivePreferences(AppLockPreferences(next))
+        environment.preferences.persist(patch) { _ in
+            NotificationCenter.default.post(name: .securityPreferencesPersistFailed, object: nil)
+        }
     }
 
     /// 只用于本机 `DevicePreferences`（外观 / 默认视角 / 指派筛选），不经 CloudKit，故可直接 `await`。
@@ -911,6 +951,7 @@ private struct MasterPasswordSettingsView: View {
     var onSetupComplete: (() async -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
+    @State private var currentPassword = ""
     @State private var password = ""
     @State private var confirm = ""
     @State private var isSaving = false
@@ -949,6 +990,10 @@ private struct MasterPasswordSettingsView: View {
     var body: some View {
         SettingsSubpage(title: "settings.masterPassword") {
             SettingsCard {
+                if passwordAlreadySet, role == .manage {
+                    SettingsSecureField(title: "settings.masterPassword.current", text: $currentPassword)
+                    SettingsCardDivider()
+                }
                 SettingsSecureField(title: "vault.masterPassword", text: $password)
                 SettingsCardDivider()
                 SettingsSecureField(title: "settings.masterPassword.confirm", text: $confirm)
@@ -1023,7 +1068,12 @@ private struct MasterPasswordSettingsView: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            try await environment.masterPassword.setPassword(password)
+            if passwordAlreadySet, role == .manage {
+                try await environment.masterPassword.changePassword(current: currentPassword, new: password)
+            } else {
+                try await environment.masterPassword.setPassword(password)
+            }
+            currentPassword = ""
             password = ""
             confirm = ""
             didAttemptSave = false

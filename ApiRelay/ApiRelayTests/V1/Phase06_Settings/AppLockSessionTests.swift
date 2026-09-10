@@ -104,6 +104,14 @@ final class AppLockSessionTests: XCTestCase {
         XCTAssertFalse(session.showsSnapshotCover)
     }
 
+    func testAutoLockUsesMonotonicUptimeNotWallClock() {
+        var session = ready(hide: false, lock: true, seconds: 60)
+        session.unlockSucceeded()
+        session.noteDidEnterBackground(now: t0, uptime: 1_000)
+        session.noteWillEnterForeground(now: t0.addingTimeInterval(-3_600), uptime: 1_061)
+        XCTAssertTrue(session.isSessionLocked, "系统时间回拨不得让自动锁少算")
+    }
+
     func testAppLockOffIgnoresAutoLockTimeout() {
         var session = ready(hide: false, lock: false, seconds: 0)
         session.noteWillResignActive(now: t0)
@@ -113,11 +121,14 @@ final class AppLockSessionTests: XCTestCase {
         XCTAssertFalse(session.blocksContent)
     }
 
-    func testAutoLockZeroLocksAsSoonAsLeaving() {
+    func testAutoLockZeroLocksOnBackgroundNotResign() {
         var session = ready(hide: false, lock: true, seconds: 0)
         session.unlockSucceeded()
         XCTAssertFalse(session.isSessionLocked)
         session.noteWillResignActive(now: t0)
+        XCTAssertFalse(session.isSessionLocked, "resign 只盖遮罩，立即锁定也要等到进后台")
+        XCTAssertFalse(session.showsSnapshotCover, "未锁且未开多任务隐藏时 resign 不盖锁态遮罩")
+        session.noteDidEnterBackground(now: t0)
         XCTAssertTrue(session.isSessionLocked)
         XCTAssertTrue(session.showsSnapshotCover, "锁态离开前台不得在切换器露出列表")
         session.noteWillEnterForeground(now: t0.addingTimeInterval(1))
@@ -127,10 +138,29 @@ final class AppLockSessionTests: XCTestCase {
         XCTAssertTrue(session.blocksContent)
     }
 
+    func testResignWithoutBackgroundDoesNotStartAutoLockClock() {
+        var session = ready(hide: false, lock: true, seconds: 60)
+        session.unlockSucceeded()
+        session.noteWillResignActive(now: t0)
+        session.noteWillEnterForeground(now: t0.addingTimeInterval(60))
+        session.noteDidBecomeActive(now: t0.addingTimeInterval(60))
+        XCTAssertFalse(session.isSessionLocked, "控制中心 / 触控 ID 只有 resign，不得当成离开满 1 分钟")
+    }
+
+    func testImmediateDoesNotLockOnResignThenForegroundWithoutBackground() {
+        var session = ready(hide: false, lock: true, seconds: 0)
+        session.unlockSucceeded()
+        session.noteWillResignActive(now: t0)
+        session.noteWillEnterForeground(now: t0.addingTimeInterval(1))
+        session.noteDidBecomeActive(now: t0.addingTimeInterval(1))
+        XCTAssertFalse(session.isSessionLocked, "立即锁定也要等进后台，不能在触控 ID 框消失后把人锁在外面")
+    }
+
     func testAutoLockGraceDoesNotLockIfReturnedEarly() {
         var session = ready(hide: false, lock: true, seconds: 60)
         session.unlockSucceeded()
         session.noteWillResignActive(now: t0)
+        session.noteDidEnterBackground(now: t0)
         XCTAssertFalse(session.isSessionLocked)
         XCTAssertFalse(session.showsSnapshotCover)
         session.noteWillEnterForeground(now: t0.addingTimeInterval(59))
@@ -144,6 +174,7 @@ final class AppLockSessionTests: XCTestCase {
         var session = ready(hide: false, lock: true, seconds: 60)
         session.unlockSucceeded()
         session.noteWillResignActive(now: t0)
+        session.noteDidEnterBackground(now: t0)
         session.noteWillEnterForeground(now: t0.addingTimeInterval(60))
         XCTAssertTrue(session.isSessionLocked, "进入前台之前就必须已上锁")
         session.noteDidBecomeActive(now: t0.addingTimeInterval(60))
@@ -157,6 +188,7 @@ final class AppLockSessionTests: XCTestCase {
         session.unlockSucceeded()
         session.noteWillResignActive(now: t0)
         XCTAssertTrue(session.showsSnapshotCover)
+        session.noteDidEnterBackground(now: t0)
         session.noteWillEnterForeground(now: t0.addingTimeInterval(30))
         XCTAssertTrue(session.isSessionLocked)
         XCTAssertTrue(session.blocksContent)
@@ -170,11 +202,13 @@ final class AppLockSessionTests: XCTestCase {
         var session = ready(hide: false, lock: true, seconds: 30)
         session.unlockSucceeded()
         session.noteWillResignActive(now: t0)
-        // 离开 10 秒后系统闪断：active 0.2 秒又 inactive
+        session.noteDidEnterBackground(now: t0)
+        // 离开 10 秒后系统闪断：active 0.2 秒又 inactive（没有真正进后台）
         session.noteWillEnterForeground(now: t0.addingTimeInterval(10))
         session.noteDidBecomeActive(now: t0.addingTimeInterval(10))
         XCTAssertFalse(session.isSessionLocked)
         session.noteWillResignActive(now: t0.addingTimeInterval(10.2))
+        session.noteDidEnterBackground(now: t0.addingTimeInterval(10.2))
         // 从最初离开算满 30 秒应上锁（若被重置成 10.2 起算则此处不锁）
         session.noteWillEnterForeground(now: t0.addingTimeInterval(30))
         XCTAssertTrue(session.isSessionLocked)
@@ -184,13 +218,16 @@ final class AppLockSessionTests: XCTestCase {
         var session = ready(hide: false, lock: true, seconds: 30)
         session.unlockSucceeded()
         session.noteWillResignActive(now: t0)
+        session.noteDidEnterBackground(now: t0)
         session.noteWillEnterForeground(now: t0.addingTimeInterval(10))
         session.noteDidBecomeActive(now: t0.addingTimeInterval(10))
         // 真正使用超过 brief 阈值后再离开，应重新起算
-        session.noteWillResignActive(now: t0.addingTimeInterval(10 + AppLockSession.briefActiveThreshold + 0.5))
-        session.noteWillEnterForeground(now: t0.addingTimeInterval(10 + AppLockSession.briefActiveThreshold + 20))
+        let secondLeave = t0.addingTimeInterval(10 + AppLockSession.briefActiveThreshold + 0.5)
+        session.noteWillResignActive(now: secondLeave)
+        session.noteDidEnterBackground(now: secondLeave)
+        session.noteWillEnterForeground(now: secondLeave.addingTimeInterval(20))
         XCTAssertFalse(session.isSessionLocked, "新离开周期未满 30 秒")
-        session.noteWillEnterForeground(now: t0.addingTimeInterval(10 + AppLockSession.briefActiveThreshold + 30.5))
+        session.noteWillEnterForeground(now: secondLeave.addingTimeInterval(30.5))
         XCTAssertTrue(session.isSessionLocked)
     }
 
@@ -221,6 +258,8 @@ final class AppLockSessionTests: XCTestCase {
         XCTAssertFalse(session.isSessionLocked)
         XCTAssertFalse(session.blocksContent)
         session.noteWillResignActive(now: t0)
+        XCTAssertFalse(session.isSessionLocked, "resign 不是离开")
+        session.noteDidEnterBackground(now: t0)
         XCTAssertTrue(session.isSessionLocked)
     }
 
@@ -242,6 +281,7 @@ final class AppLockSessionTests: XCTestCase {
     func testUnlockWhileInactiveEntersContentEvenIfHideOn() {
         var session = ready(hide: true, lock: true, seconds: 30)
         session.noteWillResignActive(now: t0)
+        session.noteDidEnterBackground(now: t0)
         session.noteWillEnterForeground(now: t0.addingTimeInterval(60))
         XCTAssertTrue(session.isSessionLocked)
         XCTAssertTrue(session.isInactive)
@@ -258,6 +298,7 @@ final class AppLockSessionTests: XCTestCase {
         var session = ready(hide: false, lock: true, seconds: 60)
         session.unlockSucceeded()
         session.noteWillResignActive(now: t0)
+        session.noteDidEnterBackground(now: t0)
         session.noteWillResignActive(now: t0.addingTimeInterval(50))
         session.noteWillEnterForeground(now: t0.addingTimeInterval(59))
         session.noteDidBecomeActive(now: t0.addingTimeInterval(59))

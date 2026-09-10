@@ -18,6 +18,7 @@ actor DataLifecycleService: DataLifecycleServing {
     private let consumerTools: ConsumerToolServing
     private let preferences: PreferencesServing
     private let entitlements: EntitlementServing
+    private let sessionLock: any SessionLockQuerying
 
     init(
         gate: RevealGateServing,
@@ -26,7 +27,8 @@ actor DataLifecycleService: DataLifecycleServing {
         vault: KeyVaultServing,
         consumerTools: ConsumerToolServing,
         preferences: PreferencesServing,
-        entitlements: EntitlementServing
+        entitlements: EntitlementServing,
+        sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock()
     ) {
         self.gate = gate
         self.keychain = keychain
@@ -35,9 +37,11 @@ actor DataLifecycleService: DataLifecycleServing {
         self.consumerTools = consumerTools
         self.preferences = preferences
         self.entitlements = entitlements
+        self.sessionLock = sessionLock
     }
 
     func eraseAllUserData() async throws {
+        if sessionLock.isSessionLocked() { throw ApiRelayError.sessionLocked }
         try await gate.confirmMandatory(reason: String(localized: "gate.eraseAll"))
         for service: KeychainService in [.keys, .admin, .masterpw, .backuppw] {
             let accounts = try await keychain.listAccounts(service: service)

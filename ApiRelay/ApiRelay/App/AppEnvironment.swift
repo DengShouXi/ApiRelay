@@ -47,12 +47,14 @@ final class AppEnvironment: ObservableObject {
         self.clipboard = clipboard
         let entitlements = EntitlementService(modelContainer: modelContainer)
         self.entitlements = entitlements
+        let sessionLock = SessionLockBox()
         self.vault = KeyVaultService(
             keychain: keychain,
             gate: gate,
             clipboard: clipboard,
             modelContainer: modelContainer,
-            entitlements: entitlements
+            entitlements: entitlements,
+            sessionLock: sessionLock
         )
         self.consumerTools = ConsumerToolService(modelContainer: modelContainer, gate: gate)
         self.trashBatch = RecentlyDeletedBatchService(
@@ -70,7 +72,8 @@ final class AppEnvironment: ObservableObject {
         self.backups = SecureBackupService(
             gate: gate,
             keychain: keychain,
-            modelContainer: modelContainer
+            modelContainer: modelContainer,
+            sessionLock: sessionLock
         )
         self.backupPassphrase = BackupPassphraseService(keychain: keychain)
         self.dataLifecycle = DataLifecycleService(
@@ -80,14 +83,16 @@ final class AppEnvironment: ObservableObject {
             vault: self.vault,
             consumerTools: self.consumerTools,
             preferences: self.preferences,
-            entitlements: entitlements
+            entitlements: entitlements,
+            sessionLock: sessionLock
         )
         let monitor = CloudKitSyncMonitor(mirroringEnabled: AppSchema.isCloudKitMirroringEnabled)
         self.cloudSync = CloudSyncService(monitor: monitor)
         self.appPrivacy = AppPrivacyController(
             gate: gate,
             preferences: self.preferences,
-            masterPassword: master
+            masterPassword: master,
+            sessionLockBox: sessionLock
         )
         if isTesting {
             self.cloudImportHygiene = nil

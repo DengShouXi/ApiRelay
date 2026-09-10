@@ -15,7 +15,6 @@ struct ContentView: View {
 private struct PrivacyGatedVault: View {
     @EnvironmentObject private var environment: AppEnvironment
     @ObservedObject var privacy: AppPrivacyController
-    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -26,14 +25,18 @@ private struct PrivacyGatedVault: View {
                 .animation(nil, value: privacy.session.showsAppLockUI)
 
             AppLockCoverView(
-                showsUnlockChrome: privacy.session.needsUnlockPrompt,
+                showsUnlockChrome: privacy.session.needsUnlockPrompt || privacy.securityPreferencesUnavailable,
                 showsLockMark: privacy.session.showsAppLockUI,
                 usesMasterPassword: privacy.usesMasterPasswordUnlock,
                 masterPasswordMissing: privacy.masterPasswordMissing,
                 biometryUnavailableForUnlock: privacy.biometryUnavailableForUnlock,
+                securityPreferencesUnavailable: privacy.securityPreferencesUnavailable,
                 isBusy: privacy.isUnlocking || privacy.isRecovering,
                 errorText: privacy.unlockError,
                 onUnlock: { privacy.requestUnlock() },
+                onRetrySecurityPreferences: {
+                    Task { await privacy.retrySecurityPreferences() }
+                },
                 onUnlockWithMasterPassword: { password in
                     Task { await privacy.unlockWithMasterPassword(password) }
                 },
@@ -52,23 +55,14 @@ private struct PrivacyGatedVault: View {
         .task {
             await privacy.start()
         }
-        .onChange(of: scenePhase) { _, phase in
-            switch phase {
-            case .active:
-                privacy.handleDidBecomeActive()
-            case .inactive, .background:
-                privacy.handleWillResignActive()
-            @unknown default:
-                privacy.handleWillResignActive()
-            }
-        }
         #if canImport(UIKit)
+        // 只听应用级通知。某一扇窗 deactivate（Mac 的 sheet、台前同组点 Xcode）
+        // 不是离开 App，不得上锁、不得弹触控 ID。
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
             privacy.handleWillResignActive()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIScene.willDeactivateNotification)) { _ in
-            // 比 willResignActive 更早一拍，减少切换器截到明文的竞态。
-            privacy.handleWillResignActive()
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            privacy.handleDidEnterBackground()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             privacy.handleWillEnterForeground()

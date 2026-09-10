@@ -32,6 +32,8 @@ enum ApiRelayError: Error, Equatable {
     case authenticationFailed          // 生物识别/密码验证失败
     case authenticationCancelled       // 用户取消
     case biometryUnavailable           // 设备无生物识别能力
+    case sessionLocked                 // 会话锁未解，业务闸拒绝
+    case masterPasswordRetryDelayed(secondsRemaining: Int)
     // 保管
     case keychainFailure(OSStatus)
     case secretMissingOnDevice         // 元信息存在但 Keychain 无对应条目
@@ -369,12 +371,17 @@ enum KeyHealthResult: Sendable {
 ```swift
 protocol RevealGateServing: Sendable {
     /// 按当前 revealPolicy 执行确认。policy == .none 时直接返回成功。
-    func confirm(reason: String, policy: RevealPolicy) async throws
+    func confirm(reason: String, policy: RevealPolicy, purpose: AuthPurpose) async throws
 
-    /// 不可关闭的门闩：加密导出、查看/配置管理类凭证。忽略用户 policy 设置。
-    func confirmMandatory(reason: String) async throws
+    /// 不可关闭的门闩：加密导出、查看/配置管理类凭证、降低安全等级。忽略用户 policy 设置。
+    func confirmMandatory(reason: String, purpose: AuthPurpose) async throws
 
     func availableBiometry() -> BiometryKind   // faceID / touchID / none
+    nonisolated func cancelCurrentAuthentication()
+}
+
+protocol SessionLockQuerying: Sendable {
+    nonisolated func isSessionLocked() -> Bool
 }
 
 enum RevealPolicy: String, Sendable {
@@ -391,6 +398,8 @@ enum RevealPolicy: String, Sendable {
 - `availableBiometry()` 用于界面文案动态显示「Face ID / 触控 ID」，并在 `.none` 时禁用
   `biometricOnly` 档（FR-003a）。
 - 确认结果 MUST NOT 跨操作缓存。
+- 同一时间只服务一个系统验证请求；新请求取消旧请求（FR-068）。
+- 会话锁住时，取出明文 / 复制 / 新建等 MUST 先经 `SessionLockQuerying` 拒绝（FR-067）。
 - **自动刷新读取管理类凭证时 MUST NOT 调用本协议**（宪法 VIII、research §7）。
 
 ### 3.3 ClipboardServing — 剪贴板（FR-004、FR-005）

@@ -471,4 +471,36 @@ final class KeyVaultServiceTests: XCTestCase {
         XCTAssertEqual(afterA.updatedAt, beforeA.updatedAt)
         XCTAssertEqual(afterB.updatedAt, beforeB.updatedAt)
     }
+
+    func testSessionLockRejectsCreateAndCopy() async throws {
+        let box = SessionLockBox()
+        box.setLocked(true)
+        vault = KeyVaultService(
+            keychain: keychain,
+            gate: gate,
+            clipboard: clipboard,
+            modelContainer: container,
+            entitlements: StubEntitlements(tier: .unlimitedKeys),
+            sessionLock: box
+        )
+        do {
+            _ = try await vault.createAccount(UpstreamAccountDraft(platform: "openai", displayName: "Locked"))
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+        box.setLocked(false)
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "Open")
+        )
+        let keyId = try await vault.createKey(
+            KeyDraft(accountId: accountId, displayName: "k"),
+            secret: "sk-lock-gate-secret1"
+        )
+        box.setLocked(true)
+        do {
+            try await vault.copySecretToClipboard(keyId: keyId)
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+    }
 }

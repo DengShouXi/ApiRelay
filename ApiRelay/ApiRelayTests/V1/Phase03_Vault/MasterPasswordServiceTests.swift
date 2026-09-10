@@ -50,6 +50,32 @@ final class MasterPasswordServiceTests: XCTestCase {
         XCTAssertTrue(newOk)
     }
 
+    func testChangePasswordRejectsWrongCurrent() async throws {
+        try await sut.setPassword("old-pass")
+        do {
+            try await sut.changePassword(current: "nope", new: "new-pass")
+            XCTFail("expected authenticationFailed")
+        } catch ApiRelayError.authenticationFailed {
+        }
+        let stillOld = try await sut.verify("old-pass")
+        XCTAssertTrue(stillOld)
+    }
+
+    func testConsecutiveFailuresDelayRetry() async throws {
+        try await sut.setPassword("abcd")
+        let first = try await sut.verify("xxxx")
+        let second = try await sut.verify("xxxx")
+        let third = try await sut.verify("xxxx")
+        XCTAssertFalse(first)
+        XCTAssertFalse(second)
+        XCTAssertFalse(third)
+        do {
+            _ = try await sut.verify("xxxx")
+            XCTFail("expected retry delay")
+        } catch ApiRelayError.masterPasswordRetryDelayed {
+        }
+    }
+
     func testPolicyEvaluateReportsEachRule() {
         let empty = MasterPasswordPolicy.evaluate(password: "", confirm: "")
         XCTAssertEqual(empty.trimmedLength, 0)

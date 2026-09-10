@@ -162,6 +162,7 @@ struct VaultHomeView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+            guard !viewModel.environment.appPrivacy.session.isSessionLocked else { return }
             selectedTab = .settings
         }
         .onReceive(NotificationCenter.default.publisher(for: .newKey)) { _ in
@@ -1638,6 +1639,7 @@ struct VaultHomeView: View {
            !keyDetailIsEditing,
            !showMasterPrompt {
             Button("vault.copy.secret") {
+                guard !viewModel.environment.appPrivacy.session.isSessionLocked else { return }
                 Task { await beginCopy(id) }
             }
             .keyboardShortcut("c", modifiers: .command)
@@ -1645,6 +1647,7 @@ struct VaultHomeView: View {
     }
 
     private func handleIncomingBackupURL(_ url: URL) {
+        guard !viewModel.environment.appPrivacy.session.isSessionLocked else { return }
         guard url.isFileURL,
               url.pathExtension.lowercased() == SecureBackupFile.pathExtension else {
             return

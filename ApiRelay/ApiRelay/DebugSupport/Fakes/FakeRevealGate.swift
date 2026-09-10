@@ -15,9 +15,10 @@ actor FakeRevealGate: RevealGateServing {
         biometryBox.value = kind
     }
 
-    func confirm(reason: String, policy: RevealPolicy) async throws {
+    func confirm(reason: String, policy: RevealPolicy, purpose: AuthPurpose) async throws {
         _ = reason
         _ = policy
+        _ = purpose
         try journal.record("confirm")
     }
 
@@ -27,14 +28,17 @@ actor FakeRevealGate: RevealGateServing {
         try journal.record("confirmWithMasterPassword")
     }
 
-    func confirmMandatory(reason: String) async throws {
+    func confirmMandatory(reason: String, purpose: AuthPurpose) async throws {
         _ = reason
+        _ = purpose
         try journal.record("confirmMandatory")
     }
 
     func ensureMasterPasswordConfigured() async throws {
         try journal.record("ensureMasterPasswordConfigured")
     }
+
+    nonisolated func cancelCurrentAuthentication() {}
 
     nonisolated func availableBiometry() -> BiometryKind {
         biometryBox.value

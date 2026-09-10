@@ -6,6 +6,7 @@ actor RevealGate: RevealGateServing {
     private let masterPassword: MasterPasswordServing
     /// 测试可注入：跳过真实 LA。
     private let authenticateDeviceOwner: (@Sendable (String, LAPolicy) async throws -> Void)?
+    private let contextBox = ContextBox()
 
     init(
         masterPassword: MasterPasswordServing,
@@ -13,6 +14,10 @@ actor RevealGate: RevealGateServing {
     ) {
         self.masterPassword = masterPassword
         self.authenticateDeviceOwner = authenticateDeviceOwner
+    }
+
+    nonisolated func cancelCurrentAuthentication() {
+        contextBox.invalidate()
     }
 
     nonisolated func availableBiometry() -> BiometryKind {
@@ -28,7 +33,8 @@ actor RevealGate: RevealGateServing {
         }
     }
 
-    func confirm(reason: String, policy: RevealPolicy) async throws {
+    func confirm(reason: String, policy: RevealPolicy, purpose: AuthPurpose) async throws {
+        _ = purpose
         switch policy {
         case .noVerification:
             return
@@ -69,17 +75,23 @@ actor RevealGate: RevealGateServing {
         }
     }
 
-    func confirmMandatory(reason: String) async throws {
+    func confirmMandatory(reason: String, purpose: AuthPurpose) async throws {
+        _ = purpose
         try await evaluate(reason: reason, policy: .deviceOwnerAuthentication)
     }
 
     private func evaluate(reason: String, policy: LAPolicy) async throws {
+        let requestID = UUID()
+        contextBox.begin(requestID)
+        defer { contextBox.clearIfCurrent(requestID) }
         if let authenticateDeviceOwner {
             try await authenticateDeviceOwner(reason, policy)
+            try contextBox.throwIfCancelled(requestID)
             return
         }
         let context = LAContext()
         context.localizedCancelTitle = String(localized: "gate.cancel")
+        contextBox.replace(context, requestID: requestID)
         do {
             let success = try await context.evaluatePolicy(policy, localizedReason: reason)
             if !success { throw ApiRelayError.authenticationFailed }
@@ -101,5 +113,58 @@ actor RevealGate: RevealGateServing {
         } catch {
             throw ApiRelayError.authenticationFailed
         }
+    }
+}
+
+/// `evaluatePolicy` 进行中离开 App 时必须能从任意隔离域取消，否则系统框会盖在别的软件上。
+/// 工程默认 MainActor；本类型持有锁，MUST 显式非隔离，否则 `RevealGate` actor 调不了。
+nonisolated private final class ContextBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var context: LAContext?
+    private var requestID: UUID?
+
+    func begin(_ requestID: UUID) {
+        lock.lock()
+        let previous = context
+        context = nil
+        self.requestID = requestID
+        lock.unlock()
+        previous?.invalidate()
+    }
+
+    func replace(_ next: LAContext?, requestID: UUID) {
+        lock.lock()
+        let previous = context
+        context = next
+        self.requestID = requestID
+        lock.unlock()
+        previous?.invalidate()
+    }
+
+    func clearIfCurrent(_ requestID: UUID) {
+        lock.lock()
+        if self.requestID == requestID {
+            context = nil
+            self.requestID = nil
+        }
+        lock.unlock()
+    }
+
+    func throwIfCancelled(_ requestID: UUID) throws {
+        lock.lock()
+        let current = self.requestID
+        lock.unlock()
+        if current != requestID {
+            throw ApiRelayError.authenticationCancelled
+        }
+    }
+
+    func invalidate() {
+        lock.lock()
+        let current = context
+        context = nil
+        requestID = nil
+        lock.unlock()
+        current?.invalidate()
     }
 }

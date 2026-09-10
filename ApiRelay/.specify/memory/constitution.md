@@ -1,6 +1,25 @@
 <!--
-Sync Impact Report（最新：v2.8.0 → v2.9.0）
+Sync Impact Report（最新：v2.9.0 → v2.10.0）
 ==========================================
+Version change: 2.9.0 → 2.10.0 (MINOR: 安全偏好失败锁住；降低同步安全等级须再认证；会话锁为业务闸)
+
+Modified principles / requirements:
+  - V. 故障隔离
+      * 安全偏好读取失败 MUST 保持上一次已知锁态，MUST NOT 静默落到默认关锁。
+  - VIII. 身份确认门闩
+      * 降低已同步的安全等级 MUST 再经不可关闭的设备主人认证。
+      * 会话锁住时敏感动作 MUST 在业务入口拒绝；遮罩不得作为唯一闸。
+      * 系统验证同一时间只服务一个请求。
+
+Templates / downstream sync:
+  - `specs/001-key-vault/spec.md`（FR-065～FR-068、宪法修订记录）
+  - `specs/001-key-vault/contracts/module-interfaces.md`
+  - `specs/playbooks/锁-验收矩阵.md`
+
+Follow-up TODOs: none
+
+历史记录
+========
 Version change: 2.8.0 → 2.9.0 (MINOR: VII 剪贴板时长改为可增删列表；澄清 Mac/强制退出清不掉)
 
 Modified principles / requirements:
@@ -204,6 +223,7 @@ Follow-up TODOs: none
 
 - 模块级错误 MUST NOT 导致应用整体崩溃。
 - 业务模块异常 MUST 向 UI 层返回明确的 Error 类型或 Result 类型，不得吞噬错误静默失败。
+- 安全偏好读取失败 MUST 保持上一次已知锁态（含本机「曾开锁」缓存），MUST NOT 回落到默认关锁，也 MUST NOT 把失败写成「不验证」。
 - 后台任务（网络请求、数据处理）故障 MUST NOT 牵连其他功能模块运行。
 - 单个上游平台的接口失败或格式变更 MUST NOT 影响其他平台的功能或产品的本地能力。
 - 关键路径（如 API 密钥访问）MUST 有 fallback 策略。
@@ -275,6 +295,12 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
   同上，明文没有被交给用户，且批量探活若逐次弹出生物识别会使该功能不可用。
 - 上述两类例外的读取路径 MUST 以**显式命名**体现（如 `readCredentialForAutomatedRefresh`、
   `readSecretForHealthProbe`），使后续维护者不会误加门闩而破坏功能。
+- 降低已同步的安全等级（关闭 App 锁、改为更弱的验证方式、关闭多任务隐藏、关闭剪贴板自动清除、
+  拉长自动锁）MUST 先完成不可关闭的设备主人认证。加强安全 MUST 立即生效。
+- 会话锁住时，取出明文、复制、新建、编辑、删除、导入导出、打开设置 MUST 在业务或命令入口拒绝。
+  界面遮罩 MUST NOT 作为唯一拦截。
+- 系统身份验证同一时间 MUST 只服务一个请求；新请求 MUST 取消未完成的旧请求；真正离开 App 时
+  MUST 取消全部未完成请求。
 
 **Rationale**: 即使设备已解锁，取出凭证仍需二次身份确认，防范未授权物理访问。
 「查看明文」与「复制」产出的是**同一份明文**，对其中之一强制门闩而允许另一个关闭不产生任何实际
@@ -443,9 +469,14 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
 **Rationale**: 这些不是「以后再优化」的选项，而是只有一次机会的选择。把它们集中登记，是为了避免
 它们被当成普通工程配置在实现阶段随手决定。
 
-**Version**: 2.9.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-09-08
+**Version**: 2.10.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-09-10
 
 <!--
+v2.10.0（MINOR，锁失败安全 + 设置降级再认证 + 业务闸）：
+  - V：安全偏好读失败保持已知锁态，不得落到默认关锁。
+  - VIII：降低已同步安全等级须再认证；会话锁在业务入口生效；系统验证单通道。
+  - Sync Impact：spec FR-065～068、module-interfaces、playbooks/锁-验收矩阵.md。
+
 v2.9.0（MINOR，剪贴板时长列表 + Mac 清除上限）：
   - VII：出厂默认 2 分钟，列表可增删（含删掉 2 分钟）；进程存活才保证按时清。
     Mac / 强制退出 / 崩溃 MUST 披露，MUST NOT 为凑系统过期破坏粘贴。
