@@ -85,6 +85,20 @@ final class AppLockSessionTests: XCTestCase {
         XCTAssertFalse(session.isSessionLocked)
     }
 
+    func testReleaseOnScreenIdleClearsCoverWithoutStartingTimer() {
+        var session = ready(hide: true, lock: true, seconds: 0)
+        session.noteWillResignActive(now: t0)
+        XCTAssertTrue(session.showsSnapshotCover)
+        XCTAssertNil(session.lastLeftMonotonic)
+        session.releaseOnScreenIdle()
+        XCTAssertFalse(session.isInactive)
+        XCTAssertFalse(session.showsSnapshotCover)
+        XCTAssertFalse(session.isSessionLocked)
+        XCTAssertNil(session.lastLeftMonotonic)
+        session.noteWillEnterForeground(now: t0.addingTimeInterval(60))
+        XCTAssertFalse(session.isSessionLocked, "同组闲置摘罩不得开始自动锁计时")
+    }
+
     func testHideInSwitcherOffLeavesContentVisibleInSwitcher() {
         var session = ready(hide: false, lock: false)
         session.noteWillResignActive(now: t0)

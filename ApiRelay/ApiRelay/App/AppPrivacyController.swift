@@ -10,9 +10,10 @@ import UIKit
 /// 开了 App 锁：冷启动与离开再进都走软件锁。
 /// 多任务遮罩只盖在 UIKit 窗口上、不画锁，避免被当成解锁页。
 ///
-/// 「离开」只认整个 ApiRelay 离开当前空间。台前调度同一组里点 Xcode / Cursor：
-/// 窗还在屏上，那不是离开——不得上锁、不得盖白屏、不得弹触控 ID。
-/// 本 App 的 sheet / 另一扇窗切换同样不是离开。
+/// 「离开」只认整个 ApiRelay 离开当前空间。台前同一组里点别的软件
+/// （Mac 的 Xcode / Cursor，iPadOS 26 的 Safari / 备忘录）：窗还在屏上，那不是离开——
+/// 不得上锁、不得盖白屏、不得弹系统验证。本 App 的 sheet / 另一扇窗同样不是离开。
+/// iPadOS 26 往往不发 resign，要靠本窗 Key / `activeAppearance` 才能取消盖在别人头上的 Face ID。
 @MainActor
 final class AppPrivacyController: ObservableObject {
     @Published private(set) var session: AppLockSession {
@@ -48,6 +49,10 @@ final class AppPrivacyController: ObservableObject {
     private var snapshotCoverTask: Task<Void, Never>?
     /// 只有经历过 `willEnterForeground` 且当前人正在用我们，才自动弹系统验证。
     private var shouldAutoPromptOnBecomeActive = false
+    private var hostFocusCancellables: Set<AnyCancellable> = []
+    #if canImport(UIKit)
+    private var hostTraitRegistrations: [any UITraitChangeRegistration] = []
+    #endif
 
     init(
         gate: any RevealGateServing,
@@ -92,18 +97,44 @@ final class AppPrivacyController: ObservableObject {
 
     static func liveScenePresence() -> AppLockScenePresence {
         #if canImport(UIKit)
-        let states = UIApplication.shared.connectedScenes.map(\.activationState)
-        if states.contains(.foregroundActive) { return .userFacing }
-        if states.contains(.foregroundInactive) { return .onScreenIdle }
-        return .offScreen
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let hasForegroundActive = scenes.contains { $0.activationState == .foregroundActive }
+        let hasForegroundInactive = scenes.contains { $0.activationState == .foregroundInactive }
+        return AppLockScenePresence.resolve(
+            hasForegroundActive: hasForegroundActive,
+            hasForegroundInactive: hasForegroundInactive,
+            applicationIsActive: UIApplication.shared.applicationState == .active,
+            hostHasKeyOrActiveWindow: hostHasKeyOrActiveWindow(in: scenes)
+        )
         #else
         return .userFacing
         #endif
     }
 
+    /// 本窗仍算「人在用」：有 Key，或外观仍是 active（Face ID 可能抢走 Key，但外观不该变成闲置）。
+    /// 外观已是 inactive 的窗即使还占着 Key，在 iPadOS 26 台前也当成闲置。
+    #if canImport(UIKit)
+    static func hostHasKeyOrActiveWindow(in scenes: [UIWindowScene]) -> Bool {
+        let windows = scenes
+            .filter { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
+            .flatMap(\.windows)
+            .filter { !$0.isHidden }
+        return windows.contains { window in
+            if window.traitCollection.activeAppearance == .inactive {
+                return false
+            }
+            if window.traitCollection.activeAppearance == .active {
+                return true
+            }
+            return window.isKeyWindow
+        }
+    }
+    #endif
+
     func start() async {
         guard !didStart else { return }
         didStart = true
+        startObservingHostFocus()
         await reloadSecurityPreferences(isStart: true)
         await refreshMasterPasswordAvailability()
         refreshBiometryAvailability()
@@ -182,11 +213,16 @@ final class AppPrivacyController: ObservableObject {
     }
 
     func handleWillResignActive(now: Date = Date()) {
-        // 台前同一组里点了 Xcode：窗还在当前空间，只是失去 Key。
-        // 触控 ID 系统框也会让本 App resign。这两种都不是「离开 App」。
-        if scenePresence() != .offScreen {
-            cancelAuthenticationIfUserMovedToAnotherApp()
+        switch scenePresence() {
+        case .userFacing:
+            // 控制中心 / Face ID 抢前台：本窗仍在操作。不得盖罩、不得当离开去 cancel。
             return
+        case .onScreenIdle:
+            cancelAuthenticationIfUserMovedToAnotherApp()
+            flashSwitcherCoverThenReleaseIdle(now: now)
+            return
+        case .offScreen:
+            break
         }
         snapshotCoverTask?.cancel()
         snapshotCoverTask = nil
@@ -225,6 +261,17 @@ final class AppPrivacyController: ObservableObject {
             shouldAutoPromptOnBecomeActive = true
         }
         syncSnapshotCoverImmediately()
+    }
+
+    /// iPadOS 26 台前同组切焦点常常不走 `willResignActive`。Key / 闲置外观变了就要收掉系统验证，仍不得上锁。
+    func handleHostFocusDidChange() {
+        switch scenePresence() {
+        case .userFacing:
+            return
+        case .onScreenIdle, .offScreen:
+            shouldAutoPromptOnBecomeActive = false
+            cancelAuthenticationIfUserMovedToAnotherApp()
+        }
     }
 
     func handleDidBecomeActive(now: Date = Date()) {
@@ -401,11 +448,28 @@ final class AppPrivacyController: ObservableObject {
     }
 
     /// 人已经点到别的软件：进行中的触控 ID 必须立刻收掉，否则系统框会盖在 Xcode 上。
-    /// 触控 ID 框弹出时本进程仍是前台，不得当成「点走了」去取消。
+    /// 系统验证框正在前（状态 C）不得当成同组闲置去取消。
     private func cancelAuthenticationIfUserMovedToAnotherApp() {
         guard !isHostApplicationFrontmost() else { return }
+        if isUnlocking || isRecovering || gate.isAuthenticationInProgress() {
+            return
+        }
         cancelledCurrentLock = true
         gate.cancelCurrentAuthentication()
+    }
+
+    /// 同组闲置：若开了切换器隐藏，允许先盖再摘，结束态不得留白锁屏、不得开始计时。
+    private func flashSwitcherCoverThenReleaseIdle(now: Date) {
+        guard session.hasBecomeActiveOnce else { return }
+        guard session.preferences.hideInAppSwitcher || session.isSessionLocked else { return }
+        var next = session
+        next.noteWillResignActive(now: now)
+        session = next
+        syncSnapshotCoverImmediately()
+        next = session
+        next.releaseOnScreenIdle()
+        session = next
+        syncSnapshotCoverImmediately()
     }
 
     private func isHostApplicationFrontmost() -> Bool {
@@ -528,6 +592,48 @@ final class AppPrivacyController: ObservableObject {
         )
         #endif
     }
+
+    /// iPadOS 26 同组切主窗不走应用级 resign。听 Key 与 `activeAppearance`，才能把 Face ID 从别人头上收掉。
+    private func startObservingHostFocus() {
+        guard !AppRuntime.isRunningTests else { return }
+        guard hostFocusCancellables.isEmpty else { return }
+        #if canImport(UIKit)
+        let center = NotificationCenter.default
+        let names: [Notification.Name] = [
+            UIWindow.didBecomeKeyNotification,
+            UIWindow.didResignKeyNotification,
+            UIScene.didActivateNotification
+        ]
+        for name in names {
+            center.publisher(for: name)
+                .sink { [weak self] _ in
+                    Task { @MainActor in
+                        self?.refreshHostTraitObservations()
+                        self?.handleHostFocusDidChange()
+                    }
+                }
+                .store(in: &hostFocusCancellables)
+        }
+        refreshHostTraitObservations()
+        #endif
+    }
+
+    #if canImport(UIKit)
+    private func refreshHostTraitObservations() {
+        hostTraitRegistrations.removeAll()
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+        for window in windows {
+            let registration = window.registerForTraitChanges([UITraitActiveAppearance.self]) { [weak self] (_: UIWindow, _: UITraitCollection) in
+                Task { @MainActor in
+                    self?.handleHostFocusDidChange()
+                }
+            }
+            hostTraitRegistrations.append(registration)
+        }
+    }
+    #endif
 }
 
 #if canImport(UIKit)

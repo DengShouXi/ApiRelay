@@ -50,13 +50,21 @@ actor FakePreferences: PreferencesServing {
         try journal.record("update")
         if let updateError { throw updateError }
         store.apply(patch)
+        if let enabled = patch.appLockEnabled {
+            AppLockLaunchCache.write(enabled)
+        }
     }
 
-    nonisolated func persist(_ patch: PreferencesPatch, onFailure: (@Sendable (Error) -> Void)?) {
+    nonisolated func persist(
+        _ patch: PreferencesPatch,
+        onFailure: (@Sendable (Error) -> Void)?,
+        onSuccess: (@Sendable () -> Void)?
+    ) {
         Task {
             do {
                 try await self.update(patch)
                 await self.notePersist()
+                onSuccess?()
             } catch {
                 onFailure?(error)
             }

@@ -30,11 +30,23 @@ actor ConsumerToolService: ConsumerToolServing {
     private let repo: ConsumerToolRepository
     private let assignments: KeyAssignmentRepository
     private let gate: RevealGateServing
+    private let sessionLock: any SessionLockQuerying
 
-    init(modelContainer: ModelContainer, gate: RevealGateServing) {
+    init(
+        modelContainer: ModelContainer,
+        gate: RevealGateServing,
+        sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock()
+    ) {
         self.repo = ConsumerToolRepository(modelContainer: modelContainer)
         self.assignments = KeyAssignmentRepository(modelContainer: modelContainer)
         self.gate = gate
+        self.sessionLock = sessionLock
+    }
+
+    private func rejectIfSessionLocked() throws {
+        if sessionLock.isSessionLocked() {
+            throw ApiRelayError.sessionLocked
+        }
     }
 
     func tools(includeHidden: Bool) async throws -> [ConsumerToolDTO] {
@@ -77,6 +89,7 @@ actor ConsumerToolService: ConsumerToolServing {
     }
 
     func createTool(_ draft: ConsumerToolDraft) async throws -> UUID {
+        try rejectIfSessionLocked()
         var draft = draft
         draft.isPreset = false
         let stored = draft.iconSymbol?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -87,15 +100,18 @@ actor ConsumerToolService: ConsumerToolServing {
     }
 
     func updateTool(id: UUID, patch: ConsumerToolPatch) async throws {
+        try rejectIfSessionLocked()
         try await repo.update(id: id, patch: patch)
     }
 
     func reorderTools(orderedIds: [UUID]) async throws {
+        try rejectIfSessionLocked()
         try await repo.reorder(orderedIds: orderedIds)
     }
 
     /// 删除使用方：移入回收站；回收站期间保留 KeyAssignment，不级联删密钥。
     func deleteTool(id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.deleteTool"))
         try await repo.softDelete(id: id, retainDays: 30, allowPreset: false)
     }
@@ -105,11 +121,13 @@ actor ConsumerToolService: ConsumerToolServing {
     }
 
     func restoreTool(id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.restoreTool"))
         _ = try await restoreToolAfterAuth(id, requirePresent: true)
     }
 
     func permanentlyDeleteTool(id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.permanentDelete"))
         _ = try await permanentlyDeleteToolAfterAuth(id)
     }
@@ -171,6 +189,7 @@ actor ConsumerToolService: ConsumerToolServing {
     }
 
     func purgeExpiredDeletedTools() async throws {
+        if sessionLock.isSessionLocked() { return }
         let deleted = try await repo.fetchSoftDeleted()
         let now = Date()
         for tool in deleted where (tool.purgeAfter ?? .distantFuture) < now {

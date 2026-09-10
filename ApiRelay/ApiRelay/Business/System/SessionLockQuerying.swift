@@ -60,3 +60,36 @@ enum SecurityPolicyChange: Sendable {
         }
     }
 }
+
+/// 降低已同步安全等级：必须等 persist 成功才改内存锁态（FR-069）。
+enum SecurityPreferenceCommit: Sendable {
+    nonisolated static func appliesMemoryBeforePersist(
+        _ patch: PreferencesPatch,
+        relativeTo current: PreferencesDTO
+    ) -> Bool {
+        !SecurityPolicyChange.weakens(patch, relativeTo: current)
+    }
+
+    /// 加强：可先改内存。降低：只 enqueue persist，成功后再发 `securityPreferencesDidPersist`。
+    /// `applyMemory` 只在「可先改内存」时同步调用，调用方须已在 MainActor。
+    @MainActor
+    static func persist(
+        _ patch: PreferencesPatch,
+        relativeTo current: PreferencesDTO,
+        using preferences: any PreferencesServing,
+        applyMemory: (PreferencesDTO) -> Void
+    ) {
+        let next = current.applying(patch)
+        let applyNow = appliesMemoryBeforePersist(patch, relativeTo: current)
+        if applyNow {
+            applyMemory(next)
+        }
+        preferences.persist(patch, onFailure: { _ in
+            NotificationCenter.default.post(name: .securityPreferencesPersistFailed, object: nil)
+        }, onSuccess: {
+            if !applyNow {
+                NotificationCenter.default.post(name: .securityPreferencesDidPersist, object: nil)
+            }
+        })
+    }
+}

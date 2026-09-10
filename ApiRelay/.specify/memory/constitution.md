@@ -1,6 +1,25 @@
 <!--
-Sync Impact Report（最新：v2.9.0 → v2.10.0）
+Sync Impact Report（最新：v2.10.0 → v2.11.0）
 ==========================================
+Version change: 2.10.0 → 2.11.0 (MINOR: 降级须落盘成功才改锁态；写入口收口；快照≠计时；认证中不当闲置)
+
+Modified principles / requirements:
+  - VIII. 身份确认门闩
+      * 降低已同步安全等级 MUST 在 persist 成功后才改内存锁态、启动缓存、界面；失败保持原状。
+      * 会话锁住时用户发起的写（使用方 CRUD、回收站恢复/永久删、指派、排序）MUST 在业务入口拒绝；过期清扫 MUST 跳过。
+      * 快照遮罩与自动锁计时拆开；同组闲置不得锁/计时/白屏。
+      * 系统验证进行中视为验证接管，MUST NOT 当同组闲置去 cancel。
+
+Templates / downstream sync:
+  - `specs/001-key-vault/spec.md`（FR-069～FR-072、宪法修订记录）
+  - `specs/001-key-vault/contracts/module-interfaces.md`
+  - `specs/playbooks/锁-验收矩阵.md`
+  - `specs/playbooks/锁-加固计划.md`
+
+Follow-up TODOs: none
+
+历史记录
+========
 Version change: 2.9.0 → 2.10.0 (MINOR: 安全偏好失败锁住；降低同步安全等级须再认证；会话锁为业务闸)
 
 Modified principles / requirements:
@@ -297,10 +316,15 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
   `readSecretForHealthProbe`），使后续维护者不会误加门闩而破坏功能。
 - 降低已同步的安全等级（关闭 App 锁、改为更弱的验证方式、关闭多任务隐藏、关闭剪贴板自动清除、
   拉长自动锁）MUST 先完成不可关闭的设备主人认证。加强安全 MUST 立即生效。
-- 会话锁住时，取出明文、复制、新建、编辑、删除、导入导出、打开设置 MUST 在业务或命令入口拒绝。
-  界面遮罩 MUST NOT 作为唯一拦截。
+  降低等级 MUST 在同步偏好 persist **成功后**才改内存锁态、启动缓存与界面；失败 MUST 保持原状
+  （含会话仍锁、缓存仍为开）。加强仍可先改内存。
+- 会话锁住时，取出明文、复制、新建、编辑、删除、导入导出、打开设置、使用方 CRUD、回收站恢复
+  与永久删除、指派、排序 MUST 在业务或命令入口拒绝。界面遮罩 MUST NOT 作为唯一拦截。
+  过期回收站清扫若会话锁住 MUST 跳过本轮，MUST NOT 弹门闩。
+- 快照遮罩与自动锁计时 MUST 拆开。台前同组闲置 MUST NOT 上锁、MUST NOT 开始计时、MUST NOT 留下
+  白色锁屏；确认离屏才计时或立即锁。
 - 系统身份验证同一时间 MUST 只服务一个请求；新请求 MUST 取消未完成的旧请求；真正离开 App 时
-  MUST 取消全部未完成请求。
+  MUST 取消全部未完成请求。系统验证进行中视为验证接管，MUST NOT 当同组闲置去 cancel。
 
 **Rationale**: 即使设备已解锁，取出凭证仍需二次身份确认，防范未授权物理访问。
 「查看明文」与「复制」产出的是**同一份明文**，对其中之一强制门闩而允许另一个关闭不产生任何实际
@@ -469,9 +493,14 @@ API 密钥明文与管理类高权限凭证 MUST 受到硬性保护：
 **Rationale**: 这些不是「以后再优化」的选项，而是只有一次机会的选择。把它们集中登记，是为了避免
 它们被当成普通工程配置在实现阶段随手决定。
 
-**Version**: 2.10.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-09-10
+**Version**: 2.11.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-09-10
 
 <!--
+v2.11.0（MINOR，降级事务 + 写入口收口 + 快照≠计时 + 认证中态）：
+  - VIII：降低已同步安全等级须 persist 成功才改内存锁态；使用方/回收站/指派/排序过闸；
+    过期清扫锁下跳过；快照与计时拆开；验证进行中不得当闲置 cancel。
+  - Sync Impact：spec FR-069～072、module-interfaces、playbooks/锁-验收矩阵.md、锁-加固计划.md。
+
 v2.10.0（MINOR，锁失败安全 + 设置降级再认证 + 业务闸）：
   - V：安全偏好读失败保持已知锁态，不得落到默认关锁。
   - VIII：降低已同步安全等级须再认证；会话锁在业务入口生效；系统验证单通道。

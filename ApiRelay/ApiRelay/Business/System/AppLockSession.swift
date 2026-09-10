@@ -193,6 +193,12 @@ struct AppLockSession: Equatable, Sendable {
         // 真正用完一次离开周期：由下次「非闪断」的 resign 覆写，或 `unlockSucceeded` 清空。
     }
 
+    /// 台前同组闲置：允许先盖切换器快照再立刻摘掉。MUST NOT 写入离开时刻，也 MUST NOT 上锁。
+    mutating func releaseOnScreenIdle() {
+        guard hasBecomeActiveOnce else { return }
+        isInactive = false
+    }
+
     mutating func unlockSucceeded() {
         isSessionLocked = false
         lastLeftActiveAt = nil
@@ -212,13 +218,39 @@ struct AppLockSession: Equatable, Sendable {
 
 /// 本 App 的窗口相对于当前空间的关系。台前调度同一组里点别的软件时，
 /// 窗仍在屏上（`.onScreenIdle`），那不是离开，也不得弹系统验证。
+///
+/// iPadOS 26 起同组里的窗可以一直保持 `foregroundActive`。这时「人没在用我们」
+/// 要靠本窗不是 Key、外观是闲置来认，不能再只看 scene 是否 Active。
 enum AppLockScenePresence: Equatable, Sendable {
     /// 所有窗口都不在当前空间（切到另一组 / 进后台）。
     case offScreen
-    /// 窗还在当前空间，但人没在用我们（同一组里的 Xcode、触控 ID 框）。
+    /// 窗还在当前空间，但人没在用我们（同一组里的别的软件；本窗失去 Key / 闲置外观）。
     case onScreenIdle
-    /// 人正在用我们（有前台活动的 scene / Key Window）。
+    /// 人正在用我们（本窗是 Key，或系统验证框还盖在我们头上）。
     case userFacing
+
+    /// 把系统信号收成三态。调用方负责读 UIKit；本函数无 UIKit，便于单测。
+    ///
+    /// `applicationIsActive == false`（Face ID / 控制中心）不要看 Key Window：
+    /// 系统框会把 Key 抢走，不得当成「点到了别的软件」去取消正在进行的验证。
+    /// App 仍是 `.active` 时（iPadOS 26 台前同组）才看 `hostHasKeyOrActiveWindow`。
+    nonisolated static func resolve(
+        hasForegroundActive: Bool,
+        hasForegroundInactive: Bool,
+        applicationIsActive: Bool,
+        hostHasKeyOrActiveWindow: Bool
+    ) -> AppLockScenePresence {
+        if !hasForegroundActive && !hasForegroundInactive {
+            return .offScreen
+        }
+        if applicationIsActive {
+            return hostHasKeyOrActiveWindow ? .userFacing : .onScreenIdle
+        }
+        if hasForegroundActive {
+            return .userFacing
+        }
+        return .onScreenIdle
+    }
 }
 
 /// 本机上次的 App 锁开关。冷启动等不及 CloudKit / SwiftData 时用它决定要不要挡首帧。

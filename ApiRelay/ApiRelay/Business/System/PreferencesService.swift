@@ -4,6 +4,8 @@ import SwiftData
 extension Notification.Name {
     /// 安全偏好非阻塞写入失败。设置页回滚内存并提示。
     nonisolated static let securityPreferencesPersistFailed = Notification.Name("com.apirelay.securityPreferencesPersistFailed")
+    /// 降低安全等级的写入已落盘。设置页此时才改内存锁态。
+    nonisolated static let securityPreferencesDidPersist = Notification.Name("com.apirelay.securityPreferencesDidPersist")
 }
 
 protocol PreferencesServing: Actor {
@@ -12,14 +14,23 @@ protocol PreferencesServing: Actor {
     /// 同步偏好的非阻塞写入。界面与 MainActor 上的控制器 MUST 走这条，
     /// MUST NOT `await update`——那会让主线程干等 CloudKit/SwiftData 落盘。
     /// 安全类写入失败时 MUST 回调，界面回滚；不得静默吞掉。
-    nonisolated func persist(_ patch: PreferencesPatch, onFailure: (@Sendable (Error) -> Void)?)
+    /// 降低等级的成功回调用于在落盘之后才改内存锁态（FR-069）。
+    nonisolated func persist(
+        _ patch: PreferencesPatch,
+        onFailure: (@Sendable (Error) -> Void)?,
+        onSuccess: (@Sendable () -> Void)?
+    )
     /// FR-061：清空同步偏好与本机偏好；下次 `load` 会重建默认值。
     func purgeAllRecordsForErase() async throws
 }
 
 extension PreferencesServing {
+    nonisolated func persist(_ patch: PreferencesPatch, onFailure: (@Sendable (Error) -> Void)?) {
+        persist(patch, onFailure: onFailure, onSuccess: nil)
+    }
+
     nonisolated func persist(_ patch: PreferencesPatch) {
-        persist(patch, onFailure: nil)
+        persist(patch, onFailure: nil, onSuccess: nil)
     }
 }
 
@@ -90,10 +101,15 @@ actor PreferencesService: PreferencesServing {
     /// 界面写入 CloudKit 同步的 UserPreferences 时，MUST NOT 在 MainActor 上 `await update`。
     /// SwiftUI `.modelContainer` 的 mainContext 与 `@ModelActor` save 互相等待，会卡住整窗转圈。
     /// 立即返回，写入排进串行链：连拨开关时最后一次拨的值一定是最后写进去的那个。
-    nonisolated func persist(_ patch: PreferencesPatch, onFailure: (@Sendable (Error) -> Void)? = nil) {
+    nonisolated func persist(
+        _ patch: PreferencesPatch,
+        onFailure: (@Sendable (Error) -> Void)? = nil,
+        onSuccess: (@Sendable () -> Void)? = nil
+    ) {
         writeChain.append { [weak self] in
             do {
                 try await self?.update(patch)
+                onSuccess?()
             } catch {
                 onFailure?(error)
             }

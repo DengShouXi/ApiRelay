@@ -46,15 +46,29 @@ actor RecentlyDeletedBatchService: RecentlyDeletedBatchServing {
     private let vault: KeyVaultServing
     private let consumerTools: ConsumerToolServing
     private let gate: RevealGateServing
+    private let sessionLock: any SessionLockQuerying
 
-    init(vault: KeyVaultServing, consumerTools: ConsumerToolServing, gate: RevealGateServing) {
+    init(
+        vault: KeyVaultServing,
+        consumerTools: ConsumerToolServing,
+        gate: RevealGateServing,
+        sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock()
+    ) {
         self.vault = vault
         self.consumerTools = consumerTools
         self.gate = gate
+        self.sessionLock = sessionLock
+    }
+
+    private func rejectIfSessionLocked() throws {
+        if sessionLock.isSessionLocked() {
+            throw ApiRelayError.sessionLocked
+        }
     }
 
     func restore(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome {
         guard !selection.isEmpty else { return .empty }
+        try rejectIfSessionLocked()
         try await vault.preflightRestoreQuota(
             keyIds: selection.keyIds,
             accountIds: selection.accountIds
@@ -70,6 +84,7 @@ actor RecentlyDeletedBatchService: RecentlyDeletedBatchServing {
 
     func permanentlyDelete(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome {
         guard !selection.isEmpty else { return .empty }
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.permanentDeleteTrashBatch"))
         let keysAndAccounts = await vault.permanentlyDeleteDeletedAfterAuthentication(
             keyIds: selection.keyIds,

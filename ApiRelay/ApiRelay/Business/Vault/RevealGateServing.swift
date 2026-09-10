@@ -20,6 +20,8 @@ protocol RevealGateServing: Actor {
     func ensureMasterPasswordConfigured() async throws
     /// 取消进行中的系统验证。人已离开本 App 时 MUST 调用，否则触控 ID 框会盖在别的软件上。
     nonisolated func cancelCurrentAuthentication()
+    /// 系统验证框正在前：同组失焦不得当成闲置去 cancel（FR-072）。
+    nonisolated func isAuthenticationInProgress() -> Bool
     nonisolated func availableBiometry() -> BiometryKind
 }
 

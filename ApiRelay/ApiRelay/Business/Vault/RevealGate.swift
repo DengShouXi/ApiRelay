@@ -20,6 +20,10 @@ actor RevealGate: RevealGateServing {
         contextBox.invalidate()
     }
 
+    nonisolated func isAuthenticationInProgress() -> Bool {
+        contextBox.isActive()
+    }
+
     nonisolated func availableBiometry() -> BiometryKind {
         let context = LAContext()
         var error: NSError?
@@ -122,6 +126,12 @@ nonisolated private final class ContextBox: @unchecked Sendable {
     private let lock = NSLock()
     private var context: LAContext?
     private var requestID: UUID?
+
+    func isActive() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return requestID != nil
+    }
 
     func begin(_ requestID: UUID) {
         lock.lock()

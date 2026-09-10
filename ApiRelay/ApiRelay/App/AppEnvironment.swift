@@ -56,11 +56,16 @@ final class AppEnvironment: ObservableObject {
             entitlements: entitlements,
             sessionLock: sessionLock
         )
-        self.consumerTools = ConsumerToolService(modelContainer: modelContainer, gate: gate)
+        self.consumerTools = ConsumerToolService(
+            modelContainer: modelContainer,
+            gate: gate,
+            sessionLock: sessionLock
+        )
         self.trashBatch = RecentlyDeletedBatchService(
             vault: self.vault,
             consumerTools: self.consumerTools,
-            gate: gate
+            gate: gate,
+            sessionLock: sessionLock
         )
         Task {
             await entitlements.startListening()

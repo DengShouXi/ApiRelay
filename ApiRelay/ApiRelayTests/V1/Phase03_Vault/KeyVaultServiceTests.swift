@@ -28,13 +28,17 @@ final class KeyVaultServiceTests: XCTestCase {
         try await prefs.update(patch)
     }
 
-    private func makeVault(entitlements: EntitlementServing) -> KeyVaultService {
+    private func makeVault(
+        entitlements: EntitlementServing,
+        sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock()
+    ) -> KeyVaultService {
         KeyVaultService(
             keychain: keychain,
             gate: gate,
             clipboard: clipboard,
             modelContainer: container,
-            entitlements: entitlements
+            entitlements: entitlements,
+            sessionLock: sessionLock
         )
     }
 
@@ -502,5 +506,66 @@ final class KeyVaultServiceTests: XCTestCase {
             XCTFail("expected sessionLocked")
         } catch ApiRelayError.sessionLocked {
         }
+    }
+
+    func testSessionLockRejectsRestoreAssignmentReorderAndPurge() async throws {
+        let box = SessionLockBox()
+        vault = makeVault(entitlements: StubEntitlements(tier: .unlimitedKeys), sessionLock: box)
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "Open")
+        )
+        let first = try await vault.createKey(
+            KeyDraft(accountId: accountId, displayName: "k1"),
+            secret: "sk-lock-restore-aaaaaa"
+        )
+        let second = try await vault.createKey(
+            KeyDraft(accountId: accountId, displayName: "k2"),
+            secret: "sk-lock-restore-bbbbbb"
+        )
+        try await vault.deleteKey(first)
+        var expired = KeyPatch()
+        expired.purgeAfter = Date.distantPast
+        try await vault.updateKey(first, patch: expired)
+
+        box.setLocked(true)
+        do {
+            try await vault.restoreKey(first)
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+        do {
+            try await vault.permanentlyDeleteKey(first)
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+        do {
+            try await vault.addAssignment(keyId: second, consumerToolId: UUID())
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+        do {
+            try await vault.removeAssignment(keyId: second, consumerToolId: UUID())
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+        do {
+            try await vault.reorderKeys(orderedIds: [second])
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+        do {
+            try await vault.reorderAccounts(orderedIds: [accountId])
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+
+        try await vault.purgeExpiredDeletedKeys()
+        let trashWhileLocked = try await vault.recentlyDeletedKeys()
+        XCTAssertEqual(trashWhileLocked.map(\.id), [first])
+
+        box.setLocked(false)
+        try await vault.purgeExpiredDeletedKeys()
+        let trashAfterUnlock = try await vault.recentlyDeletedKeys()
+        XCTAssertTrue(trashAfterUnlock.isEmpty)
     }
 }

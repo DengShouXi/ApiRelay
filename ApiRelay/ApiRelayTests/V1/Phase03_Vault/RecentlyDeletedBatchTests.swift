@@ -26,6 +26,8 @@ final class RecentlyDeletedBatchTests: XCTestCase {
     private var vault: KeyVaultService!
     private var tools: ConsumerToolService!
     private var batch: RecentlyDeletedBatchService!
+    private var gate: RevealGate!
+    private var clipboard: SecureClipboard!
     private var gateCounter: GateCallCounter!
 
     override func setUp() async throws {
@@ -35,10 +37,10 @@ final class RecentlyDeletedBatchTests: XCTestCase {
         try? await master.reset()
         let counter = GateCallCounter()
         gateCounter = counter
-        let gate = RevealGate(masterPassword: master) { _, _ in
+        gate = RevealGate(masterPassword: master) { _, _ in
             counter.increment()
         }
-        let clipboard = SecureClipboard()
+        clipboard = SecureClipboard()
         // 本套件考的是回收站批量操作与门闩次数，不是 StoreKit：配额走桩，免去商店超时。
         vault = KeyVaultService(
             keychain: keychain,
@@ -284,6 +286,52 @@ final class RecentlyDeletedBatchTests: XCTestCase {
         XCTAssertEqual(gateCounter.count, gatesBefore + 1)
         let remaining = try await tools.recentlyDeletedTools()
         XCTAssertTrue(remaining.isEmpty)
+    }
+
+    func testSessionLockRejectsBatchBeforeGate() async throws {
+        let box = SessionLockBox()
+        vault = KeyVaultService(
+            keychain: keychain,
+            gate: gate,
+            clipboard: clipboard,
+            modelContainer: container,
+            entitlements: StubEntitlements(tier: .unlimitedKeys),
+            sessionLock: box
+        )
+        tools = ConsumerToolService(modelContainer: container, gate: gate, sessionLock: box)
+        batch = RecentlyDeletedBatchService(
+            vault: vault,
+            consumerTools: tools,
+            gate: gate,
+            sessionLock: box
+        )
+        let accountId = try await vault.createAccount(
+            UpstreamAccountDraft(platform: "openai", displayName: "BatchLock")
+        )
+        let keyId = try await vault.createKey(
+            KeyDraft(accountId: accountId, displayName: "k"),
+            secret: "sk-batch-lock-aaaaaa"
+        )
+        try await vault.deleteKey(keyId)
+        let gatesBefore = gateCounter.count
+        box.setLocked(true)
+        do {
+            _ = try await batch.restore(
+                TrashBatchSelection(keyIds: [keyId], accountIds: [], toolIds: [])
+            )
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+        do {
+            _ = try await batch.permanentlyDelete(
+                TrashBatchSelection(keyIds: [keyId], accountIds: [], toolIds: [])
+            )
+            XCTFail("expected sessionLocked")
+        } catch ApiRelayError.sessionLocked {
+        }
+        XCTAssertEqual(gateCounter.count, gatesBefore, "锁住时不得先弹 confirmMandatory")
+        let trash = try await vault.recentlyDeletedKeys()
+        XCTAssertEqual(trash.map(\.id), [keyId])
     }
 
     private func assertKeychainMissing(_ id: UUID) async {

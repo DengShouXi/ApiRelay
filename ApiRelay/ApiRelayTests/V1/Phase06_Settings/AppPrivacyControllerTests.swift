@@ -368,6 +368,66 @@ final class AppPrivacyControllerTests: XCTestCase {
         XCTAssertFalse(sut.session.isInactive, "也不得盖成只有锁图标的白屏")
         XCTAssertFalse(sut.session.showsSnapshotCover)
         XCTAssertFalse(sut.session.needsUnlockPrompt)
+        XCTAssertNil(sut.session.lastLeftMonotonic, "同组闲置不得开始自动锁计时")
+    }
+
+    func testUserFacingResignDoesNotCoverOrLock() async throws {
+        let sut = try await makeHarness(
+            appLock: false,
+            hide: true,
+            seconds: 0,
+            scenePresence: { .userFacing }
+        ).controller
+        await sut.start()
+        sut.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: true
+        ))
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        sut.handleDidBecomeActive(now: t0)
+        sut.handleWillResignActive(now: t0.addingTimeInterval(2))
+        XCTAssertFalse(sut.session.isSessionLocked, "控制中心 / 验证框抢前台不得锁")
+        XCTAssertFalse(sut.session.isInactive)
+        XCTAssertFalse(sut.session.showsSnapshotCover)
+        XCTAssertNil(sut.session.lastLeftMonotonic)
+        sut.handleDidBecomeActive(now: t0.addingTimeInterval(2.1))
+        XCTAssertFalse(sut.session.isSessionLocked)
+        XCTAssertFalse(sut.session.showsSnapshotCover)
+    }
+
+    func testAuthenticationInProgressDoesNotCancelOnIdleFocusChange() async throws {
+        let container = try AppSchema.makeInMemoryContainer()
+        var patch = PreferencesPatch()
+        patch.appLockEnabled = true
+        patch.autoLockSeconds = 0
+        patch.hideInAppSwitcher = false
+        let preferences = PreferencesService(modelContainer: container)
+        try await preferences.update(patch)
+        let keychain = KeychainStore.makeForTests()
+        let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
+        try? await master.reset()
+        let gate = FakeRevealGate()
+        let presence = PresenceBox(initial: .userFacing)
+        let sut = AppPrivacyController(
+            gate: gate,
+            preferences: preferences,
+            masterPassword: master,
+            installsSnapshotCover: false,
+            enablesUnlockPrompt: false,
+            scenePresence: { presence.value }
+        )
+        await sut.start()
+        sut.handleDidBecomeActive()
+        await gate.setAuthenticationInProgress(true)
+        presence.value = .onScreenIdle
+        sut.handleHostFocusDidChange()
+        let cancelledWhileAuthenticating = await gate.cancelCallCount()
+        XCTAssertEqual(cancelledWhileAuthenticating, 0, "验证进行中不得当闲置去 cancel")
+        await gate.setAuthenticationInProgress(false)
+        sut.handleHostFocusDidChange()
+        let cancelledWhenIdle = await gate.cancelCallCount()
+        XCTAssertEqual(cancelledWhenIdle, 1, "已确认闲置且未在验证则必须 cancel")
     }
 
     func testSameStageBackgroundDoesNotLockOrCover() async throws {
@@ -454,6 +514,11 @@ final class AppPrivacyControllerTests: XCTestCase {
         let controller: AppPrivacyController
         let master: MasterPasswordService
         let preferences: PreferencesService
+    }
+
+    private final class PresenceBox: @unchecked Sendable {
+        var value: AppLockScenePresence
+        init(initial: AppLockScenePresence) { value = initial }
     }
 
     private func makeController(

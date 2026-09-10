@@ -193,10 +193,12 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func reorderKeys(orderedIds: [UUID]) async throws {
+        try rejectIfSessionLocked()
         try await keysRepo.reorder(orderedIds: orderedIds)
     }
 
     func reorderAccounts(orderedIds: [UUID]) async throws {
+        try rejectIfSessionLocked()
         try await accountsRepo.reorder(orderedIds: orderedIds)
     }
 
@@ -212,16 +214,19 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func restoreKey(_ id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.restoreKey"))
         _ = try await restoreKeyAfterAuth(id, requirePresent: true)
     }
 
     func permanentlyDeleteKey(_ id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.permanentDelete"))
         _ = try await permanentlyDeleteKeyAfterAuth(id)
     }
 
     func purgeExpiredDeletedKeys() async throws {
+        if sessionLock.isSessionLocked() { return }
         let deleted = try await keysRepo.fetch(lifecycles: [.softDeleted])
         let now = Date()
         for key in deleted where (key.purgeAfter ?? .distantFuture) < now {
@@ -234,16 +239,19 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func restoreAccount(_ id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.restoreAccount"))
         _ = try await restoreAccountAfterAuth(id, requirePresent: true)
     }
 
     func permanentlyDeleteAccount(_ id: UUID) async throws {
+        try rejectIfSessionLocked()
         try await gate.confirmMandatory(reason: String(localized: "gate.permanentDelete"))
         _ = try await permanentlyDeleteAccountAfterAuth(id)
     }
 
     func purgeExpiredDeletedAccounts() async throws {
+        if sessionLock.isSessionLocked() { return }
         let deleted = try await accountsRepo.fetchSoftDeleted()
         let now = Date()
         for account in deleted where (account.purgeAfter ?? .distantFuture) < now {
@@ -256,10 +264,12 @@ actor KeyVaultService: KeyVaultServing {
     }
 
     func addAssignment(keyId: UUID, consumerToolId: UUID) async throws {
+        try rejectIfSessionLocked()
         try await assignmentsRepo.add(keyId: keyId, consumerToolId: consumerToolId)
     }
 
     func removeAssignment(keyId: UUID, consumerToolId: UUID) async throws {
+        try rejectIfSessionLocked()
         try await assignmentsRepo.remove(keyId: keyId, consumerToolId: consumerToolId)
     }
 

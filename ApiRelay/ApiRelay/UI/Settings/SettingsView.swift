@@ -90,6 +90,9 @@ struct SettingsView: View {
                     persistError = String(localized: "settings.securityPersistFailed.message")
                     Task { await reload() }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesDidPersist)) { _ in
+                    Task { await reload() }
+                }
                 .alert("settings.securityPersistFailed.title", isPresented: Binding(
                     get: { !persistError.isEmpty },
                     set: { if !$0 { persistError = "" } }
@@ -714,9 +717,10 @@ struct SettingsView: View {
     }
 
     /// 写同步那份偏好（`UserPreferences` → CloudKit）的唯一入口。
-    /// 先改内存让控件立刻跟手，再 `persist`（内部 `Task.detached`）。
+    /// 加强安全：先改内存让控件立刻跟手，再 `persist`（内部 `Task.detached`）。
+    /// 降低已同步等级（FR-069）：只 persist；成功通知到达后 `reload` 才改锁态与缓存。
     /// MUST NOT 在 MainActor 上 `await update`：`mainContext` 与 `@ModelActor` 的 save 互相等待，整窗转圈。
-    /// 也 MUST NOT 在写完后 `reload`，那会用尚未落盘的旧值把开关弹回去。
+    /// 加强路径也 MUST NOT 在写完后 `reload`，那会用尚未落盘的旧值把开关弹回去。
     private func persistSyncedPatch(_ patch: PreferencesPatch) {
         persistSyncedPatch(patch, skipReauth: false)
     }
@@ -740,20 +744,13 @@ struct SettingsView: View {
                 return
             }
         }
-        var next = current
-        if let value = patch.appLockEnabled { next.appLockEnabled = value }
-        if let value = patch.autoLockSeconds { next.autoLockSeconds = value }
-        if let value = patch.autoLockDurationOptions { next.autoLockDurationOptions = value }
-        if let value = patch.hideInAppSwitcher { next.hideInAppSwitcher = value }
-        if let value = patch.revealPolicy { next.revealPolicy = value }
-        if let value = patch.clipboardClearEnabled { next.clipboardClearEnabled = value }
-        if let value = patch.clipboardClearSeconds { next.clipboardClearSeconds = value }
-        if let value = patch.clipboardClearDurationOptions { next.clipboardClearDurationOptions = value }
-        if let value = patch.clipboardLocalOnly { next.clipboardLocalOnly = value }
-        prefs = next
-        environment.appPrivacy.applyLivePreferences(AppLockPreferences(next))
-        environment.preferences.persist(patch) { _ in
-            NotificationCenter.default.post(name: .securityPreferencesPersistFailed, object: nil)
+        SecurityPreferenceCommit.persist(
+            patch,
+            relativeTo: current,
+            using: environment.preferences
+        ) { next in
+            prefs = next
+            environment.appPrivacy.applyLivePreferences(AppLockPreferences(next))
         }
     }
 

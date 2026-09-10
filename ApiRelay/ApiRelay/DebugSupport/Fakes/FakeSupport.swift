@@ -83,40 +83,6 @@ extension PreferencesDTO {
         )
     }
 
-    /// 把 patch 合进当前值。假实现与真实现共享这条语义：nil 表示不动该字段。
-    nonisolated func applying(_ patch: PreferencesPatch) -> PreferencesDTO {
-        var next = self
-        if let v = patch.appLockEnabled { next.appLockEnabled = v }
-        if let v = patch.autoLockSeconds { next.autoLockSeconds = v }
-        if let v = patch.autoLockDurationOptions { next.autoLockDurationOptions = v }
-        if let v = patch.revealPolicy { next.revealPolicy = v }
-        if let v = patch.clipboardClearEnabled { next.clipboardClearEnabled = v }
-        if let v = patch.clipboardClearSeconds { next.clipboardClearSeconds = v }
-        if let v = patch.clipboardClearDurationOptions { next.clipboardClearDurationOptions = v }
-        if let v = patch.clipboardLocalOnly { next.clipboardLocalOnly = v }
-        if let v = patch.hideInAppSwitcher { next.hideInAppSwitcher = v }
-        if let v = patch.refreshIntervalMinutes { next.refreshIntervalMinutes = v }
-        if let v = patch.displayCurrency { next.displayCurrency = v }
-        if let v = patch.usdToDisplayRate { next.usdToDisplayRate = v }
-        if let v = patch.notifyLowBalance { next.notifyLowBalance = v }
-        if let v = patch.notifyKeyRevoked { next.notifyKeyRevoked = v }
-        if let v = patch.notifyWeeklyDigest { next.notifyWeeklyDigest = v }
-        if let v = patch.lowBalanceThreshold { next.lowBalanceThreshold = v }
-        if let v = patch.appearance { next.appearance = v }
-        if let v = patch.defaultGrouping { next.defaultGrouping = v }
-        if let v = patch.assignPickerFilter { next.assignPickerFilter = v }
-        if let v = patch.lastWindowWidth { next.lastWindowWidth = v }
-        if let v = patch.lastWindowHeight { next.lastWindowHeight = v }
-        if let v = patch.platformSectionSort { next.platformSectionSort = v }
-        if let v = patch.consumerSectionSort { next.consumerSectionSort = v }
-        if let v = patch.defaultKeyAvatarSymbol { next.defaultKeyAvatarSymbol = v }
-        if let v = patch.defaultKeyAvatarColor { next.defaultKeyAvatarColor = v }
-        if let v = patch.defaultCustomAccountAvatarSymbol { next.defaultCustomAccountAvatarSymbol = v }
-        if let v = patch.defaultCustomAccountAvatarColor { next.defaultCustomAccountAvatarColor = v }
-        if let v = patch.defaultCustomToolAvatarSymbol { next.defaultCustomToolAvatarSymbol = v }
-        if let v = patch.defaultCustomToolAvatarColor { next.defaultCustomToolAvatarColor = v }
-        return next
-    }
 }
 
 extension UpstreamAccountDTO {

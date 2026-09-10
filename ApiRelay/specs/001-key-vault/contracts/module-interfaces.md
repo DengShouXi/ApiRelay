@@ -378,6 +378,8 @@ protocol RevealGateServing: Sendable {
 
     func availableBiometry() -> BiometryKind   // faceID / touchID / none
     nonisolated func cancelCurrentAuthentication()
+    /// 系统验证框正在前：同组失焦不得当成闲置去 cancel（FR-072）。
+    nonisolated func isAuthenticationInProgress() -> Bool
 }
 
 protocol SessionLockQuerying: Sendable {
@@ -399,7 +401,9 @@ enum RevealPolicy: String, Sendable {
   `biometricOnly` 档（FR-003a）。
 - 确认结果 MUST NOT 跨操作缓存。
 - 同一时间只服务一个系统验证请求；新请求取消旧请求（FR-068）。
-- 会话锁住时，取出明文 / 复制 / 新建等 MUST 先经 `SessionLockQuerying` 拒绝（FR-067）。
+- 会话锁住时，取出明文 / 复制 / 新建 / 使用方 CRUD / 回收站恢复与永久删 / 指派 / 排序 MUST 先经 `SessionLockQuerying` 拒绝（FR-067、FR-070）。过期清扫锁下跳过。
+- 验证进行中 `isAuthenticationInProgress() == true` 时，同组闲置 MUST NOT `cancelCurrentAuthentication`（FR-072）。
+- 降低已同步安全等级：`persist` 成功后才改内存锁态（FR-069）；协议提供 `onSuccess`。
 - **自动刷新读取管理类凭证时 MUST NOT 调用本协议**（宪法 VIII、research §7）。
 
 ### 3.3 ClipboardServing — 剪贴板（FR-004、FR-005）
@@ -486,8 +490,14 @@ protocol EntitlementServing: Sendable {
 }
 
 protocol PreferencesServing: Sendable {
-    func current() async -> PreferencesDTO
+    func load() async throws -> PreferencesDTO
     func update(_ patch: PreferencesPatch) async throws
+    /// 非阻塞写入。降低安全等级 MUST 等成功后再改内存锁态（FR-069）。
+    nonisolated func persist(
+        _ patch: PreferencesPatch,
+        onFailure: (@Sendable (Error) -> Void)?,
+        onSuccess: (@Sendable () -> Void)?
+    )
 }
 ```
 
