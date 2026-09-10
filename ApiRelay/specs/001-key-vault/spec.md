@@ -6,6 +6,8 @@
 
 **Status**: Approved — 分三阶段实施，阶段范围见 [ROADMAP.md](../ROADMAP.md)
 
+> **`v1.13.8` 定稿覆盖（W0 尚未改正文）：** 出厂默认、四档名称、导出/删除、降级认证、取用复用以 [`follow-ups/identity-auth/spec.md`](./follow-ups/identity-auth/spec.md) 与 [`playbooks/身份验证方案.md`](../playbooks/身份验证方案.md) 为准。FR-003 / FR-006 / FR-021 / FR-061 / FR-066 与宪法 VIII 里「不验证为默认」「仅生物识别」「导出门闩不可关」「降级一律设备主人」「鉴权不跨操作复用」**不得再当现行**写新代码。编号不重排。
+
 **Input**: User description: "存入各平台 API 密钥，为每个使用密钥的工具分配独立密钥，按上游平台与使用方两个维度查看用量；不含 App 内聊天调用窗口；自建中转作为独立阶段实施。"
 
 ## 阶段范围速查

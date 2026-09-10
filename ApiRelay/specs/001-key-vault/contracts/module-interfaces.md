@@ -387,10 +387,10 @@ protocol SessionLockQuerying: Sendable {
 }
 
 enum RevealPolicy: String, Sendable {
-    case biometricOrPasscode   // LAPolicy.deviceOwnerAuthentication
-    case biometricOnly         // LAPolicy.deviceOwnerAuthenticationWithBiometrics
-    case masterPassword        // 应用层主密码（FR-003 / FR-038）
-    case none                  // 不验证（默认）
+    case biometricOrPasscode   // 设备验证（13.8 出厂默认）
+    case biometricOnly         // 旧「仅生物识别」；13.8 迁到设备验证
+    case masterPassword        // 应用密码（FR-038）
+    case none                  // 不验证（不再是出厂默认）
 }
 ```
 
@@ -399,7 +399,7 @@ enum RevealPolicy: String, Sendable {
 - 单一 `RevealPolicy` **同时管辖查看与复制**；MUST NOT 提供两个独立开关（宪法 VIII）。
 - `availableBiometry()` 用于界面文案动态显示「Face ID / 触控 ID」，并在 `.none` 时禁用
   `biometricOnly` 档（FR-003a）。
-- 确认结果 MUST NOT 跨操作缓存。
+- 确认结果：13.8 起同一详情且未离开可复用（看完立刻复制不二弹）；关详情 / 换密钥 / 离前台 / 自动锁后失效。旧句「不得跨操作缓存」已被覆盖。
 - 同一时间只服务一个系统验证请求；新请求取消旧请求（FR-068）。
 - 会话锁住时，取出明文 / 复制 / 新建 / 使用方 CRUD / 回收站恢复与永久删 / 指派 / 排序 MUST 先经 `SessionLockQuerying` 拒绝（FR-067、FR-070）。过期清扫锁下跳过。
 - 验证进行中 `isAuthenticationInProgress() == true` 时，同组闲置 MUST NOT `cancelCurrentAuthentication`（FR-072）。
