@@ -3,7 +3,7 @@
 > 回答：**「Spec Kit / 宪法 / `.specify` 在哪？和 `.cursor/rules` 什么关系？」**
 >
 > 上一页：[`04-设计与规格.md`](./04-设计与规格.md)  
-> Cursor 九条 → [`06-AI铁律清单.md`](./06-AI铁律清单.md)
+> Cursor 规则清单 → [`06-AI铁律清单.md`](./06-AI铁律清单.md)
 >
 > **本页只指路。** 不复制宪法与模板正文。
 
@@ -64,7 +64,7 @@ ApiRelay/
 | Cursor 纪律 | [`06-AI铁律清单.md`](./06-AI铁律清单.md) |
 
 常见：`speckit.specify` / `plan` / `tasks` / `implement` / `constitution` …（以 agents 目录文件名为准）。  
-`.cursor/commands/` 尚不存在（H1 计划要建）。
+Cursor 另有 `.cursor/commands/closeout.md`（斜杠命令 `/closeout`），与 H1 验证地基配套。
 
 [↑ 返回目录](#toc)
 

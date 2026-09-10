@@ -26,6 +26,10 @@ alwaysApply: true
     另外发现 revealSecret 有类似问题，要不要一起改？」
 ```
 
+## 治理整理的例外
+
+用户已经批准某份 ZL02 工作包的**精确文件清单**时，允许一次对话跨 `ZL00` / `ZL01` / `ApiRelay/specs` 说明目录，但 MUST NOT 改清单外的文件。发现清单不够，停止并报告，不要自行扩大。治理冲突（谁有权、资料放哪、何时可关账/上传）听 `ZL00_项目总控/`，不得用本规则或其他 `.mdc` 扩大当前任务授权。
+
 ## 规范类文件的改动
 
 `ApiRelay/.specify/memory/constitution.md`、`ApiRelay/specs/**/spec.md`、

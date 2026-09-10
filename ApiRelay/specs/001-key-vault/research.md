@@ -92,11 +92,11 @@ Touch ID 由**设备硬件决定**——iPhone 是 Face ID，多数 MacBook 是 
 
 ### Decision
 
-设置项呈现为**四档**（DC-007 增补主密码后），措辞按设备实际硬件动态显示。**下表是当时裁决；`v1.13.8` 已覆盖默认档与「仅生物识别」，见 `follow-ups/identity-auth/`。**
+设置项呈现为**四档**（DC-007 增补主密码后），措辞按设备实际硬件动态显示。**下表是当时裁决；`v1.13.8` 已定稿覆盖默认档与「仅生物识别」，落地计划在尚未创建的 `v1.13.9`，见 `follow-ups/identity-auth/`。**
 
 | 档位 | 实现 | 说明 |
 |------|------|------|
-| 不验证（**旧默认**；13.8 起出厂改为设备验证） | 不调用 `LAContext` | 仍可选。管理类凭证仍强制设备主人（13.8 维持）。导出门闩不可关已被 13.8 覆盖，见 `follow-ups/identity-auth/` |
+| 不验证（**旧默认**；定稿起出厂改为设备验证，落地计划 13.9） | 不调用 `LAContext` | 仍可选。管理类凭证仍强制设备主人。导出门闩不可关已被定稿覆盖，见 `follow-ups/identity-auth/` |
 | 生物识别或设备密码 | `LAPolicy.deviceOwnerAuthentication` | 系统标准行为，生物识别失败自动回退设备密码。文案按设备显示「Face ID」或「触控 ID」 |
 | 仅生物识别 | `LAPolicy.deviceOwnerAuthenticationWithBiometrics` | 设备无生物识别能力时该档 MUST 不可选并说明原因 |
 | 应用专属主密码 | 见 §1.2 | 独立于设备密码；校验材料不同步（FR-038） |

@@ -19,6 +19,8 @@
 ## 文档
 
 - **中文导航总入口**：[ZL01_具体说明/00-从这里开始.md](ZL01_具体说明/00-从这里开始.md)
+- **当前状态**：[ZL01_具体说明/14-项目当前状态.md](ZL01_具体说明/14-项目当前状态.md)
+- **项目治理方法**：[ZL00_项目总控/00-项目治理总纲.md](ZL00_项目总控/00-项目治理总纲.md)
 - 产品做什么：[spec.md](ApiRelay/specs/001-key-vault/spec.md)
 - 哪一阶段做哪些功能：[ROADMAP.md](ApiRelay/specs/ROADMAP.md)
 - 开发迭代：[playbooks/README.md](ApiRelay/specs/playbooks/README.md)

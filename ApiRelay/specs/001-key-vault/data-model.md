@@ -380,7 +380,7 @@ DeepSeek 仅支持本实体、不支持 `UsageSnapshot` 的按密钥拆分——
 | appLockEnabled | Bool | ✅ | 打开 App 需身份确认 / 自动锁定开关 |
 | autoLockSeconds | Int | ✅ | 当前选中的自动锁定时长 |
 | autoLockDurationOptionsJSON | String? | ✅ | 时长列表 JSON；`nil` 首次预填 `[0,60]`；`[]` 表示用户删光 |
-| revealPolicy | String | ✅ | 旧四档 rawValue：`none` / `biometricOrPasscode` / `biometricOnly` / `masterPassword`。**13.8 出厂默认改为设备验证**（对应 `biometricOrPasscode`）；`biometricOnly` 迁移到设备验证。新四档名称见 `follow-ups/identity-auth/`，W0 再改正文 |
+| revealPolicy | String | ✅ | 旧四档 rawValue：`none` / `biometricOrPasscode` / `biometricOnly` / `masterPassword`。**定稿（2026-09-10 在 v1.13.8 拍板）出厂默认改为设备验证**（对应 `biometricOrPasscode`）；`biometricOnly` 迁移到设备验证。新四档名称见 `follow-ups/identity-auth/`；W0 与代码落地计划在尚未创建的 `v1.13.9` |
 | clipboardClearEnabled | Bool | ✅ | 剪贴板自动清除开关，默认 true（FR-005） |
 | clipboardClearSeconds | Int | ✅ | 当前选中的清除时长，默认 120（FR-005） |
 | clipboardClearDurationOptionsJSON | String? | ✅ | 时长列表 JSON；`nil` 首次预填 `[30,120]`；`[]` 表示用户删光 |

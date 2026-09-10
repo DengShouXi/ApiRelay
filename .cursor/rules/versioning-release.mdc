@@ -47,23 +47,16 @@ release/N.0.0          仅上架 tag，MUST NOT 建成分支
 
 用户说「提交 / 保存 / 上传 / 保存并上传 / 按热修-save 保存并上传」时：
 
-1. **先打开并执行** `ZL01_具体说明/09-上传流程.md` §1（对照本次 diff → 同步 ZL01 → 再 git）。MUST NOT 凭记忆只 commit / push。  
-2. 对照与同步做完后，再判断走哪份 save（下面 A 或 B）。save 只管开分支、台账、commit、push，不要跳过 §1。  
+1. **先打开并执行** `ZL01_具体说明/09-上传流程.md` §1。MUST NOT 凭记忆只 commit / push，也 MUST NOT 在本规则里另写一套 A/B 步骤。  
+2. 对照与同步做完后，再判断走哪份 save（下面 A 或 B）。save 只管开哪条分支和禁止项；两次提交与记账只执行 `09` §1.3。  
 3. 未听到上述口令前 MUST NOT commit。
 
 用户不必自己写 FR、不必自己改 `BRANCHES.md`、不必自己起分支名。
 
 ### A. 规划或产品小阶段（对应 P0N 尚未关账）
 
-打开对应 `P0N-save.md` → 更新 `BRANCHES.md` → commit → `git push -u origin <小迭代分支>`。  
-合并回大阶段 tip（`plan` / `v1` / `v2` / `v3`）按该 save 文件执行。
+打开对应 `P0N-save.md`。git 顺序以该 save 与 `09` §1 为准。
 
 ### B. 已关账小迭代上的修 bug / 上架后热修（当前默认）
 
-打开并执行 `ApiRelay/specs/playbooks/热修-save.md`。
-
-- 从冻结 tip（例：`v1.13`）开 `v1.13.1`，**不要**在 `v1.13` 上继续 commit。  
-- 更新 `BRANCHES.md`（英→中）。  
-- push `v1.13.1`；fast-forward 大阶段 tip `v1`。  
-- 默认**不要** push 冻结的 `v1.13`、**不要**动 `main`、**不要**改 `MARKETING_VERSION`、**不要**打新 tag。  
-- **不要**开 `P0N-save.md` 冒充新 Phase。
+打开 `ApiRelay/specs/playbooks/热修-save.md`，只使用其中的**分支选择与禁止项**。已经在正确的热修分支上（例如正在 `v1.13.8`），不要再开一条，也不要另开 `v1.13.9` 来装这次上传。A/B 正文只在 `09`。
