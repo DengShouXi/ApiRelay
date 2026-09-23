@@ -62,6 +62,38 @@
         }
       }
     },
+    "appLock.combination.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the app password stored on this device. This is not your device passcode."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用本机保存的应用密码。这不是设备锁屏密码。"
+          }
+        }
+      }
+    },
+    "appLock.combination.notSet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App password isn’t set on this device. Use biometrics if available, or recover with device authentication. This action was cancelled."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机还没有应用密码。可用的生物识别仍可继续；或通过设备验证恢复。当前操作已取消。"
+          }
+        }
+      }
+    },
     "appLock.coverTitle" : {
       "localizations" : {
         "en" : {
@@ -78,18 +110,178 @@
         }
       }
     },
-    "appLock.masterPassword.empty" : {
+    "appLock.eraseRecovery.action" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enter your app master password."
+            "value" : "Authenticate and Continue Erasing"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请输入应用主密码。"
+            "value" : "验证并继续清除"
+          }
+        }
+      }
+    },
+    "appLock.eraseRecovery.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A previous erase was interrupted. Authenticate as the device owner to finish clearing all data before using the app."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上一次清除被中断。请使用设备主人验证完成全部数据清除，完成前不会开放应用。"
+          }
+        }
+      }
+    },
+    "appLock.eraseRecovery.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish Clearing Data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要完成数据清除"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry Secure Recovery"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试安全恢复"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.erase.action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase All Local Data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除本机全部数据"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.erase.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate and Erase"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证并清除"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.erase.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this only if secure recovery keeps failing. After device-owner authentication, all local vault data and credentials will be permanently removed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅在安全恢复持续失败时使用。通过设备主人验证后，本机密钥库数据和凭据将被永久清除。"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.erase.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase All Local Data?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除本机全部数据？"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A protected storage transaction was interrupted. The app will remain locked until recovery completes."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一次受保护的存储事务被中断。恢复完成前，应用会保持锁定且不会显示密钥数据。"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Recovery Required"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要完成安全恢复"
+          }
+        }
+      }
+    },
+    "appLock.masterPassword.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter your app password."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入应用密码。"
           }
         }
       }
@@ -99,13 +291,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Forgot your master password?"
+            "value" : "Forgot your app password?"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "忘记主密码？"
+            "value" : "忘记应用密码？"
           }
         }
       }
@@ -131,13 +323,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You will confirm with Face ID or your device passcode. The master password is then removed, and verification switches to Face ID or device passcode. Your keys are not affected."
+            "value" : "You will confirm with Face ID or your device passcode. The app password is then removed, and verification switches to Face ID or device passcode. Your keys are not affected."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "先用 Face ID 或设备密码确认身份，随后清除本机主密码，验证方式改为「生物识别或设备密码」。密钥不受影响。"
+            "value" : "先用生物验证或设备密码确认身份，再清除本机应用密码并切换到设备验证。密钥不受影响；恢复后需重新解锁。"
           }
         }
       }
@@ -163,13 +355,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This is your app master password, not the iPhone passcode."
+            "value" : "This is your app password, not the iPhone passcode."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这是应用主密码，不是 iPhone 锁屏密码。"
+            "value" : "这是应用密码，不是 iPhone 锁屏密码。"
           }
         }
       }
@@ -179,13 +371,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Incorrect master password. This is not the iPhone passcode."
+            "value" : "Incorrect app password. This is not the iPhone passcode."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码不正确。这里要的不是 iPhone 锁屏密码。"
+            "value" : "应用密码不正确。这里要的不是 iPhone 锁屏密码。"
           }
         }
       }
@@ -211,13 +403,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No master password is stored on this device. Unlock with Face ID or your device passcode; revealing keys will use the same method from now on."
+            "value" : "No app password exists on this device. Recover explicitly using device authentication, then unlock again. The previous action will not run automatically."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本机没有存主密码。用 Face ID 或设备密码进入，之后查看密钥也改用同样的方式。"
+            "value" : "本机没有应用密码。请显式通过设备验证恢复；恢复后需重新解锁，原操作不会自动执行。"
           }
         }
       }
@@ -227,13 +419,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master password unavailable"
+            "value" : "App password unavailable"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法用主密码解锁"
+            "value" : "无法用应用密码解锁"
           }
         }
       }
@@ -243,13 +435,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No master password is stored on this device, so it cannot unlock the app."
+            "value" : "No app password is stored on this device, so it cannot unlock the app."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本机没有存主密码，用主密码打不开。"
+            "value" : "本机没有存应用密码，用应用密码打不开。"
           }
         }
       }
@@ -314,6 +506,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "解锁"
+          }
+        }
+      }
+    },
+    "appLock.unlockInterrupted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlocking was interrupted. Return to this app and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解锁被中断，请回到本应用后重试。"
+          }
+        }
+      }
+    },
+    "appLock.useAppPassword" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use app password"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用应用密码"
           }
         }
       }
@@ -434,38 +658,6 @@
         }
       }
     },
-    "error.masterPasswordRetryDelayed %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Too many incorrect attempts. Try again in %lld seconds."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连续输错次数过多，请 %lld 秒后再试。"
-          }
-        }
-      }
-    },
-    "error.sessionLocked" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unlock the app first."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请先解锁应用。"
-          }
-        }
-      }
-    },
     "error.capabilityUnsupported %@" : {
       "localizations" : {
         "en" : {
@@ -530,6 +722,102 @@
         }
       }
     },
+    "error.masterPasswordRetryDelayed %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many incorrect attempts. Try again in %lld seconds."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连续输错次数过多，请 %lld 秒后再试。"
+          }
+        }
+      }
+    },
+    "error.masterPasswordLocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app password is locked after too many incorrect attempts. Use the recovery option and device authentication to set it again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用密码连续输错次数已达上限。请通过恢复入口并完成设备验证后重新设置。"
+          }
+        }
+      }
+    },
+    "error.authenticationContextInvalid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This authentication request expired. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次身份验证请求已失效，请重新尝试。"
+          }
+        }
+      }
+    },
+    "error.authenticationInterrupted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication was interrupted by the system. Keep ApiRelay in the foreground and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身份验证被系统中断。请保持 ApiRelay 在前台并重新尝试。"
+          }
+        }
+      }
+    },
+    "error.authenticationNotInteractive" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication cannot be displayed right now. Return to ApiRelay and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前无法显示身份验证界面。请返回 ApiRelay 后重试。"
+          }
+        }
+      }
+    },
+    "error.devicePasscodeNotSet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a device passcode or Mac login password before using device authentication."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先设置设备密码或 Mac 登录密码，再使用设备验证。"
+          }
+        }
+      }
+    },
     "error.networkUnavailable" : {
       "localizations" : {
         "en" : {
@@ -576,6 +864,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "本机暂无密钥明文"
+          }
+        }
+      }
+    },
+    "error.storageIntegrityQuarantined" : {
+      "comment" : "Fail-closed message after a vault transaction could not restore visible storage consistency; internal diagnostics must not be shown here",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ApiRelay locked the vault after an incomplete secure-storage recovery. Do not reinstall the app; contact support to preserve your keys."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全存储恢复未完整完成，ApiRelay 已锁定密钥库。请勿卸载应用，以免丢失密钥；请联系支持人员处理。"
+          }
+        }
+      }
+    },
+    "error.storageRecoveryFailed" : {
+      "comment" : "A compensating cleanup failed but left no app-reachable metadata",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure cleanup did not finish. Close and reopen ApiRelay, then try again. Contact support if the problem continues."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全清理未完整完成。请关闭并重新打开 ApiRelay 后重试；若问题持续，请联系支持人员。"
+          }
+        }
+      }
+    },
+    "error.sessionLocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock the app first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先解锁应用。"
           }
         }
       }
@@ -704,6 +1042,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消"
+          }
+        }
+      }
+    },
+    "gate.changeSecuritySettings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm to lower security settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证身份以降低安全设置"
           }
         }
       }
@@ -841,13 +1195,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Authenticate to reset master password"
+            "value" : "Authenticate to reset app password"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "验证身份以重置主密码"
+            "value" : "验证身份以重置应用密码"
           }
         }
       }
@@ -928,22 +1282,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "验证身份以取出明文"
-          }
-        }
-      }
-    },
-    "gate.changeSecuritySettings" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Confirm to lower security settings"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "验证身份以降低安全设置"
           }
         }
       }
@@ -1561,6 +1899,150 @@
         }
       }
     },
+    "settings.appPassword.change" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change app password"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修改应用密码"
+          }
+        }
+      }
+    },
+    "settings.appPassword.keepExisting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep this password and continue"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留现有密码并继续使用此验证方式"
+          }
+        }
+      }
+    },
+    "settings.appPassword.partialPersist" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App password is set, but the verification method didn’t switch. You can retry."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码已设置，验证方式未切换。可以重试。"
+          }
+        }
+      }
+    },
+    "settings.appPassword.recover" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recover with device authentication"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通过设备验证恢复"
+          }
+        }
+      }
+    },
+    "settings.appPassword.requestExpired" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This request expired. Return to the page and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次请求已失效。请返回页面再试。"
+          }
+        }
+      }
+    },
+    "settings.appPassword.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
+          }
+        }
+      }
+    },
+    "settings.appPassword.saveCancelled" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verification was cancelled. Saving did not finish; please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证已取消，保存尚未完成，请重试。"
+          }
+        }
+      }
+    },
+    "settings.appPassword.saveSuccess.create" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App password saved."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用密码已设置。"
+          }
+        }
+      }
+    },
+    "settings.appPassword.status.unreadable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the app password status on this device. Retry or recover."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取本机应用密码状态。请重试或恢复。"
+          }
+        }
+      }
+    },
     "settings.assignPickerFilter" : {
       "localizations" : {
         "en" : {
@@ -1621,6 +2103,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "仅未指派"
+          }
+        }
+      }
+    },
+    "settings.auth.chooseFallback" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose another verification method"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请选择设备密码或应用密码"
+          }
+        }
+      }
+    },
+    "settings.auth.otherMethods" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other verification methods"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他验证方式"
           }
         }
       }
@@ -2611,13 +3127,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Saved on this device as the default for export and import. Copy it into another password manager. This is not the in-app master password."
+            "value" : "Saved on this device as the default for export and import. Copy it into another password manager. This is not the in-app password."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保存在本机，作为导出/导入的默认口令。可复制到其他密码管理器。这不是打开 App 的主密码。"
+            "value" : "保存在本机，作为导出/导入的默认口令。可复制到其他密码管理器。这不是打开 App 的应用密码。"
           }
         }
       }
@@ -2752,7 +3268,6 @@
       }
     },
     "settings.cancel" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2867,6 +3382,22 @@
         }
       }
     },
+    "settings.clipboardLocalOnly.mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reduce Clipboard Sharing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "减少剪贴板跨设备共享"
+          }
+        }
+      }
+    },
     "settings.clipboardLocalOnly.rowDetail" : {
       "localizations" : {
         "en" : {
@@ -2879,6 +3410,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "阻止明文经通用剪贴板同步到附近设备。"
+          }
+        }
+      }
+    },
+    "settings.clipboardLocalOnly.rowDetail.mac" : {
+      "comment" : "Native macOS only: AppKit has no public per-item Universal Clipboard opt-out API.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native macOS has no public per-item switch for Universal Clipboard. When enabled, this app marks copied secrets as sensitive and temporary as a best effort. To guarantee that clipboard content never crosses devices, turn off Handoff in System Settings."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原生 macOS 没有逐条关闭通用剪贴板的公开接口。开启后，本 App 会把复制的密钥标记为敏感、临时内容，尽力减少同步和历史留存；如需保证不跨设备，请在系统设置中关闭“接力”。"
           }
         }
       }
@@ -3365,13 +3913,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "All local user data erased"
+            "value" : "All user data erased; synced deletions will propagate through iCloud"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本机用户数据已清除"
+            "value" : "用户数据已清除；同步删除将通过 iCloud 传播"
           }
         }
       }
@@ -3382,13 +3930,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Permanently removes keys, accounts, preferences, and Keychain secrets on this device."
+            "value" : "Permanently removes keys, accounts, preferences, and Keychain secrets. With iCloud sync enabled, deletions propagate to your other devices."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "永久清除本机密钥、账号、偏好与钥匙串中的明文。"
+            "value" : "永久清除密钥、账号、偏好与钥匙串明文；开启 iCloud 同步时，删除会传播到其他设备。"
           }
         }
       }
@@ -3398,13 +3946,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This removes keys, preferences, and local data on this device. Purchases are kept. Synced devices may also clear."
+            "value" : "This permanently erases keys, preferences, and Keychain secrets, bypassing Recently Deleted. Purchases are kept. With iCloud sync enabled, corresponding data on your other devices will also be erased."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "将清除本机密钥、偏好等用户数据；不吊销购买。若已同步，其他设备上的同步数据也可能被清。"
+            "value" : "将永久清除密钥、偏好与钥匙串明文，并跳过“最近删除”；购买不会被吊销。开启 iCloud 同步时，其他设备上的对应数据也会被清除。"
           }
         }
       }
@@ -3414,13 +3962,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Permanently removes keys, accounts, preferences, and Keychain secrets on this device."
+            "value" : "Permanently removes keys, accounts, preferences, and Keychain secrets. Synced deletions propagate to your other devices."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "永久清除本机密钥、账号、偏好与钥匙串中的明文。"
+            "value" : "永久清除密钥、账号、偏好与钥匙串明文；同步删除会传播到其他设备。"
           }
         }
       }
@@ -3480,13 +4028,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master Password"
+            "value" : "App Password"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码"
+            "value" : "应用密码"
           }
         }
       }
@@ -3497,7 +4045,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Confirm master password"
+            "value" : "Confirm app password"
           }
         },
         "zh-Hans" : {
@@ -3513,13 +4061,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Current master password"
+            "value" : "Current app password"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "当前主密码"
+            "value" : "当前应用密码"
           }
         }
       }
@@ -3537,7 +4085,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "应用主密码"
+            "value" : "应用密码"
           }
         }
       }
@@ -3561,6 +4109,7 @@
       }
     },
     "settings.masterPassword.reset" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3571,7 +4120,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重置主密码"
+            "value" : "重置应用密码"
           }
         }
       }
@@ -3581,13 +4130,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master password cleared"
+            "value" : "App password cleared; verification switched to device authentication."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码已清除"
+            "value" : "应用密码已清除，验证方式已切换到设备验证。"
           }
         }
       }
@@ -3758,13 +4307,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master password saved"
+            "value" : "App password saved"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码已保存"
+            "value" : "应用密码已保存"
           }
         }
       }
@@ -3786,17 +4335,18 @@
       }
     },
     "settings.masterPassword.saveSuccess.message" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master password has been saved. Verification method is now Master Password."
+            "value" : "App password saved. Verification changes depend on the result of this operation."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码已保存，验证方式已设为「主密码」。"
+            "value" : "应用密码已保存。验证方式是否切换以本次操作结果为准。"
           }
         }
       }
@@ -3829,7 +4379,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "设置/修改主密码"
+            "value" : "设置/修改应用密码"
           }
         }
       }
@@ -3868,7 +4418,24 @@
         }
       }
     },
+    "settings.pausedWhileNoVerification" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turned on, currently inactive because verification is set to None."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已开启，当前不生效"
+          }
+        }
+      }
+    },
     "settings.policy.biometricOnly.detail" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3885,6 +4452,7 @@
       }
     },
     "settings.policy.biometricOnly.unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3901,6 +4469,7 @@
       }
     },
     "settings.policy.biometricOnly.unavailable.detail" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3917,6 +4486,7 @@
       }
     },
     "settings.policy.biometricOrPasscode" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3937,18 +4507,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use Face ID, Touch ID, or the device passcode."
+            "value" : "Prefer Face ID or Touch ID; otherwise use the device passcode or Mac login password."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "可用面容 ID、触控 ID 或设备密码。"
+            "value" : "优先使用面容 ID 或触控 ID；不可用时使用设备密码（电脑为登录密码）。"
           }
         }
       }
     },
     "settings.policy.biometricOrPasscode.short" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3964,7 +4535,141 @@
         }
       }
     },
+    "settings.policy.biometryOrAppPassword" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device or App Verification"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设备验证或应用验证"
+          }
+        }
+      }
+    },
+    "settings.policy.biometryOrAppPassword.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Face ID or Touch ID first. If unavailable or unsuccessful, choose the device password or app password. Cancelling stops verification."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先使用面容 ID 或触控 ID；不可用或失败后，自由选择设备密码或应用密码。点击取消会结束验证。"
+          }
+        }
+      }
+    },
+    "settings.policy.biometryOrAppPassword.short" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biometrics or App Password"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生物验证或应用密码"
+          }
+        }
+      }
+    },
+    "settings.policy.device.faceID" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Face ID"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "面容 ID"
+          }
+        }
+      }
+    },
+    "settings.policy.device.macLogin" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac login password"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 登录密码"
+          }
+        }
+      }
+    },
+    "settings.policy.device.passcode" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device passcode"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设备密码"
+          }
+        }
+      }
+    },
+    "settings.policy.device.touchID" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touch ID"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触控 ID"
+          }
+        }
+      }
+    },
+    "settings.policy.deviceVerification" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device Verification"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设备验证"
+          }
+        }
+      }
+    },
     "settings.policy.faceID" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3985,13 +4690,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master Password"
+            "value" : "App Verification"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码"
+            "value" : "应用验证"
           }
         }
       }
@@ -4001,13 +4706,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use the app master password set on this device."
+            "value" : "Use the app password set on this device."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使用本机设置的应用主密码。"
+            "value" : "使用本机设置的应用密码。"
           }
         }
       }
@@ -4017,13 +4722,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master password isn’t set. Open Settings → Verification Method to set it, or choose another method."
+            "value" : "App password isn’t set. Open Settings → Verification Method to set it, or choose another method."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "尚未设置主密码。请到设置 → 验证方式完成设置，或改选其他验证方式。"
+            "value" : "本机没有应用密码。当前操作已取消，请通过设备验证恢复，或进入设置中的验证方式页面完成设置。"
           }
         }
       }
@@ -4033,13 +4738,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Set a master password to finish enabling this verification method. Cancel returns without changing your current method."
+            "value" : "Set an app password to finish enabling this verification method. Cancel returns without changing your current method."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在此设置主密码以完成「主密码」验证。取消返回，不会更改当前验证方式。"
+            "value" : "在此设置应用密码。取消返回，不会更改当前验证方式。"
           }
         }
       }
@@ -4076,7 +4781,24 @@
         }
       }
     },
+    "settings.policy.recommended" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recommended"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推荐"
+          }
+        }
+      }
+    },
     "settings.policy.touchID" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4241,34 +4963,34 @@
         }
       }
     },
-    "settings.securityPersistFailed.message" : {
+    "settings.revealAuth" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Security settings could not be saved. The previous values were kept."
+            "value" : "Reveal verification"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "安全设置未能写入，已恢复为原来的值。"
+            "value" : "取用验证"
           }
         }
       }
     },
-    "settings.securityPersistFailed.title" : {
+    "settings.revealAuth.rowDetail" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Couldn’t Save Security Settings"
+            "value" : "When on, viewing or copying a secret uses the current verification method."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法保存安全设置"
+            "value" : "开启后，查看或复制密钥会按当前验证方式确认。"
           }
         }
       }
@@ -4444,13 +5166,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "On Mac this app clears the system clipboard on a timer. A force-quit or crash may leave the secret there; if you are not sure, copy some other text over it.\n\nClipboard history tools such as Paste, Raycast, and Alfred save their own copy the moment you copy. This app cannot remove those entries."
+            "value" : "On Mac this app clears its clipboard content on a timer and also attempts to clear it during a normal quit. A force-quit or crash may leave the secret there; if you are not sure, copy some other text over it.\n\nClipboard history tools such as Paste, Raycast, and Alfred save their own copy the moment you copy. This app cannot remove those entries."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mac 上由本 App 按时清空系统剪贴板。强制退出或崩溃时可能清不掉；拿不准就再复制一段别的文字盖过去。\n\nPaste、Raycast、Alfred 等历史工具会在复制当下自己存一份，那份本 App 清不掉。"
+            "value" : "Mac 上由本 App 按时清空自己写入的剪贴板内容，正常退出时也会尝试清除。强制退出或崩溃时可能清不掉；拿不准就再复制一段别的文字盖过去。\n\nPaste、Raycast、Alfred 等历史工具会在复制当下自己存一份，那份本 App 清不掉。"
           }
         }
       }
@@ -4509,13 +5231,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reveal and copy share one verification policy. Turning verification off disables both. Master password is optional and device-local."
+            "value" : "Reveal and copy share one verification policy. Turning verification off disables both. App password is optional and device-local."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不再要求确认。主密码可选，且仅保存在本机。"
+            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不再要求确认。应用密码可选，且仅保存在本机。"
           }
         }
       }
@@ -4576,13 +5298,45 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reveal and copy share one verification policy. Turning verification off disables both. Master password is optional and device-local."
+            "value" : "Reveal and copy share one verification policy. Turning verification off disables both. App password is optional and device-local."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不再要求确认。主密码可选，且仅保存在本机。"
+            "value" : "查看与复制共用同一验证方式；关闭验证后二者都不再要求确认。应用密码可选，且仅保存在本机。"
+          }
+        }
+      }
+    },
+    "settings.securityPersistFailed.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Security settings could not be saved. The previous values were kept."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全设置未能写入，已恢复为原来的值。"
+          }
+        }
+      }
+    },
+    "settings.securityPersistFailed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Save Security Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存安全设置"
           }
         }
       }
@@ -4701,6 +5455,70 @@
         }
       }
     },
+    "settings.weakenConfirm.appPassword.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the app password stored on this device. This is not your device passcode."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入本机保存的应用密码。这不是设备锁屏密码。"
+          }
+        }
+      }
+    },
+    "settings.weakenConfirm.appPassword.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm with app password"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用应用密码确认"
+          }
+        }
+      }
+    },
+    "vault.a11y.copySecret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy secret"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制密钥"
+          }
+        }
+      }
+    },
+    "vault.a11y.hideSecret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide secret"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏密钥"
+          }
+        }
+      }
+    },
     "vault.a11y.maskedHidden" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4769,6 +5587,7 @@
       }
     },
     "vault.a11y.secretHidden.hint" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4785,7 +5604,6 @@
       }
     },
     "vault.a11y.secretVisible" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4862,6 +5680,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "分区操作"
+          }
+        }
+      }
+    },
+    "vault.a11y.showSecret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show secret"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看密钥"
           }
         }
       }
@@ -6499,6 +7333,22 @@
         }
       }
     },
+    "vault.detail.hideSecret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏"
+          }
+        }
+      }
+    },
     "vault.detail.lifecycle" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6844,6 +7694,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "状态"
+          }
+        }
+      }
+    },
+    "vault.detail.showSecret" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看"
           }
         }
       }
@@ -7339,7 +8205,6 @@
       }
     },
     "vault.key.edit" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7557,13 +8422,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master Password"
+            "value" : "App Password"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码"
+            "value" : "应用密码"
           }
         }
       }
@@ -7573,13 +8438,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Master password can be reset with device authentication. It is not stronger than your device passcode."
+            "value" : "App password can be reset with device authentication. It is not stronger than your device passcode."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主密码可经设备验证后重置，强度不高于设备密码。"
+            "value" : "应用密码可经设备验证后重置，强度不高于设备密码。"
           }
         }
       }
@@ -7595,7 +8460,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "输入主密码"
+            "value" : "输入应用密码"
           }
         }
       }

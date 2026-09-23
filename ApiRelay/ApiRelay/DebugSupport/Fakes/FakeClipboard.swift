@@ -5,12 +5,21 @@ import Foundation
 actor FakeClipboard: ClipboardServing {
     var journal = FakeJournal()
     private(set) var lastWritten: String?
+    private(set) var lastExpiresAfter: TimeInterval?
+    private(set) var lastLocalOnly: Bool?
 
-    func write(_ secret: String, expiresAfter: TimeInterval?, localOnly: Bool) async throws {
-        _ = expiresAfter
-        _ = localOnly
-        try journal.record("write")
-        lastWritten = secret
+    func write(
+        _ secret: String,
+        expiresAfter: TimeInterval?,
+        localOnly: Bool,
+        committing: @escaping ClipboardCommit
+    ) async throws {
+        try committing {
+            try journal.record("write")
+            lastWritten = secret
+            lastExpiresAfter = expiresAfter
+            lastLocalOnly = localOnly
+        }
     }
 
     func clearIfStillOurs() async {

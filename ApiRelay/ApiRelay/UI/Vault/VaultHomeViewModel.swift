@@ -14,6 +14,54 @@ struct ReorderableNamedItem: Identifiable, Sendable {
     let symbolName: String
 }
 
+/// 同一密钥详情实例内：只有「本次确已完成取用身份验证的查看」才建立授权。
+/// 明文正在显示是另一份界面状态，不得当成已验证授权。
+/// 不设秒数；关详情、换 key、离前台、自动锁、会话锁、窗口销毁或进入编辑后失效。
+struct DetailRevealReuse: Equatable, Sendable {
+    let instanceID: UUID
+    let keyId: UUID
+    let token: SecretRevealReuseToken
+
+    func allowsImmediateCopy(instanceID: UUID, keyId: UUID) -> Bool {
+        self.instanceID == instanceID && self.keyId == keyId
+    }
+
+    /// 取消、失败、只显示掩码、空明文、先复制再查看、未完成身份验证，都不得建授权。
+    static func established(
+        instanceID: UUID,
+        keyId: UUID,
+        token: SecretRevealReuseToken?,
+        displayedSuccessfully: Bool,
+        authentication: RevealAuthenticationEvidence
+    ) -> DetailRevealReuse? {
+        guard displayedSuccessfully, authentication == .verified, let token else { return nil }
+        return DetailRevealReuse(instanceID: instanceID, keyId: keyId, token: token)
+    }
+}
+
+/// `KeyDetailView` 真实事件使用的授权状态转换。测试必须打这里，不得在测试里手动置空。
+enum DetailRevealReuseEvent: Equatable, Sendable {
+    case authenticatedViewSucceeded(instanceID: UUID, keyId: UUID, token: SecretRevealReuseToken)
+    case unauthenticatedDisplay
+    case viewCancelledOrFailed
+    case clear(DetailRevealReuseClearReason)
+}
+
+enum DetailRevealReuseClearReason: Equatable, Sendable {
+    case closeDetail
+    case switchKey
+    case leaveForeground
+    case autoLock
+    case sessionLock
+    case windowDestroyed
+    case beginEdit
+}
+
+struct CombinationDeliveredSecret: Equatable, Sendable {
+    let keyId: UUID
+    let result: SecretRevealResult
+}
+
 @MainActor
 final class VaultHomeViewModel: ObservableObject {
     @Published var accounts: [UpstreamAccountDTO] = []
@@ -32,9 +80,20 @@ final class VaultHomeViewModel: ObservableObject {
     @Published var toastDetail: String?
     @Published var showQuotaAlert = false
     @Published var needsMasterPassword = false
+    /// 敏感操作（非查看/复制）需要采集应用密码时由界面弹出同一张口令页。
+    @Published var presentMasterPasswordPrompt = false
+    /// 组合档：系统设备认证与显式「使用应用密码」是两条独立入口，取消其一不得自动启动另一条。
+    @Published private(set) var offerCombinationAppPassword = false
+    @Published private(set) var combinationNeedsSetup = false
+    /// 普通入口缺材料：拒绝应用密码路径后，指向独立恢复，不得带着原待办去设密。
+    @Published private(set) var ordinaryAppPasswordNeedsIndependentRecovery = false
+    /// 组合档查看成功后以一次性事件交回当前详情；不得把明文保存在 `@Published` 状态里。
+    let combinationDeliveredSecretPublisher = PassthroughSubject<CombinationDeliveredSecret, Never>()
     @Published var copySecondsRemaining: Int?
     /// 用户取消了进编辑时的门闩；此时 MUST NOT 进入编辑态。
     private(set) var revealWasCancelled = false
+    private(set) var detailRevealReuse: DetailRevealReuse?
+    private var pendingPolicyOperation: ((String) async -> Void)?
 
     let environment: AppEnvironment
     private let vault: any KeyVaultServing
@@ -44,6 +103,117 @@ final class VaultHomeViewModel: ObservableObject {
     init(environment: AppEnvironment) {
         self.environment = environment
         self.vault = environment.vault
+    }
+
+    var usesCombinationPolicy: Bool {
+        CombinationExplicitAuth.isCombination(environment.appPrivacy.session.preferences.revealPolicy)
+    }
+
+    func applyDetailRevealReuse(_ event: DetailRevealReuseEvent) {
+        switch event {
+        case .authenticatedViewSucceeded(let instanceID, let keyId, let token):
+            detailRevealReuse = DetailRevealReuse.established(
+                instanceID: instanceID,
+                keyId: keyId,
+                token: token,
+                displayedSuccessfully: true,
+                authentication: .verified
+            )
+        case .unauthenticatedDisplay, .viewCancelledOrFailed:
+            detailRevealReuse = nil
+        case .clear:
+            detailRevealReuse = nil
+        }
+    }
+
+    func invalidateRevealReuseCloseDetail() {
+        abandonCombinationPending()
+        applyDetailRevealReuse(.clear(.closeDetail))
+    }
+
+    func invalidateRevealReuseSwitchKey() {
+        abandonCombinationPending()
+        applyDetailRevealReuse(.clear(.switchKey))
+    }
+
+    func invalidateRevealReuseLeaveForeground() {
+        // `.inactive` is also emitted while Apple's authentication UI is over
+        // this app. Revoke any old detail grant immediately, but do not cancel
+        // the authentication request that caused the transition.
+        applyDetailRevealReuse(.clear(.leaveForeground))
+    }
+
+    func invalidateRevealReuseAutoLock() {
+        abandonCombinationPending()
+        applyDetailRevealReuse(.clear(.autoLock))
+    }
+
+    func invalidateRevealReuseSessionLock() {
+        abandonCombinationPending()
+        applyDetailRevealReuse(.clear(.sessionLock))
+    }
+
+    func invalidateRevealReuseWindowDestroyed() {
+        abandonCombinationPending()
+        applyDetailRevealReuse(.clear(.windowDestroyed))
+    }
+
+    func invalidateRevealReuseBeginEdit() {
+        abandonCombinationPending()
+        applyDetailRevealReuse(.clear(.beginEdit))
+    }
+
+    func invalidateRevealReuseForSecuritySettingsChange() {
+        applyDetailRevealReuse(.unauthenticatedDisplay)
+    }
+
+    /// 取出后立即从 UI 状态消费；服务端仍会再做一次单次消费与会话校验。
+    func takeRevealReuseTokenIfAllowed(
+        instanceID: UUID,
+        keyId: UUID
+    ) -> SecretRevealReuseToken? {
+        guard let grant = detailRevealReuse, grant.allowsImmediateCopy(instanceID: instanceID, keyId: keyId) else {
+            return nil
+        }
+        detailRevealReuse = nil
+        return grant.token
+    }
+
+    func hasRevealReuseToken(instanceID: UUID, keyId: UUID) -> Bool {
+        detailRevealReuse?.allowsImmediateCopy(instanceID: instanceID, keyId: keyId) == true
+    }
+
+    func noteRevealDisplay(
+        instanceID: UUID,
+        keyId: UUID,
+        result: SecretRevealResult
+    ) {
+        if result.authentication == .verified, let token = result.reuseToken {
+            applyDetailRevealReuse(
+                .authenticatedViewSucceeded(
+                    instanceID: instanceID,
+                    keyId: keyId,
+                    token: token
+                )
+            )
+        } else {
+            applyDetailRevealReuse(.unauthenticatedDisplay)
+        }
+    }
+
+    /// 用户显式点「使用应用密码」：只重试已绑定的当前待办，不得武装下一次操作。
+    /// 缺材料只拒绝该路径并指向独立恢复，MUST NOT `setPassword`。
+    func beginCombinationAppPasswordEntry() async {
+        guard usesCombinationPolicy, pendingPolicyOperation != nil else { return }
+        let material = await environment.gate.appPasswordMaterialStatus()
+        guard usesCombinationPolicy, pendingPolicyOperation != nil else { return }
+        guard AppPasswordPolicyGate.canUseAppPasswordEntry(material: material) else {
+            refuseOrdinaryAppPasswordPath(material: material)
+            return
+        }
+        combinationNeedsSetup = false
+        offerCombinationAppPassword = true
+        presentMasterPasswordPrompt = true
     }
 
     func onAppear() async {
@@ -372,7 +542,8 @@ final class VaultHomeViewModel: ObservableObject {
         customPlatformName: String?,
         customBaseURL: String?,
         avatarSymbol: String?,
-        avatarColor: String?
+        avatarColor: String?,
+        appPassword: String? = nil
     ) async -> KeySaveResult {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
@@ -382,6 +553,24 @@ final class VaultHomeViewModel: ObservableObject {
         let trimmedAccount = accountName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedAccount.isEmpty else {
             errorMessage = String(localized: "vault.key.edit.accountRequired")
+            return .failed
+        }
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { password in
+            _ = await self.editKey(
+                keyId: keyId,
+                name: name,
+                secret: secret,
+                ackDuplicate: ackDuplicate,
+                notes: notes,
+                accountName: accountName,
+                platform: platform,
+                customPlatformName: customPlatformName,
+                customBaseURL: customBaseURL,
+                avatarSymbol: avatarSymbol,
+                avatarColor: avatarColor,
+                appPassword: password
+            )
+        }) {
             return .failed
         }
         do {
@@ -398,11 +587,35 @@ final class VaultHomeViewModel: ObservableObject {
                     customBaseURL: customBaseURL,
                     avatarSymbol: avatarSymbol,
                     avatarColor: avatarColor
-                )
+                ),
+                appPassword: appPassword
             )
+            finishSensitiveAuthSuccess()
             await refresh()
             return .saved
         } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { password in
+                    _ = await self.editKey(
+                        keyId: keyId,
+                        name: name,
+                        secret: secret,
+                        ackDuplicate: ackDuplicate,
+                        notes: notes,
+                        accountName: accountName,
+                        platform: platform,
+                        customPlatformName: customPlatformName,
+                        customBaseURL: customBaseURL,
+                        avatarSymbol: avatarSymbol,
+                        avatarColor: avatarColor,
+                        appPassword: password
+                    )
+                }
+                return .failed
+            }
+            if case .authenticationCancelled = error {
+                return .failed
+            }
             if let name = await duplicateKeyName(from: error) {
                 return .possibleDuplicate(existingName: name)
             }
@@ -436,7 +649,8 @@ final class VaultHomeViewModel: ObservableObject {
         customBaseURL: String?,
         notes: String?,
         usesDefaultAvatar: Bool,
-        avatar: AvatarChoice
+        avatar: AvatarChoice,
+        appPassword: String? = nil
     ) async -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
@@ -455,6 +669,21 @@ final class VaultHomeViewModel: ObservableObject {
             return false
         }
         let trimmedNotes = notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { password in
+            _ = await self.updateAccount(
+                id: id,
+                platform: platform,
+                name: name,
+                customPlatformName: customPlatformName,
+                customBaseURL: customBaseURL,
+                notes: notes,
+                usesDefaultAvatar: usesDefaultAvatar,
+                avatar: avatar,
+                appPassword: password
+            )
+        }) {
+            return false
+        }
         do {
             try await vault.updateAccount(
                 id,
@@ -467,10 +696,32 @@ final class VaultHomeViewModel: ObservableObject {
                     updatesAvatar: true,
                     avatarSymbol: usesDefaultAvatar ? nil : avatar.symbol,
                     avatarColor: usesDefaultAvatar ? nil : avatar.color.rawValue
-                )
+                ),
+                appPassword: appPassword
             )
+            finishSensitiveAuthSuccess()
             await refresh()
             return true
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { password in
+                    _ = await self.updateAccount(
+                        id: id,
+                        platform: platform,
+                        name: name,
+                        customPlatformName: customPlatformName,
+                        customBaseURL: customBaseURL,
+                        notes: notes,
+                        usesDefaultAvatar: usesDefaultAvatar,
+                        avatar: avatar,
+                        appPassword: password
+                    )
+                }
+                return false
+            }
+            if case .authenticationCancelled = error { return false }
+            errorMessage = error.localizedDescription
+            return false
         } catch {
             errorMessage = error.localizedDescription
             return false
@@ -482,7 +733,8 @@ final class VaultHomeViewModel: ObservableObject {
         name: String,
         notes: String?,
         usesDefaultAvatar: Bool,
-        avatar: AvatarChoice
+        avatar: AvatarChoice,
+        appPassword: String? = nil
     ) async -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -490,6 +742,18 @@ final class VaultHomeViewModel: ObservableObject {
             return false
         }
         let trimmedNotes = notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { password in
+            _ = await self.renameTool(
+                id: id,
+                name: name,
+                notes: notes,
+                usesDefaultAvatar: usesDefaultAvatar,
+                avatar: avatar,
+                appPassword: password
+            )
+        }) {
+            return false
+        }
         do {
             var patch = ConsumerToolPatch()
             patch.name = trimmed
@@ -497,9 +761,27 @@ final class VaultHomeViewModel: ObservableObject {
             patch.updatesAvatar = true
             patch.avatarSymbol = usesDefaultAvatar ? nil : avatar.symbol
             patch.avatarColor = usesDefaultAvatar ? nil : avatar.color.rawValue
-            try await environment.consumerTools.updateTool(id: id, patch: patch)
+            try await environment.consumerTools.updateTool(id: id, patch: patch, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
             await refresh()
             return true
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { password in
+                    _ = await self.renameTool(
+                        id: id,
+                        name: name,
+                        notes: notes,
+                        usesDefaultAvatar: usesDefaultAvatar,
+                        avatar: avatar,
+                        appPassword: password
+                    )
+                }
+                return false
+            }
+            if case .authenticationCancelled = error { return false }
+            errorMessage = error.localizedDescription
+            return false
         } catch {
             errorMessage = error.localizedDescription
             return false
@@ -545,15 +827,26 @@ final class VaultHomeViewModel: ObservableObject {
         }
     }
 
-    func revealReturning(keyId: UUID, masterPassword: String?) async -> String? {
+    func revealReturning(keyId: UUID, masterPassword: String?) async -> SecretRevealResult? {
         needsMasterPassword = false
         revealWasCancelled = false
+        if await prepareSensitiveAuth(appPassword: masterPassword, retry: { password in
+            if let result = await self.revealReturning(keyId: keyId, masterPassword: password) {
+                self.combinationDeliveredSecretPublisher.send(
+                    CombinationDeliveredSecret(keyId: keyId, result: result)
+                )
+            }
+        }) {
+            return nil
+        }
         do {
-            return try await vault.revealSecret(
+            let result = try await vault.revealSecretWithEvidence(
                 keyId: keyId,
                 purpose: .display,
                 masterPassword: masterPassword
             )
+            finishSensitiveAuthSuccess()
+            return result
         } catch let ApiRelayError.validationFailed(_, reason)
             where reason == "required" || reason == "master_password_prompt_required"
         {
@@ -566,14 +859,18 @@ final class VaultHomeViewModel: ObservableObject {
             return nil
         } catch ApiRelayError.authenticationCancelled {
             revealWasCancelled = true
+            applyDetailRevealReuse(.viewCancelledOrFailed)
             return nil
         } catch ApiRelayError.secretMissingOnDevice {
+            applyDetailRevealReuse(.viewCancelledOrFailed)
             errorMessage = String(localized: "error.secretMissingOnDevice")
             return nil
         } catch let ApiRelayError.keychainFailure(status) where status == -25300 {
+            applyDetailRevealReuse(.viewCancelledOrFailed)
             errorMessage = String(localized: "error.secretMissingOnDevice")
             return nil
         } catch {
+            applyDetailRevealReuse(.viewCancelledOrFailed)
             errorMessage = error.localizedDescription
             return nil
         }
@@ -581,8 +878,14 @@ final class VaultHomeViewModel: ObservableObject {
 
     func copyReturning(keyId: UUID, masterPassword: String?) async -> Bool {
         needsMasterPassword = false
+        if await prepareSensitiveAuth(appPassword: masterPassword, retry: { password in
+            _ = await self.copyReturning(keyId: keyId, masterPassword: password)
+        }) {
+            return false
+        }
         do {
             try await vault.copySecretToClipboard(keyId: keyId, masterPassword: masterPassword)
+            finishSensitiveAuthSuccess()
             await announceCopied()
             return true
         } catch let ApiRelayError.validationFailed(_, reason)
@@ -612,9 +915,12 @@ final class VaultHomeViewModel: ObservableObject {
         }
     }
 
-    func copyRevealedSecret(_ secret: String) async {
+    func copyRevealedSecret(
+        keyId: UUID,
+        token: SecretRevealReuseToken
+    ) async {
         do {
-            try await vault.copyRevealedSecretToClipboard(secret)
+            try await vault.copyRevealedSecretToClipboard(keyId: keyId, token: token)
             await announceCopied()
         } catch {
             toastDetail = nil
@@ -653,10 +959,34 @@ final class VaultHomeViewModel: ObservableObject {
         _ = await copyReturning(keyId: keyId, masterPassword: masterPassword)
     }
 
-    func deleteKey(_ id: UUID) async {
+    func updateKeyAvatar(keyId: UUID, usesDefault: Bool, avatar: AvatarChoice) async {
         do {
-            try await vault.deleteKey(id)
+            var patch = KeyPatch()
+            patch.updatesAvatar = true
+            patch.avatarSymbol = usesDefault ? nil : avatar.symbol
+            patch.avatarColor = usesDefault ? nil : avatar.color.rawValue
+            try await vault.updateKey(keyId, patch: patch)
             await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func deleteKey(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.deleteKey(id, appPassword: $0) }) {
+            return
+        }
+        do {
+            try await vault.deleteKey(id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
+            await refresh()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.deleteKey(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -682,66 +1012,147 @@ final class VaultHomeViewModel: ObservableObject {
         return (keys, accounts, tools)
     }
 
-    func restoreTrashBatch(_ selection: TrashBatchSelection) async -> Result<TrashBatchOutcome, Error> {
+    func restoreTrashBatch(
+        _ selection: TrashBatchSelection,
+        appPassword: String? = nil
+    ) async -> Result<TrashBatchOutcome, Error> {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { _ = await self.restoreTrashBatch(selection, appPassword: $0) }) {
+            return .failure(ApiRelayError.authenticationCancelled)
+        }
         do {
-            let outcome = try await environment.trashBatch.restore(selection)
+            let outcome = try await environment.trashBatch.restore(selection, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
             await refresh()
             return .success(outcome)
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { _ = await self.restoreTrashBatch(selection, appPassword: $0) }
+                return .failure(error)
+            }
+            return .failure(error)
         } catch {
             return .failure(error)
         }
     }
 
     func permanentlyDeleteTrashBatch(
-        _ selection: TrashBatchSelection
+        _ selection: TrashBatchSelection,
+        appPassword: String? = nil
     ) async -> Result<TrashBatchOutcome, Error> {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { _ = await self.permanentlyDeleteTrashBatch(selection, appPassword: $0) }) {
+            return .failure(ApiRelayError.authenticationCancelled)
+        }
         do {
-            let outcome = try await environment.trashBatch.permanentlyDelete(selection)
-            await refresh()
+            let outcome = try await environment.trashBatch.permanentlyDelete(selection, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
+            await completeTrashMutation()
             return .success(outcome)
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { _ = await self.permanentlyDeleteTrashBatch(selection, appPassword: $0) }
+                return .failure(error)
+            }
+            return .failure(error)
         } catch {
             return .failure(error)
         }
     }
 
-    func restoreKey(_ id: UUID) async {
+    func restoreKey(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.restoreKey(id, appPassword: $0) }) {
+            return
+        }
         do {
-            try await vault.restoreKey(id)
+            try await vault.restoreKey(id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
             await refresh()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.restoreKey(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func permanentlyDeleteKey(_ id: UUID) async {
+    func permanentlyDeleteKey(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.permanentlyDeleteKey(id, appPassword: $0) }) {
+            return
+        }
         do {
-            try await vault.permanentlyDeleteKey(id)
+            try await vault.permanentlyDeleteKey(id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
+            await completeTrashMutation()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.permanentlyDeleteKey(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func deleteAccount(_ id: UUID) async {
+    func deleteAccount(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.deleteAccount(id, appPassword: $0) }) {
+            return
+        }
         do {
-            try await vault.deleteAccount(id)
+            try await vault.deleteAccount(id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
             await refresh()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.deleteAccount(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func restoreAccount(_ id: UUID) async {
+    func restoreAccount(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.restoreAccount(id, appPassword: $0) }) {
+            return
+        }
         do {
-            try await vault.restoreAccount(id)
+            try await vault.restoreAccount(id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
             await refresh()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.restoreAccount(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func permanentlyDeleteAccount(_ id: UUID) async {
+    func permanentlyDeleteAccount(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.permanentlyDeleteAccount(id, appPassword: $0) }) {
+            return
+        }
         do {
-            try await vault.permanentlyDeleteAccount(id)
+            try await vault.permanentlyDeleteAccount(id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
+            await completeTrashMutation()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.permanentlyDeleteAccount(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -771,30 +1182,173 @@ final class VaultHomeViewModel: ObservableObject {
         }
     }
 
-    func deleteTool(_ id: UUID) async {
+    func deleteTool(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.deleteTool(id, appPassword: $0) }) {
+            return
+        }
         do {
-            try await environment.consumerTools.deleteTool(id: id)
+            try await environment.consumerTools.deleteTool(id: id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
             await refresh()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.deleteTool(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func restoreTool(_ id: UUID) async {
+    func restoreTool(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.restoreTool(id, appPassword: $0) }) {
+            return
+        }
         do {
-            try await environment.consumerTools.restoreTool(id: id)
+            try await environment.consumerTools.restoreTool(id: id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
             await refresh()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.restoreTool(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func permanentlyDeleteTool(_ id: UUID) async {
+    func permanentlyDeleteTool(_ id: UUID, appPassword: String? = nil) async {
+        if await prepareSensitiveAuth(appPassword: appPassword, retry: { await self.permanentlyDeleteTool(id, appPassword: $0) }) {
+            return
+        }
         do {
-            try await environment.consumerTools.permanentlyDeleteTool(id: id)
+            try await environment.consumerTools.permanentlyDeleteTool(id: id, appPassword: appPassword)
+            finishSensitiveAuthSuccess()
+            await completeTrashMutation()
+        } catch let error as ApiRelayError {
+            if appPassword == nil, Self.isMasterPasswordPrompt(error) {
+                rememberMasterPasswordRetry { await self.permanentlyDeleteTool(id, appPassword: $0) }
+                return
+            }
+            if case .authenticationCancelled = error { return }
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func submitMasterPassword(_ password: String) async {
+        let trimmed = password.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            errorMessage = String(localized: "appLock.masterPassword.empty")
+            return
+        }
+        if combinationNeedsSetup {
+            refuseOrdinaryAppPasswordPath()
+            return
+        }
+        let operation = pendingPolicyOperation
+        pendingPolicyOperation = nil
+        offerCombinationAppPassword = false
+        needsMasterPassword = false
+        presentMasterPasswordPrompt = false
+        guard let operation else { return }
+        await operation(trimmed)
+    }
+
+    func cancelMasterPasswordPrompt() {
+        abandonCombinationPending()
+    }
+
+    var hasPendingSensitiveRetry: Bool { pendingPolicyOperation != nil }
+
+    func abandonCombinationPending() {
+        // Ordinary view cleanup must not owner-cancel `.content`: a new page may
+        // already own a later request in that same coarse group. True background
+        // and session-lock transitions are cancelled globally by AppPrivacy.
+        pendingPolicyOperation = nil
+        offerCombinationAppPassword = false
+        needsMasterPassword = false
+        presentMasterPasswordPrompt = false
+        combinationNeedsSetup = false
+        ordinaryAppPasswordNeedsIndependentRecovery = false
+    }
+
+    func clearOrdinaryAppPasswordRecoveryOffer() {
+        ordinaryAppPasswordNeedsIndependentRecovery = false
+    }
+
+    /// 显式恢复必须先丢弃原待办，恢复后由用户重新发起操作。
+    func recoverIndependentAppPasswordFromOrdinaryEntry() async {
+        abandonCombinationPending()
+        errorMessage = nil
+        await environment.appPrivacy.recoverFromLostMasterPassword()
+        if let failure = environment.appPrivacy.unlockError {
+            ordinaryAppPasswordNeedsIndependentRecovery = true
+            errorMessage = failure
+        }
+    }
+
+    func handleSessionLocked() {
+        invalidateRevealReuseSessionLock()
+        invalidateRevealReuseAutoLock()
+    }
+
+    private func rememberMasterPasswordRetry(_ operation: @escaping (String) async -> Void) {
+        needsMasterPassword = true
+        pendingPolicyOperation = operation
+        presentMasterPasswordPrompt = true
+    }
+
+    /// 在调用生产入口前绑定原操作。返回 true 表示已改为采集应用密码，调用方应立即返回。
+    private func prepareSensitiveAuth(
+        appPassword: String?,
+        retry: @escaping (String) async -> Void
+    ) async -> Bool {
+        guard appPassword == nil else { return false }
+        if RevealPolicyPersistence.canonical(environment.appPrivacy.session.preferences.revealPolicy) == .masterPassword {
+            let material = await environment.gate.appPasswordMaterialStatus()
+            guard AppPasswordPolicyGate.canUseAppPasswordEntry(material: material) else {
+                refuseOrdinaryAppPasswordPath(material: material)
+                return true
+            }
+        }
+        guard usesCombinationPolicy else { return false }
+        pendingPolicyOperation = retry
+        offerCombinationAppPassword = true
+        return false
+    }
+
+    private func finishSensitiveAuthSuccess() {
+        pendingPolicyOperation = nil
+        offerCombinationAppPassword = false
+        combinationNeedsSetup = false
+        ordinaryAppPasswordNeedsIndependentRecovery = false
+        presentMasterPasswordPrompt = false
+        needsMasterPassword = false
+    }
+
+    private func refuseOrdinaryAppPasswordPath(material: AppPasswordMaterialStatus = .unset) {
+        abandonCombinationPending()
+        ordinaryAppPasswordNeedsIndependentRecovery = true
+        errorMessage = AppPasswordPolicyGate.ordinaryEntryUnavailableMessage(material: material)
+    }
+
+    private func completeTrashMutation() async {
+        await refresh()
+        NotificationCenter.default.post(name: .trashBundleDidChange, object: nil)
+    }
+
+    private static func isMasterPasswordPrompt(_ error: ApiRelayError) -> Bool {
+        if case .validationFailed(_, let reason) = error {
+            return reason == "master_password_prompt_required" || reason == "required"
+        }
+        return false
     }
 
     /// 刷新并等待本次可观测的 CloudKit 活动；明文仍由钥匙串自行同步。

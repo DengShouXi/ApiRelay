@@ -16,7 +16,8 @@ actor FakeSecureBackup: SecureBackupServing {
         throw ApiRelayError.backupVersionUnsupported(found: 0, supported: 1)
     }
 
-    func exportBackup(passphrase: String?, purpose: BackupPurpose) async throws -> BackupExportResult {
+    func exportBackup(passphrase: String?, purpose: BackupPurpose, appPassword: String?) async throws -> BackupExportResult {
+        _ = appPassword
         try journal.record("exportBackup")
         var out = Data()
         if let passphrase, !passphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -28,8 +29,9 @@ actor FakeSecureBackup: SecureBackupServing {
         return BackupExportResult(data: out, keysWithoutSecretCount: 0)
     }
 
-    func importBackup(data: Data, passphrase: String?) async throws -> ImportSummary {
+    func importBackup(data: Data, passphrase: String?, appPassword: String?) async throws -> ImportSummary {
         _ = passphrase
+        _ = appPassword
         try journal.record("importBackup")
         if data.starts(with: SecureBackupFile.passphraseMagic)
             || data.starts(with: SecureBackupFile.unprotectedMagic) {
@@ -45,6 +47,13 @@ actor FakeSecureBackup: SecureBackupServing {
             keysWithoutSecretCount: 0,
             purpose: .fullBackup
         )
+    }
+
+    func purgeAllRecordsForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws {
+        try authorization.validate(operation: "fake_backup_committed_erase")
+        try journal.record("purgeAllRecordsForCommittedErase")
     }
 }
 #endif

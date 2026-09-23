@@ -6,13 +6,15 @@ import Foundation
 actor FakeRecentlyDeletedBatch: RecentlyDeletedBatchServing {
     var journal = FakeJournal()
 
-    func restore(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome {
+    func restore(_ selection: TrashBatchSelection, appPassword: String?) async throws -> TrashBatchOutcome {
+        _ = appPassword
         try journal.record("restore")
         guard !selection.isEmpty else { return .empty }
         return TrashBatchOutcome(successCount: selection.itemCount, failures: [])
     }
 
-    func permanentlyDelete(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome {
+    func permanentlyDelete(_ selection: TrashBatchSelection, appPassword: String?) async throws -> TrashBatchOutcome {
+        _ = appPassword
         try journal.record("permanentlyDelete")
         guard !selection.isEmpty else { return .empty }
         return TrashBatchOutcome(successCount: selection.itemCount, failures: [])

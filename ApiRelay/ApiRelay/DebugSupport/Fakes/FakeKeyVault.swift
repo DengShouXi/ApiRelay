@@ -7,10 +7,14 @@ actor FakeKeyVault: KeyVaultServing {
 
     /// `nil` = 不限额（等同付费档）。
     var freeQuotaRemaining: Int? = nil
+    /// 测试用：永久删除在缺口令时抛出应用密码采集错误。
+    private var appPasswordGateEnabled = false
+    private var expectedAppPassword: String?
 
     private var accountsById: [UUID: UpstreamAccountDTO] = [:]
     private var keysById: [UUID: KeyRecordDTO] = [:]
     private var secrets: [UUID: String] = [:]
+    private var revealReuseGrants: [SecretRevealReuseToken: UUID] = [:]
 
     /// Preview 用：预置一个账号 + 一把密钥（明文假值，仅内存）。
     init(seedPreviewSample: Bool = false) {
@@ -71,7 +75,8 @@ actor FakeKeyVault: KeyVaultServing {
         return id
     }
 
-    func updateAccount(_ id: UUID, patch: UpstreamAccountPatch) async throws {
+    func updateAccount(_ id: UUID, patch: UpstreamAccountPatch, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("updateAccount")
         guard let account = accountsById[id], account.deletedAt == nil else {
             throw ApiRelayError.validationFailed(field: "account", reason: "not_found")
@@ -94,7 +99,8 @@ actor FakeKeyVault: KeyVaultServing {
         )
     }
 
-    func deleteAccount(_ id: UUID) async throws {
+    func deleteAccount(_ id: UUID, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("deleteAccount")
         guard softDeleteAccount(id) else {
             throw ApiRelayError.validationFailed(field: "account", reason: "not_found")
@@ -138,7 +144,8 @@ actor FakeKeyVault: KeyVaultServing {
         return id
     }
 
-    func updateKey(_ id: UUID, patch: KeyPatch) async throws {
+    func updateKey(_ id: UUID, patch: KeyPatch, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("updateKey")
         guard let key = keysById[id], key.deletedAt == nil else {
             throw ApiRelayError.validationFailed(field: "key", reason: "not_found")
@@ -160,7 +167,8 @@ actor FakeKeyVault: KeyVaultServing {
         )
     }
 
-    func editKey(_ id: UUID, draft: KeyEditDraft) async throws {
+    func editKey(_ id: UUID, draft: KeyEditDraft, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("editKey")
         guard let key = keysById[id], key.deletedAt == nil else {
             throw ApiRelayError.validationFailed(field: "key", reason: "not_found")
@@ -206,7 +214,8 @@ actor FakeKeyVault: KeyVaultServing {
         }
     }
 
-    func deleteKey(_ id: UUID) async throws {
+    func deleteKey(_ id: UUID, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("deleteKey")
         guard softDeleteKey(id) else {
             throw ApiRelayError.validationFailed(field: "key", reason: "not_found")
@@ -253,14 +262,16 @@ actor FakeKeyVault: KeyVaultServing {
             .sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) }
     }
 
-    func restoreKey(_ id: UUID) async throws {
+    func restoreKey(_ id: UUID, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("restoreKey")
         guard restoreOneKey(id) else {
             throw ApiRelayError.validationFailed(field: "key", reason: "not_found")
         }
     }
 
-    func permanentlyDeleteKey(_ id: UUID) async throws {
+    func permanentlyDeleteKey(_ id: UUID, appPassword: String?) async throws {
+        try rejectIfAppPasswordMissing(appPassword)
         try journal.record("permanentlyDeleteKey")
         keysById[id] = nil
         secrets[id] = nil
@@ -286,14 +297,16 @@ actor FakeKeyVault: KeyVaultServing {
             .sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) }
     }
 
-    func restoreAccount(_ id: UUID) async throws {
+    func restoreAccount(_ id: UUID, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("restoreAccount")
         guard restoreOneAccount(id) else {
             throw ApiRelayError.validationFailed(field: "account", reason: "not_found")
         }
     }
 
-    func permanentlyDeleteAccount(_ id: UUID) async throws {
+    func permanentlyDeleteAccount(_ id: UUID, appPassword: String?) async throws {
+        try rejectIfAppPasswordMissing(appPassword)
         try journal.record("permanentlyDeleteAccount")
         accountsById[id] = nil
         let orphanKeys = keysById.filter { $0.value.accountId == id }.map(\.key)
@@ -349,7 +362,11 @@ actor FakeKeyVault: KeyVaultServing {
 
     // MARK: - Secrets
 
-    func revealSecret(keyId: UUID, purpose: RevealPurpose, masterPassword: String?) async throws -> String {
+    func revealSecretWithEvidence(
+        keyId: UUID,
+        purpose: RevealPurpose,
+        masterPassword: String?
+    ) async throws -> SecretRevealResult {
         _ = purpose
         _ = masterPassword
         try journal.record("revealSecret")
@@ -359,7 +376,13 @@ actor FakeKeyVault: KeyVaultServing {
         guard let secret = secrets[keyId] else {
             throw ApiRelayError.secretMissingOnDevice
         }
-        return secret
+        let token = SecretRevealReuseToken.issueForVault()
+        revealReuseGrants[token] = keyId
+        return SecretRevealResult(
+            secret: secret,
+            authentication: .verified,
+            reuseToken: token
+        )
     }
 
     func copySecretToClipboard(keyId: UUID, masterPassword: String?) async throws {
@@ -373,8 +396,16 @@ actor FakeKeyVault: KeyVaultServing {
         }
     }
 
-    func copyRevealedSecretToClipboard(_ secret: String) async throws {
-        _ = secret
+    func copyRevealedSecretToClipboard(
+        keyId: UUID,
+        token: SecretRevealReuseToken
+    ) async throws {
+        guard revealReuseGrants.removeValue(forKey: token) == keyId else {
+            throw ApiRelayError.authenticationFailed
+        }
+        guard secrets[keyId] != nil else {
+            throw ApiRelayError.secretMissingOnDevice
+        }
         try journal.record("copyRevealedSecretToClipboard")
     }
 
@@ -405,11 +436,27 @@ actor FakeKeyVault: KeyVaultServing {
         try journal.record("pruneDuplicateIdentities")
     }
 
-    func purgeAllRecordsForErase() async throws {
+    func purgeAllRecordsForErase(authorization: SessionAuthorizationLease) async throws {
+        _ = authorization
         try journal.record("purgeAllRecordsForErase")
         accountsById.removeAll()
         keysById.removeAll()
         secrets.removeAll()
+    }
+
+    func purgeAllRecordsForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws {
+        try authorization.validate(operation: "fake_vault_committed_erase")
+        try journal.record("purgeAllRecordsForCommittedErase")
+        accountsById.removeAll()
+        keysById.removeAll()
+        secrets.removeAll()
+    }
+
+    func currentRevealPolicy() async throws -> RevealPolicy {
+        try journal.record("currentRevealPolicy")
+        return .noVerification
     }
 
     func preflightRestoreQuota(keyIds: [UUID], accountIds: [UUID]) async throws {
@@ -429,7 +476,12 @@ actor FakeKeyVault: KeyVaultServing {
         }
     }
 
-    func restoreDeletedAfterAuthentication(keyIds: [UUID], accountIds: [UUID]) async -> TrashBatchOutcome {
+    func restoreDeletedAfterAuthentication(
+        keyIds: [UUID],
+        accountIds: [UUID],
+        authorization: SessionAuthorizationLease
+    ) async throws -> TrashBatchOutcome {
+        _ = authorization
         journal.recordNonThrowing("restoreDeletedAfterAuthentication")
         var success = 0
         var failures: [TrashBatchItemFailure] = []
@@ -446,8 +498,10 @@ actor FakeKeyVault: KeyVaultServing {
 
     func permanentlyDeleteDeletedAfterAuthentication(
         keyIds: [UUID],
-        accountIds: [UUID]
-    ) async -> TrashBatchOutcome {
+        accountIds: [UUID],
+        authorization: SessionAuthorizationLease
+    ) async throws -> TrashBatchOutcome {
+        _ = authorization
         journal.recordNonThrowing("permanentlyDeleteDeletedAfterAuthentication")
         var success = 0
         for id in accountIds where accountsById[id] != nil {
@@ -463,6 +517,25 @@ actor FakeKeyVault: KeyVaultServing {
     }
 
     // MARK: - Private
+
+    func setAppPasswordGate(enabled: Bool, expected: String? = "correct-password") {
+        appPasswordGateEnabled = enabled
+        expectedAppPassword = expected
+    }
+
+    private func rejectIfAppPasswordMissing(_ appPassword: String?) throws {
+        guard appPasswordGateEnabled else { return }
+        let trimmed = appPassword?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else {
+            throw ApiRelayError.validationFailed(
+                field: "revealPolicy",
+                reason: "master_password_prompt_required"
+            )
+        }
+        if let expectedAppPassword, trimmed != expectedAppPassword {
+            throw ApiRelayError.authenticationFailed
+        }
+    }
 
     @discardableResult
     private func softDeleteKey(_ id: UUID) -> Bool {

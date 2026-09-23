@@ -11,7 +11,9 @@ final class UserPreferences {
     var autoLockSeconds: Int = 60
     /// `nil` = 从未写过（加载时预填）；`"[]"` = 用户删光，不得再预填。
     var autoLockDurationOptionsJSON: String? = nil
-    var revealPolicy: String = RevealPolicy.noVerification.rawValue
+    var revealPolicy: String = RevealPolicy.biometricOrPasscode.rawValue
+    /// 取用验证。出厂与缺字段默认 true。CloudKit additive，发出正式包前须 Deploy Production。
+    var revealAuthEnabled: Bool = true
     var clipboardClearEnabled: Bool = true
     var clipboardClearSeconds: Int = 120
     var clipboardClearDurationOptionsJSON: String? = nil
@@ -30,7 +32,8 @@ final class UserPreferences {
         appLockEnabled: Bool = false,
         autoLockSeconds: Int = 60,
         autoLockDurationOptionsJSON: String? = nil,
-        revealPolicy: RevealPolicy = .noVerification,
+        revealPolicy: RevealPolicy = .biometricOrPasscode,
+        revealAuthEnabled: Bool = true,
         clipboardClearEnabled: Bool = true,
         clipboardClearSeconds: Int = 120,
         clipboardClearDurationOptionsJSON: String? = nil,
@@ -49,6 +52,7 @@ final class UserPreferences {
         self.autoLockSeconds = autoLockSeconds
         self.autoLockDurationOptionsJSON = autoLockDurationOptionsJSON
         self.revealPolicy = revealPolicy.rawValue
+        self.revealAuthEnabled = revealAuthEnabled
         self.clipboardClearEnabled = clipboardClearEnabled
         self.clipboardClearSeconds = clipboardClearSeconds
         self.clipboardClearDurationOptionsJSON = clipboardClearDurationOptionsJSON

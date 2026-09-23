@@ -141,6 +141,8 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       `biometricOnly`（`...WithBiometrics`）、`masterPassword`、`none`。
       `availableBiometry()` 返回 faceID / touchID / none。
       **MUST NOT 跨操作缓存确认结果。**
+      > **已被 13.9 覆盖：** 现行四档为不验证 / 生物验证或设备密码（设备验证档） / 应用密码 / 生物验证或应用密码（新 rawValue `biometryOrAppPassword`）。`biometricOnly` 只在解码层识别并迁到设备验证。同详情查看后立刻复制可复用授权。
+      > **已被 U1 覆盖（2026-09-15）：** 列表标题固定，不随硬件改名；密码依赖档未设则立即设密；普通入口不设密。现行见 [`follow-ups/identity-auth/spec.md`](./follow-ups/identity-auth/spec.md) 与 [`../playbooks/身份验证方案.md`](../playbooks/身份验证方案.md)。
 - [x] **T016** `Business/System/MasterPasswordService.swift`：`CommonCrypto` 的
       `CCKeyDerivationPBKDF` + SHA256，随机 16 字节 salt，迭代次数校准到约 100ms；
       校验用**恒定时间比较**。存 Keychain `masterpw` Service，**不同步**（FR-038）。
@@ -148,9 +150,13 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 - [x] **T017** 主密码的设置、修改与**重置路径**：经生物识别或设备密码确认后可重置（FR-037）。
       设置界面 MUST 明确告知该重置路径存在——**主密码的实际强度不高于设备密码，
       MUST NOT 让用户误以为它不可绕过**（宪法 IX）。
+      > **已被 U1 覆盖（2026-09-15）：** 缺材料不得要求不存在的旧密码；恢复须显式确认 + 设备主人，落到设备验证并丢弃原待办。
+      > **已被 U2 覆盖（2026-09-15）：** 设置首页不再始终可见应用主密码行；仅已 persist 为应用密码或组合档时显示「应用密码」行。点两种档都进同一页。现行见 FR-021 / FR-037。
 - [x] **T018** [P] `ApiRelayTests/RevealGateTests.swift`：`policy == .none` 时不调用 `LAContext`；
       无生物识别设备上 `biometricOnly` 返回 `biometryUnavailable`；未设主密码时
       `masterPassword` 档不可用。
+      > **已被 U1 覆盖（2026-09-15）：** 未设时该档不可 persist 为当前策略，须立即准备；不是在普通操作里补设。
+      > **已被 13.9 覆盖：** 无生物识别不再用「仅生物识别档禁用」当现行验收；设备验证与组合档的系统路径均可在同一 `deviceOwnerAuthentication` 流程使用登录密码，应用密码保持显式独立入口。现行见身份验证方案及U11记录。
 - [x] **T019** [P] `ApiRelayTests/MasterPasswordServiceTests.swift`：正确/错误口令的校验结果；
       salt 每次设置都不同；派生结果不可逆；重置后旧口令失效。
 
@@ -179,11 +185,13 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       删除账号级联将其下密钥移入回收站。`restoreKey` / `permanentlyDeleteKey` /
       `recentlyDeletedKeys` / `purgeExpiredDeletedKeys` 按 contracts §3.1。
       进入回收站 / 恢复 / 立即删除 MUST 经 `confirmMandatory`。
+      > **已被 13.9 覆盖：** 移入回收站与恢复按当前验证方式（不验证可免身份）；立即永久删除先破坏性确认再当前方式。`confirmMandatory` 保留给管理类凭证与忘记/重置应用密码。现行见 FR-006。
 - [x] **T024a** 「最近删除」UI：列表展示剩余天数；恢复 / 立即删除；入口放在设置或保险库
       次级页面。主列表 MUST NOT 出现回收站密钥。
 - [x] **T024b** 回收站选择模式与批量（FR-006a）：`RecentlyDeletedBatchServing` 整批一次
       `confirmMandatory`；恢复前预检免费额度（超出则整批拒绝）；账号级联覆盖其下密钥；
       永久删除须先确认数量。单条路径保持 T024 / FR-006。
+      > **已被 13.9 覆盖：** 整批一次当前验证方式；不验证时恢复可免身份。现行见 FR-006a。
 - [x] **T025** 启动时巡检：① 孤儿（元信息有而 Keychain 无 → `secretAvailable = false`；
       Keychain 有而元信息无 → 提示）；② **`purgeExpiredDeletedKeys()`** 永久清除到期项。
 - [x] **T026** [P] `ApiRelayTests/KeyVaultServiceTests.swift`：额度边界（第 3 把成功 / 第 4 把被拒 /
@@ -287,6 +295,7 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       单测须覆盖：改外观不触达 CloudKit 同步实体。
 - [x] **T046** `Business/System/SecureBackupService.swift`：CryptoKit AES-GCM 加密导出/导入；
       导出前 MUST 经 `confirmMandatory`（**该门闩不可关闭**）；**仅密文落盘**。
+      > **已被 13.9 覆盖：** 不验证时导出可直达；其他档按当前验证方式。管理类凭证仍强制设备主人。现行见宪法 VIII、FR-061 旁路与身份验证方案。
       **⚠️ 格式必须自 V1 起就留两个字段：`purpose`（`fullBackup` / `transfer`）与 `scope`
       （导出了哪些密钥）。** V1 只用 `fullBackup`，但 V2 的加密传递（FR-047）依赖 `transfer`。
       不留这两个字段，V2 就得做破坏性格式升级，已导出的备份将无法被新版本正确识别用途。
@@ -298,16 +307,21 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       **FR-021b 的 V2 设置项（刷新间隔、货币汇率、单价规则、三类提醒）本期不做，不显示占位入口。**
       **「取出密钥明文的验证方式」MUST 是单一设置项，同时管辖查看与复制**——
       不得拆成两个开关（宪法 VIII、quickstart §1.3）。
+      > **已被 13.9 覆盖：** 设置三行是验证方式 / 自动锁定 / 取用验证。查看与复制共用取用验证，仍不得拆成两个开关。出厂验证方式为设备验证。现行见 FR-021。
 - [x] **T048a** `Business/System/DataLifecycleServing.swift` + 实现：`eraseAllUserData()`（FR-061）。
       顺序：`confirmMandatory` → 二次确认文案（含「其他设备同步数据也会被清」）→
       清 Keychain 三类 Service → 清 SwiftData 用户实体 → 清本机 RefreshHealth / 设备偏好 /
       EntitlementSnapshot。**MUST NOT** 吊销 StoreKit。流程中建议先加密备份。
+      > **已被 13.9 覆盖：** 先破坏性确认，再按当前验证方式（不验证只留破坏性确认）。现行见 FR-061。
 - [x] **T048b** [P] `ApiRelayTests/DataLifecycleTests.swift`：清除后密钥列表为空、Keychain
       无本产品条目；模拟已购态清除后 `restorePurchases` 仍可恢复权益（SC-014）。
 - [x] **T049** 验证方式文案按 `availableBiometry()` 动态显示「Face ID」或「触控 ID」；
       无生物识别设备上 `biometricOnly` 档不可选并说明原因（FR-003a）。
+      > **已被 13.9 覆盖：** 不再提供「仅生物识别」档。
+      > **已被 U1 覆盖（2026-09-15）：** 列表标题固定「生物验证或设备密码」；`availableBiometry()` 只供 ⓘ / 系统弹窗。现行见 FR-003a。
 - [x] **T050** [P] `ApiRelayTests/PreferencesServiceTests.swift`：各项持久化与默认值
       （剪贴板默认 120 秒、`revealPolicy` 默认 `none`）；
+      > **已被 13.9 覆盖：** 新安装 `revealPolicy` 出厂为设备验证（`biometricOrPasscode`）；另增 `revealAuthEnabled` 默认 true。旧测试期望 `none` 不得再当现行。现行见 data-model §3.7。
       **专项：改 `appearance` 只影响 `DevicePreferences`，不写入 `UserPreferences`（SC-013）**。
 
 **Checkpoint 6**：设置项逐项「立即生效 + 重启保持」；清除全部数据路径按 SC-014 验收。
@@ -324,6 +338,7 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
       **结论**：Mac 上系统过期与其他 App 粘贴不能两全；现行不写系统过期，应用内计时 + 正常退出。
       MUST NOT 再为「与 iOS 一致」给 Mac 加回 `.expirationDate`。
 - [x] **T055** ⚠️ 在无 Touch ID 的 Mac 上验证 `biometricOnly` 档自动禁用。
+      > **已被 13.9 覆盖：** 该档不再是用户可选项。无 Touch ID 时验收设备验证仍可用登录密码。现行见身份验证方案。
 
 **Checkpoint 7**（FR-034）：iPhone 与 Mac（Catalyst）主流程均可用；业务能力两端一致；
 剪贴板与门闩行为已实测确认。

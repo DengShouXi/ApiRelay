@@ -203,6 +203,7 @@ struct PreferencesDTO: Sendable {
     var autoLockSeconds: Int
     var autoLockDurationOptions: [Int]
     var revealPolicy: RevealPolicy
+    var revealAuthEnabled: Bool
     var clipboardClearEnabled: Bool
     var clipboardClearSeconds: Int
     var clipboardClearDurationOptions: [Int]
@@ -243,6 +244,7 @@ struct PreferencesPatch: Sendable {
     var autoLockSeconds: Int?
     var autoLockDurationOptions: [Int]?
     var revealPolicy: RevealPolicy?
+    var revealAuthEnabled: Bool?
     var clipboardClearEnabled: Bool?
     var clipboardClearSeconds: Int?
     var clipboardClearDurationOptions: [Int]?
@@ -281,14 +283,14 @@ protocol KeyVaultServing: Sendable {
     // 密钥
     func createKey(_ draft: KeyDraft, secret: String) async throws -> UUID
     func updateKey(_ id: UUID, patch: KeyPatch) async throws
-    /// 移入「最近删除」回收站（保留 Keychain 30 天）。内部先过 confirmMandatory。
+    /// 移入「最近删除」回收站（保留 Keychain 30 天）。内部按当前验证方式确认（不验证可免身份）。
     func deleteKey(_ id: UUID) async throws
 
     // 回收站（FR-006 / DC-029）
     func recentlyDeletedKeys() async throws -> [KeyRecordDTO]
-    /// 恢复为 active。内部先过 confirmMandatory。
+    /// 恢复为 active。内部按当前验证方式确认（不验证可免身份）。
     func restoreKey(_ id: UUID) async throws
-    /// 立即永久清除（毁 Keychain）。内部先过 confirmMandatory。
+    /// 立即永久清除（毁 Keychain）。内部先破坏性确认，再按当前验证方式确认（不验证只留破坏性确认）。
     func permanentlyDeleteKey(_ id: UUID) async throws
     /// 启动时调用：永久清除 `purgeAfter < now` 的条目。
     func purgeExpiredDeletedKeys() async throws
@@ -298,17 +300,35 @@ protocol KeyVaultServing: Sendable {
     func removeAssignment(keyId: UUID, consumerToolId: UUID) async throws
     func assignmentKind(keyId: UUID) async throws -> AssignmentKind
 
-    // 取出明文——面向用户的唯一入口，内部必过门闩；回收站内密钥不可经此复制到主流程
-    func revealSecret(keyId: UUID, purpose: RevealPurpose) async throws -> String
+    // 取出明文——面向用户的唯一入口，内部必过门闩；结果携带同一偏好快照产生的认证证据。
+    // 已验证查看可发行一次性复用 token；UI 不得把明文回传服务。
+    func revealSecretWithEvidence(
+        keyId: UUID,
+        purpose: RevealPurpose,
+        masterPassword: String?
+    ) async throws -> SecretRevealResult
     func copySecretToClipboard(keyId: UUID) async throws
+    func copyRevealedSecretToClipboard(
+        keyId: UUID,
+        token: SecretRevealReuseToken
+    ) async throws
 
     // 配额（不含 softDeleted）
     func remainingFreeQuota() async throws -> Int?       // nil = 无上限（已购）
 
-    /// 自动化路径读取明文（探活 / 自动刷新）。MUST NOT 触发门闩；MUST NOT 被 UI 直接调用。
-    /// 显式命名体现宪法 VIII 的门闩例外。V1 可抛 capabilityUnsupported；V2 由 KeyHealthServing 使用。
-    /// softDeleted 密钥 MUST 拒绝（探活不覆盖回收站）。
+}
+
+/// 后台读取能力必须与 UI 使用的完整保险库协议分离，避免 ViewModel 获得绕过门闩的入口。
+protocol AutomatedSecretReading: Actor {
     func readSecretForAutomatedUse(keyId: UUID, purpose: AutomatedSecretPurpose) async throws -> String
+}
+
+enum RevealAuthenticationEvidence: Sendable { case verified, notRequired }
+struct SecretRevealReuseToken: Hashable, Sendable { /* opaque */ }
+struct SecretRevealResult: Sendable {
+    let secret: String
+    let authentication: RevealAuthenticationEvidence
+    let reuseToken: SecretRevealReuseToken?
 }
 
 enum RevealPurpose: Sendable { case display, copy, export }
@@ -319,7 +339,7 @@ enum AutomatedSecretPurpose: Sendable {
 }
 ```
 
-批量入口见 `RecentlyDeletedBatchServing`（FR-006a）：整批一次 `confirmMandatory`；恢复前预检免费额度，超出则整批拒绝；先处理账号（级联其下回收站密钥），再处理未被覆盖的密钥与使用方。
+批量入口见 `RecentlyDeletedBatchServing`（FR-006a）：整批一次当前验证方式（不验证时恢复可免身份）；永久删除须先破坏性确认；恢复前预检免费额度，超出则整批拒绝；先处理账号（级联其下回收站密钥），再处理未被覆盖的密钥与使用方。
 
 ### 3.1b RecentlyDeletedBatchServing — 回收站批量（FR-006a）
 
@@ -332,16 +352,18 @@ protocol RecentlyDeletedBatchServing: Actor {
 
 **契约要点**
 
-- `revealSecret` MUST 在返回前完成门闩（`RevealGateServing`）。UI 层 MUST NOT 直接访问 Keychain。
-- `revealSecret` 返回的 `String` 由调用方在使用后立即释放；MUST NOT 存为 `@Published`（宪法 VII）。
+- `revealSecretWithEvidence` MUST 在返回前完成门闩（`RevealGateServing`），并把认证证据与本次读取绑定；
+  UI 不得在 await 后重新读取偏好来猜测“刚才是否验证过”，也 MUST NOT 直接访问 Keychain。
+- 返回的明文由调用方在使用后立即释放；MUST NOT 存为 `@Published`（宪法 VII）。同一详情查看后复制
+  只能传回一次性 token；服务重新读取 Keychain，token 必须绑定原 key 与原会话 lease，禁止 UI 回传明文。
 - `createKey` MUST 先校验配额（`quotaExceededFreeTier`）再写入；MUST 执行 FR-056 规范化
   （去首尾空白、拒绝空白符）与 FR-057 重复提示（同账号下本机 Keychain 明文完全相同；
   MUST NOT 存明文哈希或末位片段）。该比对读取 MUST NOT 触发门闩。
 - `copySecretToClipboard` 内部串联门闩 → Keychain 读取 → `ClipboardServing.write`，
   UI 层 MUST NOT 自行拼装这三步；对 `softDeleted` MUST 拒绝。
 - `deleteKey` MUST NOT 删除 Keychain；`permanentlyDeleteKey` / `purgeExpiredDeletedKeys` 才删。
-- `readSecretForAutomatedUse` MUST NOT 调用 `RevealGateServing`；UI MUST NOT 持有该入口的引用
-  （依赖注入时勿注入给 ViewModel）。
+- `readSecretForAutomatedUse` MUST NOT 调用 `RevealGateServing`；UI MUST NOT 持有 `AutomatedSecretReading`
+  的引用（依赖注入时勿注入给 ViewModel）。
 
 ### 3.1a KeyHealthServing — 密钥可用性检测（US10，V2 实现 / V1 预留）
 
@@ -369,40 +391,62 @@ enum KeyHealthResult: Sendable {
 ### 3.2 RevealGateServing — 身份确认门闩（FR-003、宪法 VIII）
 
 ```swift
-protocol RevealGateServing: Sendable {
-    /// 按当前 revealPolicy 执行确认。policy == .none 时直接返回成功。
+enum AuthenticationRequestOwner: Sendable {
+    case appUnlock
+    case recovery
+    case content
+}
+
+protocol RevealGateServing: Actor {
+    /// 按当前 revealPolicy 执行确认。`.noVerification` 时直接返回成功。
     func confirm(reason: String, policy: RevealPolicy, purpose: AuthPurpose) async throws
 
-    /// 不可关闭的门闩：加密导出、查看/配置管理类凭证、降低安全等级。忽略用户 policy 设置。
+    /// 应用密码也必须进入同一请求协调器，不能在后台或被取消后迟到成功。
+    func confirmWithMasterPassword(
+        reason: String,
+        password: String,
+        purpose: AuthPurpose
+    ) async throws
+
+    /// 始终设备主人：查看/配置管理类凭证、首次设密、忘记/重置应用密码。忽略用户 policy。
+    /// MUST NOT 再用于导出、普通删除或降低安全（那些走当前验证方式）。
+    /// MUST NOT 用纯生物成功代替新设密所需的设备主人验证。
     func confirmMandatory(reason: String, purpose: AuthPurpose) async throws
 
-    func availableBiometry() -> BiometryKind   // faceID / touchID / none
-    nonisolated func cancelCurrentAuthentication()
+    nonisolated func availableBiometry() -> BiometryKind   // faceID / touchID / none
+    /// 内容页只可取消自己的请求；不得取消锁屏解锁或密码恢复。
+    nonisolated func cancelAuthentication(owner: AuthenticationRequestOwner)
+    /// 整个 App 确认离开前台时取消任意所有者的请求。
+    nonisolated func cancelAllAuthentication()
     /// 系统验证框正在前：同组失焦不得当成闲置去 cancel（FR-072）。
-    nonisolated func isAuthenticationInProgress() -> Bool
+    nonisolated func isAuthenticationInProgress(owner: AuthenticationRequestOwner?) -> Bool
 }
 
 protocol SessionLockQuerying: Sendable {
     nonisolated func isSessionLocked() -> Bool
+    nonisolated func captureAuthorizationLease() throws -> SessionAuthorizationLease
+    nonisolated func validateAuthorizationLease(_ lease: SessionAuthorizationLease) throws
 }
 
 enum RevealPolicy: String, Sendable {
-    case biometricOrPasscode   // 设备验证（定稿出厂默认；落地计划 13.9）
-    case biometricOnly         // 旧「仅生物识别」；定稿迁到设备验证
-    case masterPassword        // 应用密码（FR-038）
-    case none                  // 不验证（不再是出厂默认）
+    case biometricOrPasscode      // 设备验证 / 设备验证档（出厂默认；rawValue 保持此值）
+    case masterPassword           // 应用密码（FR-038）
+    case biometryOrAppPassword    // 设备验证或应用验证（新 rawValue）
+    case noVerification = "none"  // 不验证（仍可选，不是出厂默认）
 }
 ```
 
 **契约要点**
 
-- 单一 `RevealPolicy` **同时管辖查看与复制**；MUST NOT 提供两个独立开关（宪法 VIII）。
-- `availableBiometry()` 用于界面文案动态显示「Face ID / 触控 ID」，并在 `.none` 时禁用
-  `biometricOnly` 档（FR-003a）。
-- 确认结果：定稿起同一详情且未离开可复用（看完立刻复制不二弹）；关详情 / 换密钥 / 离前台 / 自动锁后失效。旧句「不得跨操作缓存」已被覆盖。落地计划在尚未创建的 `v1.13.9`。
-- 同一时间只服务一个系统验证请求；新请求取消旧请求（FR-068）。
-- 会话锁住时，取出明文 / 复制 / 新建 / 使用方 CRUD / 回收站恢复与永久删 / 指派 / 排序 MUST 先经 `SessionLockQuerying` 拒绝（FR-067、FR-070）。过期清扫锁下跳过。
-- 验证进行中 `isAuthenticationInProgress() == true` 时，同组闲置 MUST NOT `cancelCurrentAuthentication`（FR-072）。
+- `revealPolicy` 决定怎么验；`revealAuthEnabled`（默认 true）决定查看/复制要不要验。MUST NOT 为复制另设开关。
+- 验证方式列表标题固定为产品名（「设备验证」等）。`availableBiometry()` 只供 ⓘ / 系统弹窗使用官方译名，不得把列表标题改成面容 ID / 触控 ID。组合档系统路径只启动一次 `.deviceOwnerAuthentication`，由系统在同一上下文中先生物识别并直接回落设备密码 / Mac 登录密码；MUST NOT 用 `.deviceOwnerAuthenticationWithBiometrics` 失败后再新建上下文。应用密码保持 App 内显式入口。
+- 选中 `masterPassword` 或 `biometryOrAppPassword` 时 MUST 进入同一应用密码页并绑定目标，已设也进入。未设材料时 MUST 立即准备；成功复查后才 persist 目标。已设 MUST NOT 强迫改密。设置首页「应用密码」行仅在已 persist 为这两档时显示。普通 `confirm` 路径 MUST NOT `setPassword`。`confirmMandatory` 用于管理类凭证、首次设密的设备主人步、以及显式忘记/恢复。界面称「应用密码」；内部 `masterPassword` / `.masterpw` 不改。
+- 同一详情且未离开：看完立刻复制不二弹；关详情 / 换密钥 / 离前台 / 自动锁 / 会话锁后失效。
+- 解码层识别旧 rawValue `biometricOnly` 并迁到设备验证；未知值不得写成不验证。
+- 同一时间只服务一个认证请求，系统验证与应用密码共用一个请求协调器。请求具有明确所有者：锁屏解锁、密码恢复、内容操作。受保护的锁屏/恢复请求不得被内容页清理或内容请求抢占；同级或更高权限的新请求才可替换旧请求（FR-068）。
+- 会话锁住时，取出明文 / 复制 / 新建 / 使用方 CRUD / 回收站恢复与永久删 / 指派 / 排序 MUST 先经 `SessionLockQuerying` 拒绝（FR-067、FR-070）。敏感操作必须在开始时捕获 `SessionAuthorizationLease`，认证后、明文返回前及每个副作用前复核；离前台、锁定或安全偏好变更使世代换代，旧 lease 不得复活。过期清扫锁下跳过。
+- 验证进行中 `isAuthenticationInProgress(owner:) == true` 时，同组闲置 MUST NOT 全局取消。内容页消失只调用 `cancelAuthentication(owner: .content)`；仅整个 App 真正离开前台才调用 `cancelAllAuthentication()`（FR-072）。
+- 系统验证回调成功后，门闩 MUST 等待发起验证的原 scene 恢复为可交互前台再返回；等待期间持续检查请求所有权与取消。该等待必须覆盖真实设备系统弹层可能超过两秒的收起延迟，但不得把真实后台或已取消请求放行。
 - 快照与解锁层按窗独立；会话锁仍进程级。`WindowPrivacyReducer.reduce` 是可测纯函数（FR-073）。
 - 窗口在场由 `ScenePresenceSignals` 判定；未知信号 MUST NOT 当成离屏。`appearsActive` 本 target 标未知（FR-074）。
 - 降低已同步安全等级：`persist` 成功后才改内存锁态（FR-069）；协议提供 `onSuccess`。
@@ -519,12 +563,12 @@ protocol SecureBackupServing: Sendable {
     /// 格式 MUST 自 V1 起就写入 purpose 与 scope，否则 V2 需破坏性升级格式。
     func export(passphrase: String,
                 purpose: BackupPurpose,
-                keyIds: [UUID]?) async throws -> URL      // 内部先过 confirmMandatory
+                keyIds: [UUID]?) async throws -> URL      // 内部按当前验证方式确认（不验证可免身份）
     func importBackup(from url: URL, passphrase: String) async throws -> ImportSummary
 }
 
 protocol DataLifecycleServing: Sendable {
-    /// 清除本产品写入的全部用户数据（FR-061）。内部先过 confirmMandatory。
+    /// 清除本产品写入的全部用户数据（FR-061）。内部先破坏性确认，再按当前验证方式确认（不验证只留破坏性确认）。
     /// MUST NOT 清除或吊销 StoreKit 权益。
     func eraseAllUserData() async throws
 }

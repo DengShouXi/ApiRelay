@@ -2,6 +2,14 @@ import SwiftUI
 
 /// 设置子页共用的分组底与卡片，避免 Catalyst `Form` 漂在白底中间。
 enum SettingsChrome {
+    static var isNativeMac: Bool {
+        #if os(macOS)
+        true
+        #else
+        false
+        #endif
+    }
+
     static var isMacDesktop: Bool {
         #if os(macOS) || targetEnvironment(macCatalyst)
         true
@@ -302,6 +310,7 @@ struct SettingsPrimaryButton: View {
 struct SettingsSecureField: View {
     var title: LocalizedStringKey
     @Binding var text: String
+    var role: SensitivePasswordInputRole = .existingCredential
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -311,7 +320,7 @@ struct SettingsSecureField: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             SecureField("", text: $text)
-                .textContentType(.none)
+                .sensitivePasswordInput(role)
                 .textFieldStyle(.plain)
                 .accessibilityLabel(Text(title))
                 .padding(.horizontal, 12)

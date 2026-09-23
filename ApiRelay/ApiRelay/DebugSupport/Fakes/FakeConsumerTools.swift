@@ -5,6 +5,8 @@ import Foundation
 actor FakeConsumerTools: ConsumerToolServing {
     var journal = FakeJournal()
     private var toolsById: [UUID: ConsumerToolDTO] = [:]
+    private var appPasswordGateEnabled = false
+    private var expectedAppPassword: String?
 
     /// Preview 用：预置一个使用方。
     init(seedPreviewSample: Bool = false) {
@@ -51,7 +53,8 @@ actor FakeConsumerTools: ConsumerToolServing {
         return id
     }
 
-    func updateTool(id: UUID, patch: ConsumerToolPatch) async throws {
+    func updateTool(id: UUID, patch: ConsumerToolPatch, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("updateTool")
         guard let tool = toolsById[id], tool.deletedAt == nil else {
             throw ApiRelayError.validationFailed(field: "tool", reason: "not_found")
@@ -73,7 +76,8 @@ actor FakeConsumerTools: ConsumerToolServing {
         )
     }
 
-    func deleteTool(id: UUID) async throws {
+    func deleteTool(id: UUID, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("deleteTool")
         guard let tool = toolsById[id], tool.deletedAt == nil else {
             throw ApiRelayError.validationFailed(field: "tool", reason: "not_found")
@@ -125,14 +129,16 @@ actor FakeConsumerTools: ConsumerToolServing {
             .sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) }
     }
 
-    func restoreTool(id: UUID) async throws {
+    func restoreTool(id: UUID, appPassword: String?) async throws {
+        _ = appPassword
         try journal.record("restoreTool")
         guard restoreOne(id) else {
             throw ApiRelayError.validationFailed(field: "tool", reason: "not_found")
         }
     }
 
-    func permanentlyDeleteTool(id: UUID) async throws {
+    func permanentlyDeleteTool(id: UUID, appPassword: String?) async throws {
+        try rejectIfAppPasswordMissing(appPassword)
         try journal.record("permanentlyDeleteTool")
         toolsById[id] = nil
     }
@@ -147,7 +153,11 @@ actor FakeConsumerTools: ConsumerToolServing {
         }
     }
 
-    func restoreToolsAfterAuthentication(ids: [UUID]) async -> TrashBatchOutcome {
+    func restoreToolsAfterAuthentication(
+        ids: [UUID],
+        authorization: SessionAuthorizationLease
+    ) async throws -> TrashBatchOutcome {
+        _ = authorization
         journal.recordNonThrowing("restoreToolsAfterAuthentication")
         var success = 0
         var failures: [TrashBatchItemFailure] = []
@@ -161,7 +171,11 @@ actor FakeConsumerTools: ConsumerToolServing {
         return TrashBatchOutcome(successCount: success, failures: failures)
     }
 
-    func permanentlyDeleteToolsAfterAuthentication(ids: [UUID]) async -> TrashBatchOutcome {
+    func permanentlyDeleteToolsAfterAuthentication(
+        ids: [UUID],
+        authorization: SessionAuthorizationLease
+    ) async throws -> TrashBatchOutcome {
+        _ = authorization
         journal.recordNonThrowing("permanentlyDeleteToolsAfterAuthentication")
         var success = 0
         for id in ids where toolsById[id] != nil {
@@ -171,9 +185,37 @@ actor FakeConsumerTools: ConsumerToolServing {
         return TrashBatchOutcome(successCount: success, failures: [])
     }
 
-    func purgeAllRecordsForErase() async throws {
+    func purgeAllRecordsForErase(authorization: SessionAuthorizationLease) async throws {
+        _ = authorization
         try journal.record("purgeAllRecordsForErase")
         toolsById.removeAll()
+    }
+
+    func purgeAllRecordsForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws {
+        try authorization.validate(operation: "fake_consumer_tools_committed_erase")
+        try journal.record("purgeAllRecordsForCommittedErase")
+        toolsById.removeAll()
+    }
+
+    func setAppPasswordGate(enabled: Bool, expected: String? = "correct-password") {
+        appPasswordGateEnabled = enabled
+        expectedAppPassword = expected
+    }
+
+    private func rejectIfAppPasswordMissing(_ appPassword: String?) throws {
+        guard appPasswordGateEnabled else { return }
+        let trimmed = appPassword?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else {
+            throw ApiRelayError.validationFailed(
+                field: "revealPolicy",
+                reason: "master_password_prompt_required"
+            )
+        }
+        if let expectedAppPassword, trimmed != expectedAppPassword {
+            throw ApiRelayError.authenticationFailed
+        }
     }
 
     @discardableResult

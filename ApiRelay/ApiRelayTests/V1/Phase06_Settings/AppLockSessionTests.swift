@@ -9,7 +9,7 @@ final class AppLockSessionTests: XCTestCase {
         let session = AppLockSession.unready()
         XCTAssertFalse(session.isPreferencesReady)
         XCTAssertFalse(session.showsAppLockUI)
-        XCTAssertFalse(session.blocksContent)
+        XCTAssertTrue(session.blocksContent, "unknown security policy must use a neutral privacy barrier")
         XCTAssertFalse(session.needsUnlockPrompt)
         XCTAssertFalse(session.showsSnapshotCover)
         XCTAssertFalse(session.isSessionLocked)
@@ -64,7 +64,8 @@ final class AppLockSessionTests: XCTestCase {
         session.completeColdStart(with: AppLockPreferences(
             appLockEnabled: true,
             autoLockSeconds: 60,
-            hideInAppSwitcher: false
+            hideInAppSwitcher: false,
+            revealPolicy: .biometricOrPasscode
         ))
         XCTAssertTrue(session.isSessionLocked)
         XCTAssertTrue(session.blocksContent)
@@ -250,13 +251,15 @@ final class AppLockSessionTests: XCTestCase {
         session.completeColdStart(with: AppLockPreferences(
             appLockEnabled: true,
             autoLockSeconds: 60,
-            hideInAppSwitcher: true
+            hideInAppSwitcher: true,
+            revealPolicy: .biometricOrPasscode
         ))
         XCTAssertTrue(session.isSessionLocked)
         session.applyLivePreferences(AppLockPreferences(
             appLockEnabled: false,
             autoLockSeconds: 60,
-            hideInAppSwitcher: true
+            hideInAppSwitcher: true,
+            revealPolicy: .biometricOrPasscode
         ))
         XCTAssertFalse(session.isSessionLocked)
         XCTAssertFalse(session.blocksContent)
@@ -267,7 +270,8 @@ final class AppLockSessionTests: XCTestCase {
         session.applyLivePreferences(AppLockPreferences(
             appLockEnabled: true,
             autoLockSeconds: 0,
-            hideInAppSwitcher: false
+            hideInAppSwitcher: false,
+            revealPolicy: .biometricOrPasscode
         ))
         XCTAssertFalse(session.isSessionLocked)
         XCTAssertFalse(session.blocksContent)
@@ -282,7 +286,8 @@ final class AppLockSessionTests: XCTestCase {
         session.completeColdStart(with: AppLockPreferences(
             appLockEnabled: true,
             autoLockSeconds: 60,
-            hideInAppSwitcher: false
+            hideInAppSwitcher: false,
+            revealPolicy: .biometricOrPasscode
         ))
         session.unlockSucceeded()
         XCTAssertFalse(session.isSessionLocked)
@@ -319,12 +324,91 @@ final class AppLockSessionTests: XCTestCase {
         XCTAssertFalse(session.isSessionLocked)
     }
 
+    func testNoVerificationWithAppLockOnDoesNotLockOnColdStart() {
+        var session = AppLockSession.unready()
+        session.completeColdStart(with: AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: true,
+            revealPolicy: .noVerification
+        ))
+        XCTAssertFalse(session.isSessionLocked)
+        XCTAssertFalse(session.showsAppLockUI)
+        XCTAssertFalse(session.needsUnlockPrompt)
+        XCTAssertTrue(session.preferences.appLockEnabled)
+    }
+
+    func testNoVerificationDoesNotLockOnBackgroundEvenIfImmediate() {
+        var session = AppLockSession.unready()
+        session.completeColdStart(with: AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: false,
+            revealPolicy: .noVerification
+        ))
+        session.noteDidBecomeActive(now: t0.addingTimeInterval(-10))
+        session.noteDidEnterBackground(now: t0)
+        session.noteWillEnterForeground(now: t0.addingTimeInterval(2))
+        XCTAssertFalse(session.isSessionLocked)
+        XCTAssertFalse(session.showsAppLockUI)
+    }
+
+    func testCachedLockUnlocksWhenColdStartReadsNoVerification() {
+        var session = AppLockSession.unready()
+        session.applyCachedLockEnabled()
+        XCTAssertTrue(session.isSessionLocked)
+        session.completeColdStart(with: AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 60,
+            hideInAppSwitcher: true,
+            revealPolicy: .noVerification
+        ))
+        XCTAssertFalse(session.isSessionLocked)
+        XCTAssertFalse(session.needsUnlockPrompt)
+    }
+
+    func testRestoringDeviceAuthDoesNotLockUntilNextLeave() {
+        var session = AppLockSession.unready()
+        session.completeColdStart(with: AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: false,
+            revealPolicy: .noVerification
+        ))
+        session.noteDidBecomeActive(now: t0.addingTimeInterval(-10))
+        session.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: false,
+            revealPolicy: .biometricOrPasscode
+        ))
+        XCTAssertFalse(session.isSessionLocked, "换回验证档不得立刻上锁")
+        session.noteDidEnterBackground(now: t0)
+        XCTAssertTrue(session.isSessionLocked)
+    }
+
+    func testSwitchingToNoVerificationUnlocksImmediately() {
+        var session = ready(hide: false, lock: true, seconds: 0)
+        XCTAssertFalse(session.isSessionLocked)
+        session.noteDidEnterBackground(now: t0)
+        XCTAssertTrue(session.isSessionLocked)
+        session.applyLivePreferences(AppLockPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            hideInAppSwitcher: false,
+            revealPolicy: .noVerification
+        ))
+        XCTAssertFalse(session.isSessionLocked)
+        XCTAssertFalse(session.showsAppLockUI)
+    }
+
     private func ready(hide: Bool, lock: Bool, seconds: Int = 60) -> AppLockSession {
         var session = AppLockSession.unready()
         session.completeColdStart(with: AppLockPreferences(
             appLockEnabled: lock,
             autoLockSeconds: seconds,
-            hideInAppSwitcher: hide
+            hideInAppSwitcher: hide,
+            revealPolicy: lock ? .biometricOrPasscode : .noVerification
         ))
         if lock {
             session.unlockSucceeded()

@@ -15,8 +15,9 @@ struct SettingsView: View {
     var onShowAccount: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @State private var prefs: PreferencesDTO?
-    @State private var masterPasswordIsSet = false
+    @State private var masterPasswordMaterial: AppPasswordMaterialStatus = .unset
     @State private var backupPassphraseIsSet = false
     @State private var confirmErase = false
     @State private var eraseStatus = ""
@@ -25,6 +26,20 @@ struct SettingsView: View {
     @State private var showPaywall = false
     @State private var entitlementTier: EntitlementTier = .free
     @State private var persistError = ""
+    @State private var pendingWeakenPatch: PreferencesPatch?
+    @State private var weakenPassword = ""
+    @State private var showWeakenPasswordPrompt = false
+    @State private var showEraseAppPassword = false
+    @State private var eraseAppPasswordInput = ""
+    @State private var eraseFlowTrace = SettingsEraseAllFlow.Trace()
+    @State private var combinationNeedsSetup = false
+    @State private var eraseAwaitingIdentity = false
+    /// Ordinary security downgrades use the same page-generation discipline as
+    /// password setup. It stays alive until the queued repository commit ends.
+    @State private var securityPreferenceAuthorization: SecurityPreferenceAuthorization?
+    @State private var authenticationScope: AuthenticationRequestScope?
+    /// 子页退出或场景离开会推进代次；任何 await 后迟到的选档请求都不得重建提示或提交。
+    @State private var securityPreferenceRequestRevision: UInt64 = 0
 
     var body: some View {
         NavigationStack {
@@ -69,19 +84,7 @@ struct SettingsView: View {
                 }
                 .confirmationDialog("settings.eraseAll.confirm", isPresented: $confirmErase) {
                     Button("settings.eraseAll", role: .destructive) {
-                        Task {
-                            do {
-                                try await environment.dataLifecycle.eraseAllUserData()
-                                eraseStatus = String(localized: "settings.eraseAll.done")
-                                await reload()
-                                await refreshMasterPasswordStatus()
-                                await refreshBackupPassphraseStatus()
-                                await refreshEntitlementTier()
-                                await environment.refreshAppearance()
-                            } catch {
-                                eraseStatus = error.localizedDescription
-                            }
-                        }
+                        Task { await confirmEraseAfterDestructiveDialog() }
                     }
                 } message: {
                     Text("settings.eraseAll.message")
@@ -93,14 +96,74 @@ struct SettingsView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesDidPersist)) { _ in
                     Task { await reload() }
                 }
-                .alert("settings.securityPersistFailed.title", isPresented: Binding(
-                    get: { !persistError.isEmpty },
-                    set: { if !$0 { persistError = "" } }
-                )) {
-                    Button("settings.done", role: .cancel) {}
-                } message: {
-                    Text(persistError)
+                .onDisappear {
+                    abandonSettingsCombinationPending()
                 }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase != .active {
+                        clearSettingsSensitiveInputs()
+                    }
+                    if phase == .inactive && environment.gate.isAuthenticationInProgress() {
+                        return
+                    }
+                    if phase != .active {
+                        abandonSettingsCombinationPending()
+                    }
+                }
+                .onReceive(environment.appPrivacy.$session) { session in
+                    if session.isSessionLocked {
+                        abandonSettingsCombinationPending()
+                    }
+                }
+                .alert(
+                    String(localized: "settings.weakenConfirm.appPassword.title"),
+                    isPresented: $showEraseAppPassword
+                ) {
+                    SecureField("vault.masterPassword", text: $eraseAppPasswordInput)
+                        .sensitivePasswordInput()
+                    Button("settings.done") {
+                        let password = eraseAppPasswordInput
+                        eraseAppPasswordInput = ""
+                        Task { await submitEraseAppPassword(password) }
+                    }
+                    Button("settings.cancel", role: .cancel) {
+                        var trace = eraseFlowTrace
+                        _ = SettingsEraseAllFlow.afterAppPasswordCancel(trace: &trace)
+                        eraseFlowTrace = trace
+                        eraseAppPasswordInput = ""
+                        eraseAwaitingIdentity = false
+                    }
+                } message: {
+                    Text("settings.weakenConfirm.appPassword.message")
+                }
+        }
+        .alert("settings.securityPersistFailed.title", isPresented: Binding(
+            get: { !persistError.isEmpty },
+            set: { if !$0 { persistError = "" } }
+        )) {
+            Button("settings.done", role: .cancel) {}
+        } message: {
+            Text(persistError)
+        }
+        // 安全降档可能从 NavigationStack 的任意子页发起。确认框必须挂在
+        // 整个栈上，否则在「验证方式」页选择设备验证时，输入应用密码的
+        // 提示会滞留在已经离场的设置首页，直到用户返回才出现。
+        .alert(
+            String(localized: "settings.weakenConfirm.appPassword.title"),
+            isPresented: $showWeakenPasswordPrompt
+        ) {
+            SecureField("vault.masterPassword", text: $weakenPassword)
+                .sensitivePasswordInput()
+            Button("settings.done") {
+                let password = weakenPassword
+                weakenPassword = ""
+                Task { await confirmPendingWeakenWithAppPassword(password) }
+            }
+            Button("settings.cancel", role: .cancel) {
+                abandonSettingsCombinationPending()
+            }
+        } message: {
+            Text("settings.weakenConfirm.appPassword.message")
         }
         .background(SettingsChrome.groupedBackground(colorScheme).ignoresSafeArea())
     }
@@ -193,78 +256,111 @@ struct SettingsView: View {
                         }
                     }
 
-                    settingsGroup(title: "settings.section.password") {
-                        settingsDisclosureRow(
-                            icon: AppSymbols.Settings.revealPolicy,
-                            tint: .green,
-                            title: "settings.revealPolicy",
-                            detail: "settings.revealPolicy.rowDetail",
-                            status: revealPolicySummary(prefs.revealPolicy)
-                        ) {
-                            RevealPolicySettingsView(
-                                environment: environment,
-                                currentPolicy: prefs.revealPolicy,
-                                applyPolicy: { value in
-                                    await persistSyncedPatchAsync(PreferencesPatch(revealPolicy: value))
-                                    await refreshMasterPasswordStatus()
+                    VStack(alignment: .leading, spacing: 7) {
+                        settingsGroup(title: "settings.section.password") {
+                            settingsDisclosureRow(
+                                icon: AppSymbols.Settings.revealPolicy,
+                                tint: .green,
+                                title: "settings.revealPolicy",
+                                detail: "settings.revealPolicy.rowDetail",
+                                status: revealPolicySummary(prefs.revealPolicy)
+                            ) {
+                                RevealPolicySettingsView(
+                                    environment: environment,
+                                    currentPolicy: prefs.revealPolicy,
+                                    applyPolicy: { value in
+                                        await persistSyncedPatchAsync(PreferencesPatch(revealPolicy: value))
+                                        await refreshMasterPasswordStatus()
+                                    },
+                                    onAppPasswordCommitted: {
+                                        await reload()
+                                        await refreshMasterPasswordStatus()
+                                    }
+                                )
+                                .id("reveal-policy-settings")
+                                .onDisappear {
+                                    abandonSettingsCombinationPending()
+                                    // MUST NOT 在这里 reload：返回时同步写入可能还没落盘，
+                                    // 读回旧值会把刚选好的验证方式弹回去。内存里已是最新值。
+                                    Task { await refreshMasterPasswordStatus() }
                                 }
-                            )
-                            .id("reveal-policy-settings")
-                            .onDisappear {
-                                // MUST NOT 在这里 reload：返回时同步写入可能还没落盘，
-                                // 读回旧值会把刚选好的验证方式弹回去。内存里已是最新值。
-                                Task { await refreshMasterPasswordStatus() }
                             }
-                        }
 
-                        // 仅在选用「主密码」验证时显示管理入口；Face ID 等策略下不单独挂「设主密码」。
-                        if prefs.revealPolicy == .masterPassword {
+                            if CombinationExplicitAuth.shouldShowExplicitEntry(
+                                hasBoundOperation: pendingWeakenPatch != nil,
+                                policy: prefs.revealPolicy
+                            ) {
+                                settingsDivider()
+                                Button("appLock.useAppPassword") {
+                                    Task { await beginSettingsCombinationPassword() }
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .accessibilityLabel(Text("appLock.useAppPassword"))
+                                .accessibilityHint(Text("appLock.combination.hint"))
+                            }
+
                             settingsDivider()
 
                             settingsDisclosureRow(
-                                icon: AppSymbols.Settings.masterPassword,
-                                tint: .indigo,
-                                title: "settings.masterPassword",
-                                detail: "settings.masterPassword.rowDetail",
-                                status: masterPasswordIsSet
-                                    ? String(localized: "settings.masterPassword.status.set")
-                                    : String(localized: "settings.masterPassword.status.unset")
+                                icon: AppSymbols.Settings.autoLock,
+                                tint: .purple,
+                                title: "settings.autoLock.label",
+                                detail: "settings.autoLock.rowDetail",
+                                status: autoLockHomeStatus(prefs)
                             ) {
-                                MasterPasswordSettingsView(
-                                    environment: environment,
-                                    role: .manage
+                                DurationFeatureSettingsView(
+                                    kind: .autoLock,
+                                    prefs: prefsBinding,
+                                    persist: persistSyncedPatch
+                                )
+                            }
+
+                            settingsDivider()
+
+                            settingsToggleRow(
+                                icon: AppSymbols.Action.reveal,
+                                tint: .orange,
+                                title: "settings.revealAuth",
+                                detail: "settings.revealAuth.rowDetail",
+                                isOn: Binding(
+                                    get: { prefs.revealAuthEnabled },
+                                    set: { persistSyncedPatch(PreferencesPatch(revealAuthEnabled: $0)) }
+                                )
+                            )
+
+                            // 仅当前已成功保存为应用密码或组合档时显示管理行。
+                            if AppPasswordSettingsRouting.showsHomeManagementRow(
+                                currentPolicy: prefs.revealPolicy
+                            ) {
+                                settingsDivider()
+
+                                settingsDisclosureRow(
+                                    icon: AppSymbols.Settings.masterPassword,
+                                    tint: .indigo,
+                                    title: "settings.masterPassword",
+                                    detail: "settings.masterPassword.rowDetail",
+                                    status: AppPasswordSettingsRouting.homeRowStatus(masterPasswordMaterial)
                                 ) {
-                                    await refreshMasterPasswordStatus()
-                                    // 重置后若仍卡在主密码档，回退验证方式，避免无法查看/复制。
-                                    let stillSet = (try? await environment.masterPassword.isSet()) ?? false
-                                    if !stillSet, self.prefs?.revealPolicy == .masterPassword {
-                                        persistSyncedPatch(
-                                            PreferencesPatch(revealPolicy: RevealPolicy.noVerification),
-                                            skipReauth: true
-                                        )
-                                    }
+                                    MasterPasswordSettingsView(
+                                        environment: environment,
+                                        target: prefs.revealPolicy,
+                                        currentPolicy: prefs.revealPolicy,
+                                        onCommitted: {
+                                            await refreshMasterPasswordStatus()
+                                            await reload()
+                                        }
+                                    )
                                 }
                             }
+                        }
+                        if prefs.revealPolicy == .noVerification,
+                           prefs.appLockEnabled || prefs.revealAuthEnabled {
+                            SettingsFooterNote(text: "settings.pausedWhileNoVerification")
                         }
                     }
 
                     settingsGroup(title: "settings.section.lockTiming") {
-                        settingsDisclosureRow(
-                            icon: AppSymbols.Settings.autoLock,
-                            tint: .purple,
-                            title: "settings.autoLock.label",
-                            detail: "settings.autoLock.rowDetail",
-                            status: autoLockHomeStatus(prefs)
-                        ) {
-                            DurationFeatureSettingsView(
-                                kind: .autoLock,
-                                prefs: prefsBinding,
-                                persist: persistSyncedPatch
-                            )
-                        }
-
-                        settingsDivider()
-
                         settingsDisclosureRow(
                             icon: AppSymbols.Settings.clipboardClear,
                             tint: .pink,
@@ -291,8 +387,12 @@ struct SettingsView: View {
                         settingsToggleRow(
                             icon: AppSymbols.Settings.clipboardLocalOnly,
                             tint: .cyan,
-                            title: "settings.clipboardLocalOnly",
-                            detail: "settings.clipboardLocalOnly.rowDetail",
+                            title: SettingsChrome.isNativeMac
+                                ? LocalizedStringKey("settings.clipboardLocalOnly.mac")
+                                : LocalizedStringKey("settings.clipboardLocalOnly"),
+                            detail: SettingsChrome.isNativeMac
+                                ? LocalizedStringResource("settings.clipboardLocalOnly.rowDetail.mac")
+                                : LocalizedStringResource("settings.clipboardLocalOnly.rowDetail"),
                             isOn: binding(\.clipboardLocalOnly, prefs.clipboardLocalOnly)
                         )
 
@@ -477,6 +577,19 @@ struct SettingsView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
 
+                    if CombinationExplicitAuth.shouldShowExplicitEntry(
+                        hasBoundOperation: eraseAwaitingIdentity,
+                        policy: prefs?.revealPolicy ?? .noVerification
+                    ) {
+                        settingsDivider()
+                        Button("appLock.useAppPassword") {
+                            Task { await beginSettingsCombinationPassword() }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .accessibilityLabel(Text("appLock.useAppPassword"))
+                    }
+
                     if !eraseStatus.isEmpty {
                         settingsDivider()
                         Text(eraseStatus)
@@ -613,23 +726,11 @@ struct SettingsView: View {
     }
 
     private func revealPolicySummary(_ policy: RevealPolicy) -> String {
-        switch policy {
-        case .biometricOrPasscode:
-            return String(localized: "settings.policy.biometricOrPasscode.short")
-        case .biometricOnly:
-            switch environment.gate.availableBiometry() {
-            case .faceID:
-                return String(localized: "settings.policy.faceID")
-            case .touchID:
-                return String(localized: "settings.policy.touchID")
-            case .none:
-                return String(localized: "settings.policy.none")
-            }
-        case .masterPassword:
-            return String(localized: "settings.policy.masterPassword")
-        case .noVerification:
-            return String(localized: "settings.policy.none")
-        }
+        RevealPolicyDisplayName.summary(
+            policy,
+            biometry: environment.gate.availableBiometry(),
+            isMac: SettingsChrome.isMacDesktop
+        )
     }
 
     private func settingsToggleRow(
@@ -706,6 +807,9 @@ struct SettingsView: View {
         guard prefs.appLockEnabled else {
             return String(localized: "settings.duration.off")
         }
+        if prefs.revealPolicy == .noVerification {
+            return String(localized: "settings.pausedWhileNoVerification")
+        }
         return DurationOptionList.displayName(prefs.autoLockSeconds)
     }
 
@@ -729,29 +833,237 @@ struct SettingsView: View {
         Task { await persistSyncedPatchAsync(patch, skipReauth: skipReauth) }
     }
 
-    private func persistSyncedPatchAsync(_ patch: PreferencesPatch, skipReauth: Bool = false) async {
+    private func persistSyncedPatchAsync(
+        _ patch: PreferencesPatch,
+        skipReauth: Bool = false,
+        submittedAppPassword: String? = nil
+    ) async {
+        securityPreferenceRequestRevision &+= 1
+        let requestRevision = securityPreferenceRequestRevision
         guard let current = prefs else { return }
-        if !skipReauth, SecurityPolicyChange.weakens(patch, relativeTo: current) {
-            do {
-                try await environment.gate.confirmMandatory(
-                    reason: String(localized: "gate.changeSecuritySettings"),
-                    purpose: .settings
-                )
-            } catch ApiRelayError.authenticationCancelled {
-                return
-            } catch {
-                persistError = error.localizedDescription
+        securityPreferenceAuthorization?.invalidate()
+        securityPreferenceAuthorization = nil
+        if AppPasswordPolicyGate.requiresMaterialLookup(for: patch) {
+            let material = await environment.masterPassword.materialStatus()
+            guard requestRevision == securityPreferenceRequestRevision else { return }
+            if let rejection = AppPasswordPolicyGate.persistRejection(patch, material: material) {
+                persistError = rejection.localizedDescription
+                pendingWeakenPatch = nil
+                weakenPassword = ""
                 return
             }
         }
+        var authorization: SecurityPreferenceAuthorization?
+        if !skipReauth, SecurityPolicyChange.weakens(patch, relativeTo: current) {
+            let currentPolicy = RevealPolicyPersistence.canonical(current.revealPolicy)
+            let submitted: String? = {
+                let raw = submittedAppPassword ?? weakenPassword
+                let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }()
+            if currentPolicy == .masterPassword, submitted == nil {
+                pendingWeakenPatch = patch
+                showWeakenPasswordPrompt = true
+                return
+            }
+            do {
+                if combinationNeedsSetup {
+                    persistError = AppPasswordPolicyGate.ordinaryEntryMissingMaterialMessage()
+                    pendingWeakenPatch = nil
+                    weakenPassword = ""
+                    return
+                }
+                let captured = try environment.appPrivacy.makeSecurityPreferenceAuthorization(
+                    currentPolicy: currentPolicy,
+                    targetPolicy: patch.revealPolicy
+                )
+                authorization = captured
+                securityPreferenceAuthorization = captured
+                try await performWithPageAuthenticationScope {
+                    try await CurrentRevealPolicyAuth.confirm(
+                        current.revealPolicy,
+                        gate: environment.gate,
+                        reason: String(localized: "gate.changeSecuritySettings"),
+                        purpose: .settings,
+                        appPassword: submitted
+                    )
+                }
+                guard requestRevision == securityPreferenceRequestRevision else {
+                    authorization?.invalidate()
+                    securityPreferenceAuthorization = nil
+                    return
+                }
+                try environment.appPrivacy.requireUserFacingForAuthenticatedSettingsCommit()
+                try captured.authorize()
+            } catch let error as ApiRelayError
+                where CombinationExplicitAuth.isCombination(current.revealPolicy)
+                    && CombinationExplicitAuth.shouldOfferAppPassword(after: error)
+                    && submitted == nil
+            {
+                authorization?.invalidate()
+                securityPreferenceAuthorization = nil
+                guard requestRevision == securityPreferenceRequestRevision else { return }
+                pendingWeakenPatch = patch
+                showWeakenPasswordPrompt = true
+                return
+            } catch ApiRelayError.authenticationCancelled {
+                authorization?.invalidate()
+                securityPreferenceAuthorization = nil
+                guard requestRevision == securityPreferenceRequestRevision else { return }
+                pendingWeakenPatch = nil
+                weakenPassword = ""
+                return
+            } catch {
+                authorization?.invalidate()
+                securityPreferenceAuthorization = nil
+                guard requestRevision == securityPreferenceRequestRevision else { return }
+                persistError = error.localizedDescription
+                pendingWeakenPatch = nil
+                weakenPassword = ""
+                return
+            }
+        }
+        guard requestRevision == securityPreferenceRequestRevision else {
+            authorization?.invalidate()
+            securityPreferenceAuthorization = nil
+            return
+        }
+        pendingWeakenPatch = nil
+        weakenPassword = ""
         SecurityPreferenceCommit.persist(
             patch,
             relativeTo: current,
-            using: environment.preferences
+            using: environment.preferences,
+            authorization: authorization
         ) { next in
             prefs = next
             environment.appPrivacy.applyLivePreferences(AppLockPreferences(next))
         }
+    }
+
+    private func confirmPendingWeakenWithAppPassword(_ password: String) async {
+        guard let patch = pendingWeakenPatch else { return }
+        await persistSyncedPatchAsync(patch, submittedAppPassword: password)
+    }
+
+    private func clearSettingsSensitiveInputs() {
+        weakenPassword = ""
+        eraseAppPasswordInput = ""
+    }
+
+    private func abandonSettingsCombinationPending() {
+        securityPreferenceRequestRevision &+= 1
+        securityPreferenceAuthorization?.invalidate()
+        securityPreferenceAuthorization = nil
+        authenticationScope?.cancel()
+        authenticationScope = nil
+        pendingWeakenPatch = nil
+        clearSettingsSensitiveInputs()
+        showWeakenPasswordPrompt = false
+        eraseAwaitingIdentity = false
+        showEraseAppPassword = false
+        combinationNeedsSetup = false
+    }
+
+    private func beginSettingsCombinationPassword() async {
+        guard CombinationExplicitAuth.isCombination(prefs?.revealPolicy ?? .noVerification) else { return }
+        guard pendingWeakenPatch != nil || eraseAwaitingIdentity else { return }
+        authenticationScope?.cancel()
+        authenticationScope = nil
+        let material = await environment.gate.appPasswordMaterialStatus()
+        guard AppPasswordPolicyGate.canUseAppPasswordEntry(material: material) else {
+            persistError = AppPasswordPolicyGate.ordinaryEntryUnavailableMessage(material: material)
+            abandonSettingsCombinationPending()
+            return
+        }
+        combinationNeedsSetup = false
+        if pendingWeakenPatch != nil {
+            showWeakenPasswordPrompt = true
+        }
+        if eraseAwaitingIdentity {
+            showEraseAppPassword = true
+        }
+    }
+
+    private func confirmEraseAfterDestructiveDialog() async {
+        eraseStatus = ""
+        let policy = await currentErasePolicy()
+        var trace = eraseFlowTrace
+        let command = SettingsEraseAllFlow.afterDestructiveConfirm(
+            policy: policy,
+            trace: &trace
+        )
+        eraseFlowTrace = trace
+        switch command {
+        case .promptAppPassword:
+            eraseAwaitingIdentity = true
+            eraseAppPasswordInput = ""
+            showEraseAppPassword = true
+        case .erase(let password):
+            eraseAwaitingIdentity = true
+            await performErase(appPassword: password)
+        case .none:
+            return
+        }
+    }
+
+    private func submitEraseAppPassword(_ password: String) async {
+        var trace = eraseFlowTrace
+        let command = SettingsEraseAllFlow.afterAppPasswordEntry(password, trace: &trace)
+        eraseFlowTrace = trace
+        switch command {
+        case .erase(let value):
+            await performErase(appPassword: value)
+        case .none, .promptAppPassword:
+            return
+        }
+    }
+
+    private func performErase(appPassword: String?) async {
+        var trace = eraseFlowTrace
+        SettingsEraseAllFlow.noteEraseStarted(trace: &trace)
+        eraseFlowTrace = trace
+        do {
+            if combinationNeedsSetup {
+                persistError = AppPasswordPolicyGate.ordinaryEntryMissingMaterialMessage()
+                eraseAwaitingIdentity = false
+                return
+            }
+            try await performWithPageAuthenticationScope {
+                try await environment.dataLifecycle.eraseAllUserData(appPassword: appPassword)
+            }
+            eraseStatus = String(localized: "settings.eraseAll.done")
+            eraseAwaitingIdentity = false
+            await reload()
+            await refreshMasterPasswordStatus()
+            await refreshBackupPassphraseStatus()
+            await refreshEntitlementTier()
+            await environment.refreshAppearance()
+        } catch let error as ApiRelayError where SettingsEraseAllFlow.isPasswordPrompt(error) {
+            showEraseAppPassword = true
+        } catch let error as ApiRelayError
+            where CombinationExplicitAuth.shouldOfferAppPassword(after: error)
+        {
+            var offerTrace = eraseFlowTrace
+            let command = SettingsEraseAllFlow.afterCombinationBiometricEnded(trace: &offerTrace)
+            eraseFlowTrace = offerTrace
+            if command == .promptAppPassword {
+                eraseAwaitingIdentity = true
+            }
+        } catch ApiRelayError.authenticationCancelled {
+            eraseAwaitingIdentity = false
+            return
+        } catch {
+            eraseStatus = error.localizedDescription
+            eraseAwaitingIdentity = false
+        }
+    }
+
+    private func currentErasePolicy() async -> RevealPolicy {
+        if let loaded = try? await environment.preferences.load() {
+            return loaded.revealPolicy
+        }
+        return prefs?.revealPolicy ?? .biometricOrPasscode
     }
 
     /// 只用于本机 `DevicePreferences`（外观 / 默认视角 / 指派筛选），不经 CloudKit，故可直接 `await`。
@@ -771,7 +1083,7 @@ struct SettingsView: View {
     }
 
     private func refreshMasterPasswordStatus() async {
-        masterPasswordIsSet = (try? await environment.masterPassword.isSet()) ?? false
+        masterPasswordMaterial = await environment.masterPassword.materialStatus()
     }
 
     private func refreshBackupPassphraseStatus() async {
@@ -801,29 +1113,76 @@ struct SettingsView: View {
             restoreStatus = error.localizedDescription
         }
     }
+
+    private func performWithPageAuthenticationScope<T>(
+        _ operation: () async throws -> T
+    ) async rethrows -> T {
+        let scope = AuthenticationRequestScope()
+        authenticationScope?.cancel()
+        authenticationScope = scope
+        defer {
+            if authenticationScope === scope { authenticationScope = nil }
+        }
+        return try await scope.perform(operation)
+    }
 }
 
 // MARK: - Reveal policy
 
+private enum RevealPolicyDisplayName {
+    static func deviceTitle(
+        biometry: BiometryKind,
+        isMac: Bool
+    ) -> LocalizedStringKey {
+        "settings.policy.deviceVerification"
+    }
+
+    static func summary(
+        _ policy: RevealPolicy,
+        biometry: BiometryKind,
+        isMac: Bool
+    ) -> String {
+        switch policy {
+        case .biometricOrPasscode:
+            return String(localized: "settings.policy.deviceVerification")
+        case .masterPassword:
+            return String(localized: "settings.policy.masterPassword")
+        case .noVerification:
+            return String(localized: "settings.policy.none")
+        case .biometryOrAppPassword:
+            return String(localized: "settings.policy.biometryOrAppPassword")
+        }
+    }
+}
+
 private struct RevealPolicySettingsView: View {
     let environment: AppEnvironment
     let currentPolicy: RevealPolicy
-    /// 每次选档都调用（含主密码设密成功后）。上层在其中改内存并 `persist`，不在 MainActor 上等 SwiftData。
+    /// 设备验证 / 不验证：上层改内存并 persist。密码依赖档不走这里。
     let applyPolicy: (RevealPolicy) async -> Void
+    /// 应用密码页自己 persist 成功后刷新摘要，MUST NOT 再 applyPolicy 以免二次确认或写错目标。
+    let onAppPasswordCommitted: () async -> Void
 
-    /// 选「主密码」且尚未设密 → 推进到下一步设密页（不是先改策略）。
-    @State private var goSetMasterPassword = false
+    @State private var goAppPasswordPage = false
+    @State private var pendingTarget: RevealPolicy = .masterPassword
     @State private var highlightedPolicy: RevealPolicy
+    /// Navigation destinations may retain the value captured when this page was
+    /// first pushed. Keep the policy used by the next authentication flow in
+    /// step with the authoritative persisted value, not just the visible checkmark.
+    @State private var effectiveCurrentPolicy: RevealPolicy
 
     init(
         environment: AppEnvironment,
         currentPolicy: RevealPolicy,
-        applyPolicy: @escaping (RevealPolicy) async -> Void
+        applyPolicy: @escaping (RevealPolicy) async -> Void,
+        onAppPasswordCommitted: @escaping () async -> Void
     ) {
         self.environment = environment
         self.currentPolicy = currentPolicy
         self.applyPolicy = applyPolicy
+        self.onAppPasswordCommitted = onAppPasswordCommitted
         _highlightedPolicy = State(initialValue: currentPolicy)
+        _effectiveCurrentPolicy = State(initialValue: currentPolicy)
     }
 
     var body: some View {
@@ -831,16 +1190,24 @@ private struct RevealPolicySettingsView: View {
             SettingsCard {
                 policyRow(
                     .biometricOrPasscode,
-                    title: "settings.policy.biometricOrPasscode",
-                    detail: "settings.policy.biometricOrPasscode.detail"
+                    title: RevealPolicyDisplayName.deviceTitle(
+                        biometry: environment.gate.availableBiometry(),
+                        isMac: SettingsChrome.isMacDesktop
+                    ),
+                    detail: "settings.policy.biometricOrPasscode.detail",
+                    subtitle: "settings.policy.recommended"
                 )
-                SettingsCardDivider()
-                biometryOnlyOption
                 SettingsCardDivider()
                 policyRow(
                     .masterPassword,
                     title: "settings.policy.masterPassword",
                     detail: "settings.policy.masterPassword.detail"
+                )
+                SettingsCardDivider()
+                policyRow(
+                    .biometryOrAppPassword,
+                    title: "settings.policy.biometryOrAppPassword",
+                    detail: "settings.policy.biometryOrAppPassword.detail"
                 )
                 SettingsCardDivider()
                 policyRow(
@@ -850,63 +1217,45 @@ private struct RevealPolicySettingsView: View {
                 )
             }
         }
-        .navigationDestination(isPresented: $goSetMasterPassword) {
-            // 与设置页「主密码」同一界面：首次设密也走这里，避免两套表单。
+        .navigationDestination(isPresented: $goAppPasswordPage) {
             MasterPasswordSettingsView(
                 environment: environment,
-                role: .setupForPolicy,
-                onChanged: {},
-                onSetupComplete: {
-                    await applyPolicy(.masterPassword)
-                    highlightedPolicy = .masterPassword
+                target: pendingTarget,
+                currentPolicy: effectiveCurrentPolicy,
+                onCommitted: {
+                    await onAppPasswordCommitted()
+                    await refreshHighlightedPolicyFromPersistence()
                 }
             )
         }
-    }
-
-    @ViewBuilder
-    private var biometryOnlyOption: some View {
-        switch environment.gate.availableBiometry() {
-        case .faceID:
-            policyRow(
-                .biometricOnly,
-                title: "settings.policy.faceID",
-                detail: "settings.policy.biometricOnly.detail"
-            )
-        case .touchID:
-            policyRow(
-                .biometricOnly,
-                title: "settings.policy.touchID",
-                detail: "settings.policy.biometricOnly.detail"
-            )
-        case .none:
-            HStack(alignment: .center, spacing: 6) {
-                Text("settings.policy.biometricOnly.unavailable")
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 0, alignment: .leading)
-                InlineHelpButton(
-                    title: "settings.policy.biometricOnly.unavailable",
-                    message: "settings.policy.biometricOnly.unavailable.detail",
-                    showsTitle: false
-                )
-                Spacer(minLength: 8)
-                Color.clear
-                    .frame(width: 22, height: 22)
-                    .accessibilityHidden(true)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, SettingsChrome.isMacDesktop ? 10 : 12)
+        .task {
+            await refreshHighlightedPolicyFromPersistence()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesDidPersist)) { _ in
+            // 降低安全等级只允许在持久化成功后改变可见选中项。
+            // NavigationLink 的 destination 会保留首次构造值，因此不能只依赖
+            // 上一级页面重建；当前页直接从唯一持久化来源回读。
+            Task { await refreshHighlightedPolicyFromPersistence() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesPersistFailed)) { _ in
+            Task { await refreshHighlightedPolicyFromPersistence() }
+        }
+        .onChange(of: currentPolicy) { _, newValue in
+            highlightedPolicy = newValue
+            effectiveCurrentPolicy = newValue
         }
     }
 
     private func policyRow(
         _ value: RevealPolicy,
         title: LocalizedStringKey,
-        detail: LocalizedStringResource
+        detail: LocalizedStringResource,
+        subtitle: LocalizedStringKey? = nil
     ) -> some View {
         SettingsChoiceRow(
             title: title,
             selected: highlightedPolicy == value,
+            subtitle: subtitle,
             helpTitle: title,
             helpMessage: detail
         ) {
@@ -914,50 +1263,72 @@ private struct RevealPolicySettingsView: View {
         }
     }
 
-    /// 未设主密码时：只进入设密下一步，不改 `revealPolicy`。
-    /// 选档本身不在这里写库，交给 `applyPolicy`，让上层同一处既改内存又 `persist`，
-    /// 否则上层的摘要行会停在旧值、返回时还要靠 reload 兜底。
+    /// 两种密码依赖档都进入同一页并绑定原目标；进入本身不改当前策略。
     private func selectPolicy(_ value: RevealPolicy) async {
-        if value == .masterPassword {
-            let isSet = (try? await environment.masterPassword.isSet()) ?? false
-            if !isSet {
-                goSetMasterPassword = true
-                return
-            }
+        switch AppPasswordSettingsRouting.destination(selected: value) {
+        case .appPasswordPage(let target):
+            pendingTarget = target
+            goAppPasswordPage = true
+        case .persistPolicy(let policy):
+            await applyPolicy(policy)
         }
-        highlightedPolicy = value
-        await applyPolicy(value)
+    }
+
+    @MainActor
+    private func refreshHighlightedPolicyFromPersistence() async {
+        guard let stored = try? await environment.preferences.load() else { return }
+        let persistedPolicy = RevealPolicyPersistence.canonical(stored.revealPolicy)
+        highlightedPolicy = persistedPolicy
+        effectiveCurrentPolicy = persistedPolicy
     }
 }
 
-// MARK: - Master password
-
-/// 主密码唯一界面：首次设密（从验证方式进入）与日常修改/重置共用。
-private enum MasterPasswordScreenRole {
-    /// 验证方式 → 主密码：尚未设密时的下一步。
-    case setupForPolicy
-    /// 设置页「主密码」行：修改 / 重置。
-    case manage
-}
+// MARK: - App password
 
 private struct MasterPasswordSettingsView: View {
     let environment: AppEnvironment
-    var role: MasterPasswordScreenRole = .manage
-    let onChanged: () async -> Void
-    /// 仅 `setupForPolicy`：设密成功并落盘策略后调用。
-    var onSetupComplete: (() async -> Void)? = nil
+    let target: RevealPolicy
+    let currentPolicy: RevealPolicy
+    let onCommitted: () async -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var lease: AppPasswordPageLease
     @State private var currentPassword = ""
+    @State private var combinationAppPassword = ""
     @State private var password = ""
     @State private var confirm = ""
     @State private var isSaving = false
-    @State private var passwordAlreadySet = false
+    @State private var material: AppPasswordMaterialStatus?
     @State private var showSuccessAlert = false
     @State private var showFailureAlert = false
     @State private var showResetDoneAlert = false
     @State private var failureReason = ""
     @State private var didAttemptSave = false
+    @State private var successMessage = ""
+    @State private var showsPasswordChangeForm = false
+    @State private var authenticationScope: AuthenticationRequestScope?
+
+    init(
+        environment: AppEnvironment,
+        target: RevealPolicy,
+        currentPolicy: RevealPolicy,
+        onCommitted: @escaping () async -> Void
+    ) {
+        self.environment = environment
+        self.target = target
+        self.currentPolicy = currentPolicy
+        self.onCommitted = onCommitted
+        _lease = State(initialValue: AppPasswordPageLease(target: target, currentPolicy: currentPolicy))
+    }
+
+    private var surface: AppPasswordPageSurface {
+        AppPasswordPageSurface(
+            target: target,
+            currentPolicy: currentPolicy,
+            material: material
+        )
+    }
 
     private var evaluation: MasterPasswordPolicy.Evaluation {
         MasterPasswordPolicy.evaluate(password: password, confirm: confirm)
@@ -980,53 +1351,131 @@ private struct MasterPasswordSettingsView: View {
         return lines.joined(separator: "\n")
     }
 
-    private var showsReset: Bool {
-        role == .manage && passwordAlreadySet
-    }
-
     var body: some View {
         SettingsSubpage(title: "settings.masterPassword") {
-            SettingsCard {
-                if passwordAlreadySet, role == .manage {
-                    SettingsSecureField(title: "settings.masterPassword.current", text: $currentPassword)
-                    SettingsCardDivider()
-                }
-                SettingsSecureField(title: "vault.masterPassword", text: $password)
-                SettingsCardDivider()
-                SettingsSecureField(title: "settings.masterPassword.confirm", text: $confirm)
+            if surface.showsLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
             }
 
-            MasterPasswordRulesList(
-                evaluation: evaluation,
-                highlightUnmet: highlightUnmetRules
-            )
+            if surface.showsUnreadableBanner {
+                SettingsStatusBanner(
+                    text: String(localized: "settings.appPassword.status.unreadable"),
+                    isError: true
+                )
+            }
+            if surface.showsRetry {
+                SettingsPrimaryButton(title: "settings.appPassword.retry", disabled: isSaving) {
+                    Task { await reloadMaterial() }
+                }
+            }
 
-            if highlightUnmetRules {
-                SettingsStatusBanner(text: unmetRulesSummary, isError: true)
+            if surface.showsSetStatus {
+                SettingsStatusBanner(
+                    text: String(localized: "settings.masterPassword.status.set"),
+                    isError: false
+                )
+            }
+            if !successMessage.isEmpty {
+                SettingsStatusBanner(text: successMessage, isError: false)
+            }
+            if surface.showsChangePassword {
+                Button {
+                    showsPasswordChangeForm.toggle()
+                    currentPassword = ""
+                    password = ""
+                    confirm = ""
+                    didAttemptSave = false
+                } label: {
+                    Label(String(localized: "settings.appPassword.change"), systemImage: "pencil")
+                }
+                .disabled(isSaving)
+            }
+
+            if surface.showsKeepExisting && !showsPasswordChangeForm {
+                if surface.showsCurrentMasterPasswordField {
+                    SettingsCard {
+                        SettingsSecureField(
+                            title: "settings.masterPassword.current",
+                            text: $currentPassword
+                        )
+                    }
+                }
+                if surface.showsComboExplicitPasswordField {
+                    SettingsCard {
+                        SettingsSecureField(
+                            title: "settings.masterPassword.current",
+                            text: $combinationAppPassword
+                        )
+                    }
+                }
+                SettingsPrimaryButton(
+                    title: "settings.appPassword.keepExisting",
+                    disabled: isSaving
+                ) {
+                    Task { await keepExistingAndContinue(prefersCombinationAppPassword: false) }
+                }
+                if surface.showsComboExplicitPasswordField {
+                    SettingsPrimaryButton(
+                        title: "appLock.useAppPassword",
+                        disabled: isSaving
+                    ) {
+                        Task { await keepExistingAndContinue(prefersCombinationAppPassword: true) }
+                    }
+                }
+            }
+
+            if surface.showsCreateForm || (surface.showsChangePassword && showsPasswordChangeForm) {
+                SettingsCard {
+                    if surface.showsChangePassword {
+                        SettingsSecureField(title: "settings.masterPassword.current", text: $currentPassword)
+                        SettingsCardDivider()
+                    }
+                    SettingsSecureField(
+                        title: "vault.masterPassword",
+                        text: $password,
+                        role: .newCredential
+                    )
+                    SettingsCardDivider()
+                    SettingsSecureField(
+                        title: "settings.masterPassword.confirm",
+                        text: $confirm,
+                        role: .newCredential
+                    )
+                }
+
+                MasterPasswordRulesList(
+                    evaluation: evaluation,
+                    highlightUnmet: highlightUnmetRules
+                )
+                if highlightUnmetRules {
+                    SettingsStatusBanner(text: unmetRulesSummary, isError: true)
+                }
+                SettingsPrimaryButton(
+                    title: "settings.masterPassword.save",
+                    disabled: isSaving
+                ) {
+                    Task { await save() }
+                }
             }
 
             SettingsFooterNote(text: "vault.masterPassword.disclosure")
-            if role == .setupForPolicy {
+            if surface.showsCreateForm {
                 SettingsFooterNote(text: "settings.policy.masterPassword.setupHint")
             }
 
-            SettingsPrimaryButton(
-                title: "settings.masterPassword.save",
-                disabled: isSaving
-            ) {
-                Task { await save() }
-            }
-
-            if showsReset {
+            if surface.showsRecover {
                 SettingsCard {
                     Button(role: .destructive) {
                         Task { await reset() }
                     } label: {
-                        Text("settings.masterPassword.reset")
+                        Text("settings.appPassword.recover")
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
                     }
+                    .disabled(isSaving)
                 }
             }
         }
@@ -1034,20 +1483,38 @@ private struct MasterPasswordSettingsView: View {
             if isSaving { ProgressView() }
         }
         .task {
-            passwordAlreadySet = (try? await environment.masterPassword.isSet()) ?? false
+            await reloadMaterial()
+        }
+        .onChange(of: currentPolicy) { _, newValue in
+            handleCurrentPolicyChange(newValue)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                clearSensitiveInputs()
+            }
+            // The system authentication sheet transiently deactivates our scene.
+            // Real backgrounding still revokes the request and all write authority.
+            if phase == .inactive && environment.gate.isAuthenticationInProgress() {
+                lease.noteSceneActive(false)
+                return
+            }
+            lease.noteSceneActive(phase == .active)
+            if phase != .active {
+                abandonPageRequest()
+            }
+        }
+        .onReceive(environment.appPrivacy.$session) { session in
+            if session.isSessionLocked {
+                abandonPageRequest()
+            }
+        }
+        .onDisappear {
+            abandonPageRequest()
         }
         .alert("settings.masterPassword.saveSuccess.title", isPresented: $showSuccessAlert) {
-            Button("settings.done") {
-                if role == .setupForPolicy {
-                    dismiss()
-                }
-            }
+            Button("settings.done", role: .cancel) {}
         } message: {
-            Text(
-                role == .setupForPolicy
-                    ? "settings.masterPassword.saveSuccess.message"
-                    : "settings.masterPassword.saved"
-            )
+            Text(successMessage)
         }
         .alert("settings.masterPassword.saveFailed.title", isPresented: $showFailureAlert) {
             Button("settings.done", role: .cancel) {}
@@ -1055,59 +1522,296 @@ private struct MasterPasswordSettingsView: View {
             Text(failureReason)
         }
         .alert("settings.masterPassword.resetDone", isPresented: $showResetDoneAlert) {
-            Button("settings.done", role: .cancel) {}
+            Button("settings.done") {
+                dismiss()
+            }
+        }
+    }
+
+    private func handleCurrentPolicyChange(_ newValue: RevealPolicy) {
+        if RevealPolicyPersistence.canonical(newValue) == RevealPolicyPersistence.canonical(target) {
+            lease.noteOpenedPolicy(newValue)
+            return
+        }
+        if !lease.matchesOpenedPolicy(newValue) {
+            abandonPageRequest(newCurrentPolicy: newValue)
+        }
+    }
+
+    private func abandonPageRequest(newCurrentPolicy: RevealPolicy? = nil) {
+        lease.invalidate(newCurrentPolicy: newCurrentPolicy)
+        authenticationScope?.cancel()
+        authenticationScope = nil
+        clearSensitiveInputs()
+        isSaving = false
+    }
+
+    private func clearSensitiveInputs() {
+        currentPassword = ""
+        combinationAppPassword = ""
+        password = ""
+        confirm = ""
+    }
+
+    private func reloadMaterial() async {
+        material = await environment.masterPassword.materialStatus()
+    }
+
+    private func beginPageRequest() -> UInt64? {
+        lease.noteSceneActive(scenePhase == .active)
+        guard scenePhase == .active, !isSaving else { return nil }
+        return lease.begin()
+    }
+
+    private func makeConfirmCurrent(
+        token: UInt64,
+        currentPassword: String,
+        combinationAppPassword: String?,
+        prefersCombinationAppPassword: Bool
+    ) -> @Sendable () async throws -> Void {
+        let lease = self.lease
+        let gate = environment.gate
+        let master = environment.masterPassword
+        let policy = currentPolicy
+        return {
+            try lease.authorize(token, step: .proceed, currentPolicy: policy)
+            try await AppPasswordSettingsFlow.confirmCurrent(
+                gate: gate,
+                master: master,
+                currentPolicy: policy,
+                currentPassword: currentPassword,
+                combinationAppPassword: combinationAppPassword,
+                prefersCombinationAppPassword: prefersCombinationAppPassword
+            )
+            try lease.authorize(token, step: .proceed, currentPolicy: policy)
+        }
+    }
+
+    private func finishPageRequest(
+        _ token: UInt64,
+        showSuccess: Bool,
+        success: String?,
+        showReset: Bool,
+        failure: String?
+    ) {
+        let stillFresh = lease.isFresh(token, sceneActive: scenePhase == .active)
+        lease.end(token)
+        guard stillFresh else { return }
+        if let success, showSuccess {
+            successMessage = success
+            showSuccessAlert = true
+        }
+        if showReset {
+            showResetDoneAlert = true
+        }
+        if let failure {
+            failureReason = failure
+            showFailureAlert = true
+        }
+    }
+
+    private func keepExistingAndContinue(prefersCombinationAppPassword: Bool) async {
+        guard let token = beginPageRequest() else { return }
+        isSaving = true
+        defer { isSaving = false }
+        let currentPW = currentPassword
+        let comboPW = combinationAppPassword
+        clearSensitiveInputs()
+        do {
+            try await performWithPageAuthenticationScope {
+                try await environment.persistPasswordDependentPolicyKeepingMaterial(
+                    target: target,
+                    request: AppPasswordSubmitContext(lease: lease, token: token),
+                    confirmCurrentIfNeeded: makeConfirmCurrent(
+                        token: token,
+                        currentPassword: currentPW,
+                        combinationAppPassword: comboPW,
+                        prefersCombinationAppPassword: prefersCombinationAppPassword
+                    )
+                )
+            }
+            await reloadMaterial()
+            await onCommitted()
+            finishPageRequest(
+                token,
+                showSuccess: true,
+                success: String(localized: "settings.masterPassword.saved"),
+                showReset: false,
+                failure: nil
+            )
+        } catch ApiRelayError.authenticationCancelled {
+            lease.end(token)
+        } catch {
+            await reloadMaterial()
+            await onCommitted()
+            finishPageRequest(
+                token,
+                showSuccess: false,
+                success: nil,
+                showReset: false,
+                failure: staleOrLocalized(error)
+            )
         }
     }
 
     private func save() async {
+        successMessage = ""
         didAttemptSave = true
-        guard evaluation.canSave else { return }
+        if surface.showsCreateForm || surface.showsChangePassword {
+            guard evaluation.canSave else { return }
+        }
+        guard let token = beginPageRequest() else { return }
         isSaving = true
         defer { isSaving = false }
+        let currentPW = currentPassword
+        let comboPW = combinationAppPassword
+        let newPassword = password
+        clearSensitiveInputs()
         do {
-            if passwordAlreadySet, role == .manage {
-                try await environment.masterPassword.changePassword(current: currentPassword, new: password)
-            } else {
-                try await environment.masterPassword.setPassword(password)
+            if surface.showsChangePassword {
+                try lease.requireFreshForConfirm(
+                    token,
+                    currentPolicy: currentPolicy,
+                    sceneActive: scenePhase == .active
+                )
+                try await performWithPageAuthenticationScope {
+                    try await environment.changeAppPassword(
+                        current: currentPW,
+                        new: newPassword,
+                        request: AppPasswordSubmitContext(lease: lease, token: token)
+                    )
+                }
+                showsPasswordChangeForm = false
+                didAttemptSave = false
+                await reloadMaterial()
+                await onCommitted()
+                finishPageRequest(
+                    token,
+                    showSuccess: true,
+                    success: String(localized: "settings.masterPassword.saved"),
+                    showReset: false,
+                    failure: nil
+                )
+                return
             }
-            currentPassword = ""
-            password = ""
-            confirm = ""
+            try await performWithPageAuthenticationScope {
+                try await environment.createAppPasswordMaterialThenPersist(
+                    password: newPassword,
+                    target: target,
+                    request: AppPasswordSubmitContext(lease: lease, token: token),
+                    confirmCurrentIfNeeded: makeConfirmCurrent(
+                        token: token,
+                        currentPassword: currentPW,
+                        combinationAppPassword: comboPW,
+                        prefersCombinationAppPassword: false
+                    )
+                )
+            }
             didAttemptSave = false
-            passwordAlreadySet = true
-            switch role {
-            case .setupForPolicy:
-                await onSetupComplete?()
-            case .manage:
-                await onChanged()
-            }
-            showSuccessAlert = true
+            await reloadMaterial()
+            await onCommitted()
+            finishPageRequest(
+                token,
+                showSuccess: true,
+                success: String(localized: "settings.appPassword.saveSuccess.create"),
+                showReset: false,
+                failure: nil
+            )
+        } catch ApiRelayError.authenticationCancelled {
+            await reloadMaterial()
+            finishPageRequest(
+                token,
+                showSuccess: false,
+                success: nil,
+                showReset: false,
+                failure: String(localized: "settings.appPassword.saveCancelled")
+            )
         } catch let ApiRelayError.validationFailed(_, reason) where reason == "too_short" {
+            lease.end(token)
             didAttemptSave = true
         } catch {
-            failureReason = error.localizedDescription
-            showFailureAlert = true
+            await reloadMaterial()
+            await onCommitted()
+            let message: String
+            if material == .set,
+               RevealPolicyPersistence.canonical(currentPolicy) != RevealPolicyPersistence.canonical(target)
+            {
+                message = String(localized: "settings.appPassword.partialPersist")
+            } else {
+                message = staleOrLocalized(error)
+            }
+            finishPageRequest(
+                token,
+                showSuccess: false,
+                success: nil,
+                showReset: false,
+                failure: message
+            )
         }
     }
 
     private func reset() async {
+        guard let token = beginPageRequest() else { return }
+        clearSensitiveInputs()
+        isSaving = true
+        defer { isSaving = false }
         do {
-            try await environment.gate.confirmMandatory(
-                reason: String(localized: "gate.resetMasterPassword")
+            try lease.authorize(
+                token,
+                step: .proceed,
+                currentPolicy: currentPolicy
             )
-            try await environment.masterPassword.reset()
+            try await performWithPageAuthenticationScope {
+                try await environment.resetAppPasswordAndFallToDeviceAuth(
+                    request: AppPasswordSubmitContext(lease: lease, token: token)
+                )
+            }
             password = ""
             confirm = ""
-            passwordAlreadySet = false
+            currentPassword = ""
+            combinationAppPassword = ""
             didAttemptSave = false
-            await onChanged()
-            showResetDoneAlert = true
+            await reloadMaterial()
+            await onCommitted()
+            finishPageRequest(
+                token,
+                showSuccess: false,
+                success: nil,
+                showReset: true,
+                failure: nil
+            )
         } catch ApiRelayError.authenticationCancelled {
-            // 用户取消设备验证，无提示
+            lease.end(token)
         } catch {
-            failureReason = error.localizedDescription
-            showFailureAlert = true
+            await reloadMaterial()
+            await onCommitted()
+            finishPageRequest(
+                token,
+                showSuccess: false,
+                success: nil,
+                showReset: false,
+                failure: staleOrLocalized(error)
+            )
         }
+    }
+
+    private func staleOrLocalized(_ error: Error) -> String {
+        if case ApiRelayError.validationFailed(_, let reason) = error, reason == "stale_page_request" {
+            return String(localized: "settings.appPassword.requestExpired")
+        }
+        return error.localizedDescription
+    }
+
+    private func performWithPageAuthenticationScope<T>(
+        _ operation: () async throws -> T
+    ) async rethrows -> T {
+        let scope = AuthenticationRequestScope()
+        authenticationScope?.cancel()
+        authenticationScope = scope
+        defer {
+            if authenticationScope === scope { authenticationScope = nil }
+        }
+        return try await scope.perform(operation)
     }
 }
 
@@ -1408,6 +2112,66 @@ struct PaywallView: View {
         } catch {
             message = error.localizedDescription
         }
+    }
+}
+
+/// 清空全部数据的界面顺序。设置页必须走这里；测试可直接驱动，观察
+/// 「破坏性确认 → 身份验证 → 删除」且应用密码档在口令前不得调用删除。
+enum SettingsEraseAllFlow: Sendable {
+    enum Command: Equatable, Sendable {
+        case none
+        case promptAppPassword
+        case erase(appPassword: String?)
+    }
+
+    struct Trace: Equatable, Sendable {
+        var steps: [String] = []
+    }
+
+    static func isPasswordPrompt(_ error: ApiRelayError) -> Bool {
+        if case .validationFailed(_, let reason) = error {
+            return reason == "master_password_prompt_required" || reason == "required"
+        }
+        return false
+    }
+
+    static func afterDestructiveConfirm(
+        policy: RevealPolicy,
+        trace: inout Trace
+    ) -> Command {
+        trace.steps.append("destructiveConfirmed")
+        switch RevealPolicyPersistence.canonical(policy) {
+        case .masterPassword:
+            trace.steps.append("identityPrompt")
+            return .promptAppPassword
+        case .noVerification, .biometricOrPasscode, .biometryOrAppPassword:
+            trace.steps.append("identityStarted")
+            return .erase(appPassword: nil)
+        }
+    }
+
+    static func afterCombinationBiometricEnded(trace: inout Trace) -> Command {
+        trace.steps.append("combinationOffer")
+        return .promptAppPassword
+    }
+
+    static func afterAppPasswordEntry(_ password: String, trace: inout Trace) -> Command {
+        let trimmed = password.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            trace.steps.append("identityRejected.empty")
+            return .none
+        }
+        trace.steps.append("identityStarted")
+        return .erase(appPassword: trimmed)
+    }
+
+    static func afterAppPasswordCancel(trace: inout Trace) -> Command {
+        trace.steps.append("identityCancelled")
+        return .none
+    }
+
+    static func noteEraseStarted(trace: inout Trace) {
+        trace.steps.append("eraseStarted")
     }
 }
 

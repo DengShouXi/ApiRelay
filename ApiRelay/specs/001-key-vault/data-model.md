@@ -61,7 +61,7 @@ ModelContainer(for: fullSchema, configurations: synced, local)
 
 ### 2.1 三类 Item
 
-| 属性 | 普通 API 密钥 | 管理类高权限凭证 | 应用主密码校验材料 |
+| 属性 | 普通 API 密钥 | 管理类高权限凭证 | 应用密码校验材料（Keychain `.masterpw`；历史称应用主密码） |
 |------|---------------|------------------|---------------------|
 | Class | `kSecClassGenericPassword` | `kSecClassGenericPassword` | `kSecClassGenericPassword` |
 | Service | `com.apirelay.keychain.keys` | `com.apirelay.keychain.admin` | `com.apirelay.keychain.masterpw` |
@@ -380,7 +380,8 @@ DeepSeek 仅支持本实体、不支持 `UsageSnapshot` 的按密钥拆分——
 | appLockEnabled | Bool | ✅ | 打开 App 需身份确认 / 自动锁定开关 |
 | autoLockSeconds | Int | ✅ | 当前选中的自动锁定时长 |
 | autoLockDurationOptionsJSON | String? | ✅ | 时长列表 JSON；`nil` 首次预填 `[0,60]`；`[]` 表示用户删光 |
-| revealPolicy | String | ✅ | 旧四档 rawValue：`none` / `biometricOrPasscode` / `biometricOnly` / `masterPassword`。**定稿（2026-09-10 在 v1.13.8 拍板）出厂默认改为设备验证**（对应 `biometricOrPasscode`）；`biometricOnly` 迁移到设备验证。新四档名称见 `follow-ups/identity-auth/`；W0 与代码落地计划在尚未创建的 `v1.13.9` |
+| revealPolicy | String | ✅ | 规范值：`none`（不验证）/ `biometricOrPasscode`（生物验证或设备密码 / 设备验证档，**出厂默认**）/ `masterPassword`（应用密码）/ `biometryOrAppPassword`（生物验证或应用密码）。解码层识别旧值 `biometricOnly` 并幂等迁到 `biometricOrPasscode`。未知值 MUST NOT 写成 `none`。未设本机材料时 MUST NOT 把后两档写成当前策略 |
+| revealAuthEnabled | Bool | ✅ | 取用验证。出厂与缺字段默认 **true**。查看与复制共用；MUST NOT 拆成两个开关 |
 | clipboardClearEnabled | Bool | ✅ | 剪贴板自动清除开关，默认 true（FR-005） |
 | clipboardClearSeconds | Int | ✅ | 当前选中的清除时长，默认 120（FR-005） |
 | clipboardClearDurationOptionsJSON | String? | ✅ | 时长列表 JSON；`nil` 首次预填 `[30,120]`；`[]` 表示用户删光 |
@@ -392,7 +393,7 @@ DeepSeek 仅支持本实体、不支持 `UsageSnapshot` 的按密钥拆分——
 | notifyLowBalance / notifyKeyRevoked / notifyWeeklyDigest | Bool | ✅ | 三类提醒开关（V2 使用） |
 | lowBalanceThreshold | Decimal? | ✅ | 余额提醒阈值（V2 使用） |
 
-`revealPolicy` **单一字段同时管辖查看与复制**——不设两个开关（FR-003、宪法 VIII）。
+`revealPolicy` 只决定**怎么验**。查看与复制是否验由同步字段 `revealAuthEnabled` 决定（FR-003、宪法 VIII）。MUST NOT 再为复制单设开关。应用密码材料不在本实体，见 Keychain `.masterpw`。材料三态（未设 / 已设 / 读取错误）在本机查询，MUST NOT 把同步档位当成已设密码。
 
 CloudKit 无唯一约束，同步竞态可能留下多条同 `singletonID` 的行。读取按指纹选赢家（本实体无 `updatedAt`）；写入打到全部副本。**13.5 起卫生清扫 MUST NOT 物理删除冲突行**——指纹赢家不是最后修改者优先。见 §3.1 冲突字段取舍表。
 
@@ -571,7 +572,7 @@ Development 与 Production 是**两套独立 schema**。下列清单 MUST 在 **
 | `UsageSnapshot` | 时区口径字段（FR-019a）、`dataSource` |
 | `BalanceSnapshot` | — |
 | `PricingRule` | — |
-| `UserPreferences` | 仅安全相关偏好（FR-060）。热修 additive：`autoLockDurationOptionsJSON`、`clipboardClearDurationOptionsJSON`（2026-08 的 2b **未含**这两项；**2026-09-10** Production 的 `CD_UserPreferences` 已确认有这两字段，Deploy 差异为 0。此后新 additive 字段发出正式包前仍 MUST Deploy Production） |
+| `UserPreferences` | 仅安全相关偏好（FR-060）。热修 additive：`autoLockDurationOptionsJSON`、`clipboardClearDurationOptionsJSON`（2026-08 的 2b **未含**这两项；**2026-09-10** Production 的 `CD_UserPreferences` 已确认有这两字段，Deploy 差异为 0。此后新 additive 字段发出正式包前仍 MUST Deploy Production）。`v1.13.9` 拟增 `revealAuthEnabled`：发出正式包前须再 Deploy Production；本工作不部署 CloudKit Production |
 
 **不进 CloudKit 的**：`EntitlementSnapshot`、`RefreshHealth`、`DevicePreferences`、Keychain。
 

@@ -22,6 +22,12 @@ struct ScenePresenceSignals: Equatable, Sendable {
     var activeAppearanceIsActive: PresenceSignal<Bool>
     var appearsActive: PresenceSignal<Bool>
     var authenticationInProgress: Bool
+    /// iPhone has no independently focused application windows. Its foreground
+    /// scene, not transient window traits during Face ID dismissal, owns focus.
+    var requiresWindowFocus: Bool = true
+    /// 桌面系统里 `applicationIsActive == false` 就表示焦点已经交给其它 App。
+    /// UIKit 手机上的 Face ID / 控制中心也会暂时让 App inactive，不能共用这条规则。
+    var applicationInactivityMeansOffScreen: Bool = false
 
     static func known(
         sceneIsForegroundActive: Bool,
@@ -30,7 +36,8 @@ struct ScenePresenceSignals: Equatable, Sendable {
         isKeyWindow: Bool,
         activeAppearanceIsActive: Bool?,
         appearsActive: Bool? = nil,
-        authenticationInProgress: Bool = false
+        authenticationInProgress: Bool = false,
+        applicationInactivityMeansOffScreen: Bool = false
     ) -> ScenePresenceSignals {
         ScenePresenceSignals(
             sceneIsForegroundActive: .known(sceneIsForegroundActive),
@@ -39,7 +46,8 @@ struct ScenePresenceSignals: Equatable, Sendable {
             isKeyWindow: .known(isKeyWindow),
             activeAppearanceIsActive: activeAppearanceIsActive.map { .known($0) } ?? .unknown,
             appearsActive: appearsActive.map { .known($0) } ?? .unknown,
-            authenticationInProgress: authenticationInProgress
+            authenticationInProgress: authenticationInProgress,
+            applicationInactivityMeansOffScreen: applicationInactivityMeansOffScreen
         )
     }
 }
@@ -58,6 +66,10 @@ extension AppLockScenePresence {
         }
         if signals.authenticationInProgress {
             return .userFacing
+        }
+        if signals.applicationInactivityMeansOffScreen,
+           signals.applicationIsActive.knownValue == false {
+            return .offScreen
         }
         if signals.applicationIsActive.knownValue == true {
             return hostIsUserFacing(signals) ? .userFacing : .onScreenIdle
@@ -96,6 +108,10 @@ extension AppLockScenePresence {
 
     /// iPadOS 26 台前：外观 inactive 即使还占 Key 也当闲置；外观 active 即使丢了 Key 也当在用。
     static func hostIsUserFacing(_ signals: ScenePresenceSignals) -> Bool {
+        if !signals.requiresWindowFocus {
+            return signals.applicationIsActive.knownValue == true
+                && signals.sceneIsForegroundActive.knownValue == true
+        }
         if signals.activeAppearanceIsActive.knownValue == false {
             return false
         }

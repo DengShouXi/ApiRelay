@@ -270,4 +270,13 @@ final class CloudSyncTests: XCTestCase {
         XCTAssertTrue(message.contains("CKErrorDomain 15"))
         XCTAssertFalse(message.contains("record"))
     }
+
+    func testSyncedUserPreferencesAddsRevealAuthEnabledWithoutReplacingRevealPolicy() throws {
+        let row = UserPreferences()
+        XCTAssertEqual(row.revealPolicy, RevealPolicy.biometricOrPasscode.rawValue)
+        XCTAssertTrue(row.revealAuthEnabled)
+        row.revealAuthEnabled = false
+        XCTAssertEqual(row.revealPolicy, RevealPolicy.biometricOrPasscode.rawValue)
+        XCTAssertFalse(row.revealAuthEnabled)
+    }
 }

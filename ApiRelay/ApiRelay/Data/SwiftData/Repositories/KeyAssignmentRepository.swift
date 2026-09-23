@@ -21,38 +21,140 @@ actor KeyAssignmentRepository {
         return result
     }
 
-    func add(keyId: UUID, consumerToolId: UUID) throws {
+    @discardableResult
+    func add(
+        keyId: UUID,
+        consumerToolId: UUID,
+        createdAt: Date = Date(),
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws -> Bool {
         let existing = try modelContext.fetch(FetchDescriptor<KeyAssignment>(
             predicate: #Predicate { $0.keyId == keyId && $0.consumerToolId == consumerToolId }
         ))
-        if !existing.isEmpty { return }
-        modelContext.insert(KeyAssignment(keyId: keyId, consumerToolId: consumerToolId))
-        try modelContext.save()
+        if !existing.isEmpty { return false }
+        do {
+            try committing {
+                modelContext.insert(KeyAssignment(
+                    keyId: keyId,
+                    consumerToolId: consumerToolId,
+                    createdAt: createdAt
+                ))
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+        return true
     }
 
-    func remove(keyId: UUID, consumerToolId: UUID) throws {
+    /// Removes only the assignment row created by one uncommitted import.
+    @discardableResult
+    func removeIfCreatedAtMatches(
+        keyId: UUID,
+        consumerToolId: UUID,
+        createdAt: Date,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws -> Bool {
+        let rows = try modelContext.fetch(FetchDescriptor<KeyAssignment>(
+            predicate: #Predicate {
+                $0.keyId == keyId
+                    && $0.consumerToolId == consumerToolId
+                    && $0.createdAt == createdAt
+            }
+        ))
+        guard !rows.isEmpty else { return false }
+        do {
+            try committing {
+                for row in rows { modelContext.delete(row) }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+        return true
+    }
+
+    func remove(
+        keyId: UUID,
+        consumerToolId: UUID,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let rows = try modelContext.fetch(FetchDescriptor<KeyAssignment>(
             predicate: #Predicate { $0.keyId == keyId && $0.consumerToolId == consumerToolId }
         ))
-        for row in rows {
-            modelContext.delete(row)
+        do {
+            try committing {
+                for row in rows {
+                    modelContext.delete(row)
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
-    func deleteAll(forKeyId keyId: UUID) throws {
+    func deleteAll(
+        forKeyId keyId: UUID,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let rows = try modelContext.fetch(FetchDescriptor<KeyAssignment>(
             predicate: #Predicate { $0.keyId == keyId }
         ))
-        for row in rows {
-            modelContext.delete(row)
+        do {
+            try committing {
+                for row in rows {
+                    modelContext.delete(row)
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
+    }
+
+    /// 补偿专用：一次 save 把某把密钥的指派精确恢复为给定集合。
+    func replaceConsumerToolIDs(
+        keyId: UUID,
+        consumerToolIds: [UUID],
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        let rows = try modelContext.fetch(FetchDescriptor<KeyAssignment>(
+            predicate: #Predicate { $0.keyId == keyId }
+        ))
+        do {
+            try committing {
+                for row in rows {
+                    modelContext.delete(row)
+                }
+                var seen = Set<UUID>()
+                for consumerToolId in consumerToolIds where seen.insert(consumerToolId).inserted {
+                    modelContext.insert(KeyAssignment(keyId: keyId, consumerToolId: consumerToolId))
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     /// FR-061：清空本仓库上下文中的全部指派。
-    func deleteAllRecords() throws {
-        try modelContext.deleteAllRecords(KeyAssignment.self)
+    func deleteAllRecords(
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        do {
+            try committing {
+                try modelContext.deleteAllRecords(KeyAssignment.self)
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     func assignmentKind(keyId: UUID) throws -> AssignmentKind {

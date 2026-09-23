@@ -17,21 +17,23 @@ enum KeychainAccessGroup {
     private static func bundleSeedID() -> String? {
         let service = "com.apirelay.keychain.seed-probe"
         let account = "seed"
-        let query: [String: Any] = [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnAttributes as String: true,
         ]
+        applyDataProtectionKeychain(to: &query)
         var result: AnyObject?
         var status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound {
-            let add: [String: Any] = [
+            var add: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
                 kSecAttrService as String: service,
                 kSecAttrAccount as String: account,
                 kSecValueData as String: Data([0]),
             ]
+            applyDataProtectionKeychain(to: &add)
             status = SecItemAdd(add as CFDictionary, nil)
             guard status == errSecSuccess || status == errSecDuplicateItem else { return nil }
             status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -47,5 +49,13 @@ enum KeychainAccessGroup {
             return String(accessGroup[..<dot])
         }
         return nil
+    }
+
+    /// native macOS 若不显式选择 Data Protection Keychain，会探测到 legacy
+    /// file-based Keychain；其 access-group / accessible 语义并非本应用要使用的模型。
+    private static func applyDataProtectionKeychain(to query: inout [String: Any]) {
+        #if os(macOS) && !targetEnvironment(macCatalyst)
+        query[kSecUseDataProtectionKeychain as String] = true
+        #endif
     }
 }

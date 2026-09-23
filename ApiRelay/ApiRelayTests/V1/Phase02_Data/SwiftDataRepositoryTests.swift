@@ -1,5 +1,6 @@
 @preconcurrency import XCTest
 @testable import ApiRelay
+import CoreData
 import SwiftData
 
 @MainActor
@@ -291,17 +292,81 @@ final class SwiftDataRepositoryTests: XCTestCase {
         XCTAssertEqual(loaded.displayCurrency, "ZZZ")
 
         var patch = PreferencesPatch()
-        patch.revealPolicy = .biometricOnly
+        patch.revealPolicy = .biometricOrPasscode
         try await repo.update(patch)
         let rows = try rawPreferences()
         XCTAssertEqual(rows.count, 2)
-        XCTAssertTrue(rows.allSatisfy { $0.revealPolicy == RevealPolicy.biometricOnly.rawValue })
+        XCTAssertTrue(rows.allSatisfy { $0.revealPolicy == RevealPolicy.biometricOrPasscode.rawValue })
 
         try await repo.pruneDuplicateIdentities()
         XCTAssertEqual(try rawPreferences().count, 2)
         let after = try await repo.loadOrCreate()
-        XCTAssertEqual(after.revealPolicy, .biometricOnly)
+        XCTAssertEqual(after.revealPolicy, .biometricOrPasscode)
         XCTAssertEqual(after.displayCurrency, "ZZZ")
+    }
+
+    func testUserPreferencesDuplicateRowsConservativelyMergeAndHealSecurityFields() async throws {
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let ctx = ModelContext(container)
+        let weaker = UserPreferences(
+            appLockEnabled: false,
+            autoLockSeconds: 300,
+            revealPolicy: .noVerification,
+            revealAuthEnabled: false,
+            clipboardClearEnabled: false,
+            clipboardClearSeconds: 600,
+            clipboardLocalOnly: false,
+            hideInAppSwitcher: false
+        )
+        weaker.displayCurrency = "ZZZ"
+        let stronger = UserPreferences(
+            appLockEnabled: true,
+            autoLockSeconds: 0,
+            revealPolicy: .biometricOrPasscode,
+            revealAuthEnabled: true,
+            clipboardClearEnabled: true,
+            clipboardClearSeconds: 30,
+            clipboardLocalOnly: true,
+            hideInAppSwitcher: true
+        )
+        stronger.displayCurrency = "AAA"
+        ctx.insert(weaker)
+        ctx.insert(stronger)
+        try ctx.save()
+
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.displayCurrency, "ZZZ", "non-security fields keep the deterministic whole-row winner")
+        XCTAssertTrue(loaded.appLockEnabled)
+        XCTAssertEqual(loaded.autoLockSeconds, 0)
+        XCTAssertEqual(loaded.revealPolicy, .biometricOrPasscode)
+        XCTAssertTrue(loaded.revealAuthEnabled)
+        XCTAssertTrue(loaded.clipboardClearEnabled)
+        XCTAssertEqual(loaded.clipboardClearSeconds, 30)
+        XCTAssertTrue(loaded.clipboardLocalOnly)
+        XCTAssertTrue(loaded.hideInAppSwitcher)
+
+        let healed = try rawPreferences()
+        XCTAssertEqual(healed.count, 2)
+        XCTAssertTrue(healed.allSatisfy(\.appLockEnabled))
+        XCTAssertTrue(healed.allSatisfy { $0.autoLockSeconds == 0 })
+        XCTAssertTrue(healed.allSatisfy { $0.revealPolicy == RevealPolicy.biometricOrPasscode.rawValue })
+        XCTAssertTrue(healed.allSatisfy(\.revealAuthEnabled))
+        XCTAssertTrue(healed.allSatisfy(\.clipboardClearEnabled))
+        XCTAssertTrue(healed.allSatisfy { $0.clipboardClearSeconds == 30 })
+        XCTAssertTrue(healed.allSatisfy(\.clipboardLocalOnly))
+        XCTAssertTrue(healed.allSatisfy(\.hideInAppSwitcher))
+
+        var explicitlyWeakened = PreferencesPatch()
+        explicitlyWeakened.appLockEnabled = false
+        explicitlyWeakened.revealPolicy = .noVerification
+        explicitlyWeakened.revealAuthEnabled = false
+        explicitlyWeakened.hideInAppSwitcher = false
+        try await repo.update(explicitlyWeakened)
+        let afterExplicitUpdate = try await repo.loadOrCreate()
+        XCTAssertFalse(afterExplicitUpdate.appLockEnabled)
+        XCTAssertEqual(afterExplicitUpdate.revealPolicy, .noVerification)
+        XCTAssertFalse(afterExplicitUpdate.revealAuthEnabled)
+        XCTAssertFalse(afterExplicitUpdate.hideInAppSwitcher)
     }
 
     func testEntitlementSnapshotDuplicateRowsPreferNewerUpdatedAt() async throws {
@@ -458,4 +523,235 @@ final class SwiftDataRepositoryTests: XCTestCase {
             predicate: #Predicate { $0.id == id }
         ))
     }
+
+    func testNewUserPreferencesDefaultToDeviceAuthAndRevealAuthEnabled() async throws {
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.revealPolicy, .biometricOrPasscode)
+        XCTAssertTrue(loaded.revealAuthEnabled)
+        XCTAssertEqual(try rawPreferences().first?.revealPolicy, RevealPolicy.biometricOrPasscode.rawValue)
+    }
+
+    func testNoneRevealPolicyIsKeptAndNotForceMigrated() async throws {
+        let ctx = ModelContext(container)
+        let row = UserPreferences(revealPolicy: .noVerification)
+        ctx.insert(row)
+        try ctx.save()
+
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.revealPolicy, .noVerification)
+        XCTAssertEqual(try rawPreferences().first?.revealPolicy, RevealPolicy.noVerification.rawValue)
+        let again = try await repo.loadOrCreate()
+        XCTAssertEqual(again.revealPolicy, .noVerification)
+    }
+
+    func testBiometricOnlyMigratesIdempotentlyToDeviceAuth() async throws {
+        let ctx = ModelContext(container)
+        let row = UserPreferences()
+        row.revealPolicy = RevealPolicyPersistence.legacyBiometricOnlyRawValue
+        ctx.insert(row)
+        try ctx.save()
+
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.revealPolicy, .biometricOrPasscode)
+        XCTAssertEqual(try rawPreferences().first?.revealPolicy, RevealPolicy.biometricOrPasscode.rawValue)
+        let again = try await repo.loadOrCreate()
+        XCTAssertEqual(again.revealPolicy, .biometricOrPasscode)
+        XCTAssertEqual(try rawPreferences().count, 1)
+    }
+
+    func testMasterPasswordRawValueIsKeptEvenWithoutLocalMaterial() async throws {
+        let ctx = ModelContext(container)
+        ctx.insert(UserPreferences(revealPolicy: .masterPassword))
+        try ctx.save()
+
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.revealPolicy, .masterPassword)
+        XCTAssertEqual(try rawPreferences().first?.revealPolicy, RevealPolicy.masterPassword.rawValue)
+        XCTAssertNotEqual(loaded.revealPolicy, .noVerification)
+    }
+
+    func testBiometryOrAppPasswordRoundTripsWithoutReusingBiometricOnly() async throws {
+        let repo = UserPreferencesRepository(modelContainer: container)
+        try await repo.update(PreferencesPatch(revealPolicy: .biometryOrAppPassword))
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.revealPolicy, .biometryOrAppPassword)
+        XCTAssertEqual(try rawPreferences().first?.revealPolicy, "biometryOrAppPassword")
+        XCTAssertNotEqual(try rawPreferences().first?.revealPolicy, RevealPolicyPersistence.legacyBiometricOnlyRawValue)
+    }
+
+    func testUnknownRevealPolicyFailClosedToDeviceAuthAndNormalizesOnce() async throws {
+        let ctx = ModelContext(container)
+        let row = UserPreferences()
+        row.revealPolicy = "not-a-real-policy"
+        ctx.insert(row)
+        try ctx.save()
+
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.revealPolicy, .biometricOrPasscode)
+        XCTAssertEqual(try rawPreferences().first?.revealPolicy, RevealPolicy.biometricOrPasscode.rawValue)
+
+        let again = try await repo.loadOrCreate()
+        XCTAssertEqual(again.revealPolicy, .biometricOrPasscode)
+        XCTAssertEqual(RevealPolicyPersistence.resolve("???").wasUnknown, true)
+        XCTAssertEqual(RevealPolicyPersistence.resolve("???").policy, .biometricOrPasscode)
+        XCTAssertNotEqual(RevealPolicyPersistence.resolve("???").persistRawValue, RevealPolicy.noVerification.rawValue)
+    }
+
+    func testMissingRevealAuthEnabledTreatsAsTrue() async throws {
+        let ctx = ModelContext(container)
+        let row = UserPreferences(revealPolicy: .noVerification)
+        XCTAssertTrue(row.revealAuthEnabled)
+        ctx.insert(row)
+        try ctx.save()
+
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertTrue(loaded.revealAuthEnabled)
+        try await repo.update(PreferencesPatch(revealAuthEnabled: false))
+        let after = try await repo.loadOrCreate()
+        XCTAssertFalse(after.revealAuthEnabled)
+    }
+
+    func testDuplicateReplicasMigrateBiometricOnlyTogether() async throws {
+        let ctx = ModelContext(container)
+        let low = UserPreferences()
+        low.displayCurrency = "AAA"
+        low.revealPolicy = RevealPolicyPersistence.legacyBiometricOnlyRawValue
+        let high = UserPreferences()
+        high.displayCurrency = "ZZZ"
+        high.revealPolicy = RevealPolicyPersistence.legacyBiometricOnlyRawValue
+        ctx.insert(low)
+        ctx.insert(high)
+        try ctx.save()
+
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.revealPolicy, .biometricOrPasscode)
+        XCTAssertTrue(try rawPreferences().allSatisfy { $0.revealPolicy == RevealPolicy.biometricOrPasscode.rawValue })
+        let again = try await repo.loadOrCreate()
+        XCTAssertEqual(again.revealPolicy, .biometricOrPasscode)
+        XCTAssertEqual(try rawPreferences().count, 2)
+    }
+
+    func testCanonicalPersistFailureKeepsOriginalRawAndFailClosedRuntime() {
+        let error = NSError(domain: "W1CanonicalPersist", code: 1)
+        let attempt = RevealPolicyCanonicalPersist.persistIfNeeded(
+            storedRawValues: [RevealPolicyPersistence.legacyBiometricOnlyRawValue, "not-a-real-policy"]
+        ) { _ in throw error }
+        XCTAssertFalse(attempt.didPersist)
+        XCTAssertEqual(
+            attempt.storedRawValues,
+            [RevealPolicyPersistence.legacyBiometricOnlyRawValue, "not-a-real-policy"]
+        )
+        XCTAssertFalse(attempt.storedRawValues.contains(RevealPolicy.noVerification.rawValue))
+        XCTAssertEqual(attempt.runtimePolicies, [.biometricOrPasscode, .biometricOrPasscode])
+
+        var saved: [String] = []
+        let retry = RevealPolicyCanonicalPersist.persistIfNeeded(
+            storedRawValues: attempt.storedRawValues
+        ) { next in saved = next }
+        XCTAssertTrue(retry.didPersist)
+        XCTAssertEqual(saved, [
+            RevealPolicy.biometricOrPasscode.rawValue,
+            RevealPolicy.biometricOrPasscode.rawValue
+        ])
+        XCTAssertEqual(retry.runtimePolicies, [.biometricOrPasscode, .biometricOrPasscode])
+    }
+
+    func testLegacyStoreMissingRevealAuthEnabledLoadsAsTrue() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "w1-legacy-auth-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let storeURL = dir.appendingPathComponent("UserPreferences.store")
+        try writeLegacyUserPreferencesStoreWithoutRevealAuthEnabled(to: storeURL)
+
+        let schema = Schema([UserPreferences.self])
+        let config = ModelConfiguration(
+            "legacy-prefs",
+            schema: schema,
+            url: storeURL,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let repo = UserPreferencesRepository(modelContainer: container)
+        let loaded = try await repo.loadOrCreate()
+        XCTAssertEqual(loaded.revealPolicy, .noVerification)
+        XCTAssertTrue(loaded.revealAuthEnabled)
+    }
+}
+
+private func writeLegacyUserPreferencesStoreWithoutRevealAuthEnabled(to url: URL) throws {
+    let entity = NSEntityDescription()
+    entity.name = "UserPreferences"
+    entity.managedObjectClassName = "NSManagedObject"
+
+    func attribute(
+        _ name: String,
+        _ type: NSAttributeType,
+        optional: Bool = false,
+        defaultValue: Any? = nil
+    ) -> NSAttributeDescription {
+        let attr = NSAttributeDescription()
+        attr.name = name
+        attr.attributeType = type
+        attr.isOptional = optional
+        attr.defaultValue = defaultValue
+        return attr
+    }
+
+    entity.properties = [
+        attribute("id", .UUIDAttributeType, defaultValue: UserPreferences.singletonID),
+        attribute("appLockEnabled", .booleanAttributeType, defaultValue: false),
+        attribute("autoLockSeconds", .integer64AttributeType, defaultValue: 60),
+        attribute("autoLockDurationOptionsJSON", .stringAttributeType, optional: true),
+        attribute("revealPolicy", .stringAttributeType, defaultValue: "none"),
+        attribute("clipboardClearEnabled", .booleanAttributeType, defaultValue: true),
+        attribute("clipboardClearSeconds", .integer64AttributeType, defaultValue: 120),
+        attribute("clipboardClearDurationOptionsJSON", .stringAttributeType, optional: true),
+        attribute("clipboardLocalOnly", .booleanAttributeType, defaultValue: false),
+        attribute("hideInAppSwitcher", .booleanAttributeType, defaultValue: true),
+        attribute("refreshIntervalMinutes", .integer64AttributeType, defaultValue: 0),
+        attribute("displayCurrency", .stringAttributeType, defaultValue: "USD"),
+        attribute("usdToDisplayRate", .decimalAttributeType, optional: true),
+        attribute("notifyLowBalance", .booleanAttributeType, defaultValue: false),
+        attribute("notifyKeyRevoked", .booleanAttributeType, defaultValue: false),
+        attribute("notifyWeeklyDigest", .booleanAttributeType, defaultValue: false),
+        attribute("lowBalanceThreshold", .decimalAttributeType, optional: true),
+    ]
+
+    let model = NSManagedObjectModel()
+    model.entities = [entity]
+    let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+    let store = try coordinator.addPersistentStore(
+        ofType: NSSQLiteStoreType,
+        configurationName: nil,
+        at: url
+    )
+    let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+    context.persistentStoreCoordinator = coordinator
+    let object = NSManagedObject(entity: entity, insertInto: context)
+    object.setValue(UserPreferences.singletonID, forKey: "id")
+    object.setValue(false, forKey: "appLockEnabled")
+    object.setValue(60, forKey: "autoLockSeconds")
+    object.setValue("none", forKey: "revealPolicy")
+    object.setValue(true, forKey: "clipboardClearEnabled")
+    object.setValue(120, forKey: "clipboardClearSeconds")
+    object.setValue(false, forKey: "clipboardLocalOnly")
+    object.setValue(true, forKey: "hideInAppSwitcher")
+    object.setValue(0, forKey: "refreshIntervalMinutes")
+    object.setValue("USD", forKey: "displayCurrency")
+    object.setValue(false, forKey: "notifyLowBalance")
+    object.setValue(false, forKey: "notifyKeyRevoked")
+    object.setValue(false, forKey: "notifyWeeklyDigest")
+    try context.save()
+    try coordinator.remove(store)
 }

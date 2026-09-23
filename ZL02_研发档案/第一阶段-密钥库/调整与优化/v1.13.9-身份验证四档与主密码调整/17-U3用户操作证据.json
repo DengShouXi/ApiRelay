@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "testedFiles": {
+    "ApiRelay/ApiRelay/Business/Vault/RevealGate.swift": "afe3feb2494d73ec23bc3d091c755e98775a9faaa4d543a8ab186dc41930baf5",
+    "ApiRelay/ApiRelay/UI/Settings/SettingsView.swift": "43d7e576c05f4b57515b3453cf43f0719ea581d807843741f10d781b840b222c",
+    "ApiRelay/ApiRelay/App/AppEnvironment.swift": "7f32ecc303e92f092e814ae83d1fe602f4b6f199b87ea89df1c6f3ecee14d624",
+    "ApiRelay/ApiRelay/App/AppPrivacyController.swift": "640d6187ec1d642fad3e01ed1d509aad1bfdd90588cfd228f1b999fac1c01778",
+    "ApiRelay/ApiRelay/Business/System/MasterPasswordService.swift": "c6bbc4a5bd4c47e66acdb52a75fcf3071c31972dd17345bfa38441c82ea58ffa",
+    "ApiRelay/ApiRelay/Business/System/SessionLockQuerying.swift": "11f944ae7932cc53f65797d9a28c4ffedf5ef57685e761e94c07ded625e1c6dc",
+    "ApiRelay/ApiRelay/Localizable.xcstrings": "1ef99dac638d87c26c858b38cbfb173e370676779c65fa14f07019a3eded6aa1"
+  },
+  "observations": [],
+  "note": "尚无U3真实三端操作观察。99项注入/服务测试不作为UI证据。独立观察填写实际结果、观察者、构建、设备、时间、包内artifact；不可将expected写成actual。"
+}

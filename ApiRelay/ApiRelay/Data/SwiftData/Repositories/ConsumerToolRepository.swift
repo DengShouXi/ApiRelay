@@ -27,7 +27,12 @@ actor ConsumerToolRepository {
     }
 
     @discardableResult
-    func insert(_ draft: ConsumerToolDraft, id: UUID? = nil) throws -> UUID {
+    func insert(
+        _ draft: ConsumerToolDraft,
+        id: UUID? = nil,
+        createdAt: Date = Date(),
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws -> UUID {
         let id = id ?? UUID()
         if !(try fetchModels(id: id)).isEmpty {
             throw ApiRelayError.validationFailed(field: "id", reason: "already_exists")
@@ -37,7 +42,7 @@ actor ConsumerToolRepository {
             throw ApiRelayError.validationFailed(field: "name", reason: "required_1_to_48")
         }
         let trimmedNotes = draft.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let now = Date()
+        let now = createdAt
         let sortOrder = draft.sortOrder > 0 ? draft.sortOrder : (try nextSortOrder())
         let model = ConsumerTool(
             id: id,
@@ -51,21 +56,59 @@ actor ConsumerToolRepository {
             updatedAt: now,
             sortOrder: sortOrder
         )
-        modelContext.insert(model)
-        try modelContext.save()
+        do {
+            try committing {
+                modelContext.insert(model)
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
         return id
     }
 
     /// 备份导入：业务 `id` 已存在则跳过，MUST NOT 假装写入成功。
-    func insertIfAbsent(_ draft: ConsumerToolDraft, id: UUID) throws -> Bool {
+    func insertIfAbsent(
+        _ draft: ConsumerToolDraft,
+        id: UUID,
+        createdAt: Date = Date(),
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws -> Bool {
         if !(try fetchModels(id: id)).isEmpty {
             return false
         }
-        _ = try insert(draft, id: id)
+        _ = try insert(draft, id: id, createdAt: createdAt, committing: committing)
         return true
     }
 
-    func update(id: UUID, patch: ConsumerToolPatch) throws {
+    /// Crash-recovery ownership delete. Same-id replicas with a different
+    /// creation token are preserved.
+    @discardableResult
+    func deleteIfCreatedAtMatches(
+        id: UUID,
+        createdAt: Date,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws -> Bool {
+        let owned = try fetchModels(id: id).filter { $0.createdAt == createdAt }
+        guard !owned.isEmpty else { return false }
+        do {
+            try committing {
+                for model in owned { modelContext.delete(model) }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+        return true
+    }
+
+    func update(
+        id: UUID,
+        patch: ConsumerToolPatch,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let models = try fetchModels(id: id)
         guard !models.isEmpty else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
@@ -76,21 +119,38 @@ actor ConsumerToolRepository {
                 throw ApiRelayError.validationFailed(field: "name", reason: "required_1_to_48")
             }
         }
-        let now = Date()
-        for model in models {
-            Self.apply(patch, to: model, now: now)
+        do {
+            try committing {
+                let now = Date()
+                for model in models {
+                    Self.apply(patch, to: model, now: now)
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
     /// 按给定顺序重写 `sortOrder`（0…n-1）。不碰 `updatedAt`。
-    func reorder(orderedIds: [UUID]) throws {
-        for (index, id) in orderedIds.enumerated() {
-            for model in try fetchModels(id: id) {
-                model.sortOrder = index
+    func reorder(
+        orderedIds: [UUID],
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        do {
+            try committing {
+                for (index, id) in orderedIds.enumerated() {
+                    for model in try fetchModels(id: id) {
+                        model.sortOrder = index
+                    }
+                }
+                try modelContext.save()
             }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
     private func nextSortOrder() throws -> Int {
@@ -99,7 +159,13 @@ actor ConsumerToolRepository {
     }
 
     /// 移入回收站（默认保留 30 天）。回收站期间保留 KeyAssignment。
-    func softDelete(id: UUID, deletedAt: Date = Date(), retainDays: Int = 30, allowPreset: Bool = false) throws {
+    func softDelete(
+        id: UUID,
+        deletedAt: Date = Date(),
+        retainDays: Int = 30,
+        allowPreset: Bool = false,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let models = try fetchModels(id: id)
         guard let first = models.first else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
@@ -107,50 +173,155 @@ actor ConsumerToolRepository {
         if first.isPreset && !allowPreset {
             throw ApiRelayError.validationFailed(field: "isPreset", reason: "preset_not_deletable")
         }
-        let purgeAfter = deletedAt.addingTimeInterval(TimeInterval(retainDays * 24 * 3600))
-        let now = Date()
-        for model in models {
-            model.deletedAt = deletedAt
-            model.purgeAfter = purgeAfter
-            model.updatedAt = now
+        do {
+            try committing {
+                let purgeAfter = deletedAt.addingTimeInterval(TimeInterval(retainDays * 24 * 3600))
+                let now = Date()
+                for model in models {
+                    model.deletedAt = deletedAt
+                    model.purgeAfter = purgeAfter
+                    model.updatedAt = now
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
-    func clearDeletionMarks(id: UUID) throws {
+    func clearDeletionMarks(
+        id: UUID,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let models = try fetchModels(id: id)
         guard !models.isEmpty else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
         }
-        let now = Date()
-        for model in models {
-            model.deletedAt = nil
-            model.purgeAfter = nil
-            model.updatedAt = now
+        do {
+            try committing {
+                let now = Date()
+                for model in models {
+                    model.deletedAt = nil
+                    model.purgeAfter = nil
+                    model.updatedAt = now
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
     /// 预置项默认不可物理删除（FR-007a）；`allowPreset` 仅用于清除历史自动种子。
-    func delete(id: UUID, allowPreset: Bool = false) throws {
+    func delete(
+        id: UUID,
+        allowPreset: Bool = false,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let models = try fetchModels(id: id)
         guard let first = models.first else { return }
         if first.isPreset && !allowPreset {
             throw ApiRelayError.validationFailed(field: "isPreset", reason: "preset_not_deletable")
         }
-        for model in models {
-            modelContext.delete(model)
+        do {
+            try committing {
+                for model in models {
+                    modelContext.delete(model)
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
+    }
+
+    /// ConsumerTool + KeyAssignment share one ModelContext transaction here.
+    /// A permanent delete therefore cannot strand half-removed assignments.
+    func deleteWithAssignments(
+        id: UUID,
+        allowPreset: Bool = false,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        let models = try fetchModels(id: id)
+        guard let first = models.first else { return }
+        if first.isPreset && !allowPreset {
+            throw ApiRelayError.validationFailed(field: "isPreset", reason: "preset_not_deletable")
+        }
+        let rows = try modelContext.fetch(FetchDescriptor<KeyAssignment>(
+            predicate: #Predicate { $0.consumerToolId == id }
+        ))
+        do {
+            try committing {
+                for row in rows {
+                    modelContext.delete(row)
+                }
+                for model in models {
+                    modelContext.delete(model)
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     /// FR-061：全量清除时预置项一并物理删除（用户销毁全部数据，不是单条删除）。
-    func deleteAllRecords() throws {
-        try modelContext.deleteAllRecords(ConsumerTool.self)
+    func deleteAllRecords(
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        do {
+            try committing {
+                try modelContext.deleteAllRecords(ConsumerTool.self)
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
-    func pruneDuplicateIdentities() throws {
-        try modelContext.pruneSyncedDuplicates(of: ConsumerTool.self, id: \.id, rank: Self.rank)
+    /// 全量清除把使用方与其指派放在同一个 SwiftData save 中。
+    func deleteAllRecordsIncludingAssignments(
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        let assignments = try modelContext.fetch(FetchDescriptor<KeyAssignment>())
+        let tools = try modelContext.fetch(FetchDescriptor<ConsumerTool>())
+        do {
+            try committing {
+                for assignment in assignments {
+                    modelContext.delete(assignment)
+                }
+                for tool in tools {
+                    modelContext.delete(tool)
+                }
+                if modelContext.hasChanges {
+                    try modelContext.save()
+                }
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    func pruneDuplicateIdentities(
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        do {
+            try committing {
+                try modelContext.pruneSyncedDuplicates(
+                    of: ConsumerTool.self,
+                    id: \.id,
+                    rank: Self.rank
+                )
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     private func fetchModels(id: UUID) throws -> [ConsumerTool] {

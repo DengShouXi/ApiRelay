@@ -11,6 +11,10 @@ protocol EntitlementServing: Actor {
     func startListening()
     /// FR-061：清本地权益快照；不吊销 StoreKit。
     func purgeLocalSnapshotForErase() async throws
+    /// 仅供持久化、已授权的全量清除事务绕过正常写入闸门。
+    func purgeLocalSnapshotForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws
     #if DEBUG
     func debugOverride(tier: EntitlementTier?) async throws
     #endif
@@ -22,6 +26,7 @@ actor EntitlementService: EntitlementServing {
     static let relayProductIDReserved = "com.apirelay.iap.relay"
 
     private let snapshot: EntitlementSnapshotRepository
+    private let mutationGate: StorageMutationGate
     private var updatesTask: Task<Void, Never>?
     /// 验过签的 App 包环境；失败不缓存，下次再问。
     private var cachedAppEnvironment: AppStore.Environment?
@@ -30,8 +35,12 @@ actor EntitlementService: EntitlementServing {
     private var debugTier: EntitlementTier?
     #endif
 
-    init(modelContainer: ModelContainer) {
+    init(
+        modelContainer: ModelContainer,
+        mutationGate: StorageMutationGate = StorageMutationGate()
+    ) {
         self.snapshot = EntitlementSnapshotRepository(modelContainer: modelContainer)
+        self.mutationGate = mutationGate
     }
 
     func startListening() {
@@ -59,13 +68,13 @@ actor EntitlementService: EntitlementServing {
         // StoreKit currentEntitlements 含本地缓存；空序列 = 未购，须写回 snapshot，避免脏 unlimited 永久放行。
         let live = Self.canonicalize(await tierFromStoreKit())
         // snapshot 只是本机观测缓存，不是授权依据；落盘失败不得推翻 StoreKit 的权威结果。
-        try? await snapshot.update(tier: live, source: "storekit")
+        try? await persistSnapshot(tier: live, source: "storekit")
         return live
     }
 
     func refreshFromStore() async throws {
         await IdentityHygieneLog.runIsolated(source: .startup, steps: [
-            (.entitlement, { try await self.snapshot.pruneDuplicateIdentities() }),
+            (.entitlement, { try await self.pruneSnapshotDuplicates() }),
         ])
         _ = try await currentTier()
     }
@@ -102,7 +111,7 @@ actor EntitlementService: EntitlementServing {
                 }
                 // 本次 verified 交易足以确认刚完成的购买；不再依赖 currentEntitlements 立刻刷新。
                 await transaction.finish()
-                try? await snapshot.update(tier: .unlimitedKeys, source: "storekit")
+                try? await persistSnapshot(tier: .unlimitedKeys, source: "storekit")
                 return .unlimitedKeys
             case .unverified:
                 // 不 finish，保留暂时性验签失败后的重试机会。
@@ -121,10 +130,10 @@ actor EntitlementService: EntitlementServing {
     func debugOverride(tier: EntitlementTier?) async throws {
         debugTier = tier.map(Self.canonicalize)
         if let tier {
-            try await snapshot.update(tier: Self.canonicalize(tier), source: "debugOverride")
+            try await persistSnapshot(tier: Self.canonicalize(tier), source: "debugOverride")
         } else {
             let live = Self.canonicalize(await tierFromStoreKit())
-            try await snapshot.update(tier: live, source: "storekit")
+            try await persistSnapshot(tier: live, source: "storekit")
         }
     }
     #endif
@@ -165,8 +174,34 @@ actor EntitlementService: EntitlementServing {
         tier == .relay ? .unlimitedKeys : tier
     }
 
+    private func persistSnapshot(tier: EntitlementTier, source: String) async throws {
+        let storagePermit = try mutationGate.beginNormal(operation: "entitlement_snapshot_update")
+        defer { storagePermit.finish() }
+        try await snapshot.update(tier: tier, source: source)
+    }
+
+    private func pruneSnapshotDuplicates() async throws {
+        let storagePermit = try mutationGate.beginNormal(operation: "entitlement_snapshot_prune")
+        defer { storagePermit.finish() }
+        try await snapshot.pruneDuplicateIdentities()
+    }
+
     /// FR-061：清本地权益快照；不吊销 StoreKit。
     func purgeLocalSnapshotForErase() async throws {
+        let storagePermit = try mutationGate.beginNormal(
+            operation: "entitlement_legacy_erase"
+        )
+        defer { storagePermit.finish() }
+        try await snapshot.deleteAllRecords()
+    }
+
+    func purgeLocalSnapshotForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws {
+        try mutationGate.validateCommittedEraseToken(
+            authorization,
+            operation: "entitlement_committed_erase"
+        )
         try await snapshot.deleteAllRecords()
     }
 }

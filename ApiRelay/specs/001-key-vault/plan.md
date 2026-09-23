@@ -97,7 +97,7 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 | V. 故障隔离 | 刷新结果**按账号**返回；单平台失败不影响其他平台与保管功能 | ✅ Pass |
 | VI. 向下兼容 | additive-only schema；阶段三三个扩展点均为枚举加值或新增实体 | ✅ Pass |
 | VII. 密钥安全 | Keychain only；列表不展示密钥片段；去重为本机 Keychain 相等比较；剪贴板为条件许可（自动清除默认开、可关）；iCloud 钥匙串同步已获宪法明许 | ⚠️ **见下方说明** |
-| VIII. 身份确认门闩 | 应用层 `LAContext`；查看与复制**共用一个门闩**；自动刷新不触发门闩 | ⚠️ **见下方说明** |
+| VIII. 身份确认门闩 | 应用层 `LAContext`；设置三行（验证方式 / 自动锁定 / 取用验证）+ 按已 persist 档显示「应用密码」行；点两种密码档进同一页；查看与复制共用取用验证；出厂设备验证；列表定名「生物验证或设备密码」；密码档未设则立即设密；组合档系统路径仅一次 `deviceOwnerAuthentication`；同详情复用；自动刷新不触发门闩（宪法 v2.17.0） | ⚠️ **见下方说明** |
 | IX. 数据真实性 | 未知一律 nil 且显式标注，禁止以 0 代替；平台数字与本产品估算分字段存储 | ✅ Pass |
 | 平台体验标准 | SwiftUI 系统组件、Dynamic Type、Dark Mode | ✅ Pass |
 | **设置列表行**（v2.4.0 新增，v2.8.0 修订 ⓘ 位置） | 仅子页行显示 〉；现行 `标题　ⓘ　当前值　〉`；ⓘ 紧贴标题；MUST NOT 回退到 `标题　当前值　ⓘ　〉`；本页控件无 〉 | ✅ Pass |
@@ -120,7 +120,7 @@ LocalAuthentication、CryptoKit、UIKit（`UIPasteboard`）、BackgroundTasks、
 
 这不是设计违规，无需 Complexity Tracking 豁免；是取舍已被产品负责人明示裁决（DC-006）后的记录。
 
-**Post-Design Re-check（2026-08-05；2026-08-11 复核）**：设计层面全部通过。剩余 ⚠️ 仅 VII/VIII 能力上限说明。
+**Post-Design Re-check（2026-08-05；2026-08-11 复核；2026-09-14 宪法 v2.14.0；2026-09-15 宪法 v2.15.0 / v2.16.0；2026-09-22 宪法 v2.17.0）：** 设计层面全部通过。剩余 ⚠️ 仅 VII/VIII 能力上限说明。身份验证四档、设密前置、共用应用密码页、按档显示管理行与组合档单认证上下文系统回落已回写正式规格；「仅生物识别」不再是用户可选项。
 工程配置项与 **T014b（Checkpoint 2b）** 已完成。上架前仍阻塞：**T063–T066**、**T062**（需授权）。
 
 ## Project Structure
@@ -370,11 +370,11 @@ sequenceDiagram
 | 菜单栏 | `Commands`：Settings ⌘,、New Key ⌘N、Quit；**Refresh ⌘R 属 V2**（T052） |
 | 鼠标交互 | 列表 hover 高亮；右键菜单（复制、查看、删除） |
 | 快捷键 | ⌘C 复制选中密钥（仍过门闩）、⌘W 关闭 sheet |
-| 生物识别文案 | Mac 多为 Touch ID，文案须由 `availableBiometry()` 动态决定 |
+| 生物识别文案 | 列表标题固定「生物验证或设备密码」；系统弹窗 / ⓘ 仍可用 `availableBiometry()` 官方译名 |
 
 **Catalyst 下的两个已知差异**，实现时须实测：
 Mac 上 `setItems` + `.expirationDate` 常无法被其他 App 粘贴，**现行做法是 Mac 不写系统过期**；
-无 Touch ID 的 Mac 上 `biometricOnly` 档必须自动禁用。
+无 Touch ID 的 Mac 上旧 `biometricOnly` 档必须自动禁用——**已被 13.9 覆盖**：该档不再是用户可选项，迁到设备验证；无生物识别时设备验证仍可用登录密码。现行见 [`follow-ups/identity-auth/spec.md`](./follow-ups/identity-auth/spec.md)。
 
 ### A5. 系统权限与工程配置
 

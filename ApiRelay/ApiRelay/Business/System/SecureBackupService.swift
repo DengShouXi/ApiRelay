@@ -5,13 +5,30 @@ import SwiftData
 
 protocol SecureBackupServing: Actor {
     func inspectProtection(_ data: Data) throws -> BackupFileProtection
-    func exportBackup(passphrase: String?, purpose: BackupPurpose) async throws -> BackupExportResult
-    func importBackup(data: Data, passphrase: String?) async throws -> ImportSummary
+    func exportBackup(passphrase: String?, purpose: BackupPurpose, appPassword: String?) async throws -> BackupExportResult
+    func importBackup(data: Data, passphrase: String?, appPassword: String?) async throws -> ImportSummary
+    /// Only the already-authorized, durably journaled full-erase transaction
+    /// may call this. It deliberately bypasses the normal write fence so the
+    /// service's long-lived ModelActors cannot retain pre-erase snapshots.
+    func purgeAllRecordsForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws
+}
+
+extension SecureBackupServing {
+    func exportBackup(passphrase: String?, purpose: BackupPurpose) async throws -> BackupExportResult {
+        try await exportBackup(passphrase: passphrase, purpose: purpose, appPassword: nil)
+    }
+
+    func importBackup(data: Data, passphrase: String?) async throws -> ImportSummary {
+        try await importBackup(data: data, passphrase: passphrase, appPassword: nil)
+    }
 }
 
 struct BackupExportResult: Sendable {
     let data: Data
-    /// 元信息在备份里、但本机 Keychain 读不到明文的密钥数。导出仍会带上空字符串，导入后须明示。
+    /// 元信息在备份里、但本机 Keychain 已无对应条目的密钥数。导出仍会带上空字符串，导入后须明示。
+    /// 其他 Keychain 读取错误不会计入这里，而会使导出失败关闭。
     let keysWithoutSecretCount: Int
 }
 
@@ -30,12 +47,32 @@ enum SecureBackupFile: Sendable {
     nonisolated static var unprotectedMagic: Data { Data("ARBN1".utf8) }
     nonisolated static var pathExtension: String { "apirelaybackup" }
     nonisolated static var uti: String { "com.apirelay.backup" }
-    nonisolated static var kdfIterations: UInt32 { 210_000 }
+    /// New backups use the same PBKDF2-HMAC-SHA256 floor as newly enrolled app
+    /// passwords. The count is serialized in every file, so older 210k backups
+    /// remain readable and this value can be raised again without a format break.
+    nonisolated static var kdfIterations: UInt32 { 600_000 }
 }
 
 extension Notification.Name {
     /// 加密备份导入完成后发出；主列表据此刷新。
     static let vaultDidImportBackup = Notification.Name("com.apirelay.vaultDidImportBackup")
+}
+
+/// Fine-grained import commit points used by the transaction coordinator and
+/// deterministic fault-injection tests. This is deliberately internal: normal
+/// callers use the no-op observer supplied by `SecureBackupService.init`.
+nonisolated enum SecureBackupImportMutation: Sendable, Equatable {
+    case accountInsert
+    case toolInsert
+    case toolUpdate
+    case keyInsert
+    case keyUpdate
+    case assignmentAdd
+    case notification
+    case assignmentCompensation
+    case keyCompensation
+    case toolCompensation
+    case accountCompensation
 }
 
 actor SecureBackupService: SecureBackupServing {
@@ -45,13 +82,29 @@ actor SecureBackupService: SecureBackupServing {
     private let keys: APIKeyRecordRepository
     private let tools: ConsumerToolRepository
     private let assignments: KeyAssignmentRepository
+    private let userPrefs: UserPreferencesRepository
     private let sessionLock: any SessionLockQuerying
+    private let integrityQuarantine: VaultIntegrityQuarantineStore
+    private let mutationGate: StorageMutationGate
+    private let crossStoreJournal: any CrossStoreTransactionJournalStoring
+    private let importMutationObserver: @Sendable (SecureBackupImportMutation) throws -> Void
+    /// Actor methods are re-entrant at every repository/Keychain await. Keep
+    /// backup export/import from observing one another's provisional state.
+    private var backupMutationLocked = false
+    private var backupMutationWaiters: [CheckedContinuation<Void, Never>] = []
+    private var activeStoragePermit: StorageMutationPermit?
+    private var activeExclusiveStoragePermit: StorageExclusiveMutationPermit?
+    private var backupMutationGateFailure: ApiRelayError?
 
     init(
         gate: RevealGateServing,
         keychain: KeychainStoring,
         modelContainer: ModelContainer,
-        sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock()
+        sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock(),
+        integrityQuarantine: VaultIntegrityQuarantineStore = .shared,
+        mutationGate: StorageMutationGate = StorageMutationGate(),
+        crossStoreJournal: any CrossStoreTransactionJournalStoring = DurableCrossStoreTransactionJournal(),
+        importMutationObserver: @escaping @Sendable (SecureBackupImportMutation) throws -> Void = { _ in }
     ) {
         self.gate = gate
         self.keychain = keychain
@@ -59,7 +112,180 @@ actor SecureBackupService: SecureBackupServing {
         self.keys = APIKeyRecordRepository(modelContainer: modelContainer)
         self.tools = ConsumerToolRepository(modelContainer: modelContainer)
         self.assignments = KeyAssignmentRepository(modelContainer: modelContainer)
+        self.userPrefs = UserPreferencesRepository(modelContainer: modelContainer)
         self.sessionLock = sessionLock
+        self.integrityQuarantine = integrityQuarantine
+        self.mutationGate = mutationGate
+        self.crossStoreJournal = crossStoreJournal
+        self.importMutationObserver = importMutationObserver
+    }
+
+    private func ensureStorageIntegrity() throws {
+        if let backupMutationGateFailure {
+            throw backupMutationGateFailure
+        }
+        if let incident = integrityQuarantine.currentIncident() {
+            throw ApiRelayError.storageIntegrityQuarantined(
+                operation: incident.operation,
+                detail: incident.detail
+            )
+        }
+    }
+
+    private func repositoryCommit(
+        _ authorization: SessionAuthorizationLease,
+        mutation: SecureBackupImportMutation
+    ) -> RepositoryCommit {
+        let storagePermitted = activeStoragePermit != nil || activeExclusiveStoragePermit != nil
+        return { [sessionLock, integrityQuarantine, importMutationObserver] operation in
+            guard storagePermitted else {
+                throw ApiRelayError.storageRecoveryFailed(
+                    operation: "backup_repository_commit",
+                    detail: "erase_in_progress"
+                )
+            }
+            if let incident = integrityQuarantine.currentIncident() {
+                throw ApiRelayError.storageIntegrityQuarantined(
+                    operation: incident.operation,
+                    detail: incident.detail
+                )
+            }
+            try importMutationObserver(mutation)
+            try sessionLock.commitAuthorizationLease(authorization, operation: operation)
+        }
+    }
+
+    /// Compensation must survive a session-lock transition that invalidated the
+    /// forward lease. It is still serialized under the same backup mutation
+    /// permit and may only restore/delete objects created by this import.
+    private func compensationRepositoryCommit(
+        _ mutation: SecureBackupImportMutation
+    ) -> RepositoryCommit {
+        let storagePermitted = activeStoragePermit != nil || activeExclusiveStoragePermit != nil
+        return { [importMutationObserver] operation in
+            guard storagePermitted else {
+                throw ApiRelayError.storageRecoveryFailed(
+                    operation: "backup_import_compensation",
+                    detail: "erase_in_progress"
+                )
+            }
+            try importMutationObserver(mutation)
+            try operation()
+        }
+    }
+
+    private func keychainCommit(
+        _ authorization: SessionAuthorizationLease
+    ) -> KeychainCommit {
+        let storagePermitted = activeStoragePermit != nil || activeExclusiveStoragePermit != nil
+        return { [sessionLock, integrityQuarantine] operation in
+            guard storagePermitted else {
+                throw ApiRelayError.storageRecoveryFailed(
+                    operation: "backup_keychain_commit",
+                    detail: "erase_in_progress"
+                )
+            }
+            if let incident = integrityQuarantine.currentIncident() {
+                throw ApiRelayError.storageIntegrityQuarantined(
+                    operation: incident.operation,
+                    detail: incident.detail
+                )
+            }
+            try sessionLock.commitAuthorizationLease(authorization, operation: operation)
+        }
+    }
+
+    private func journaledRepositoryCommit(
+        _ authorization: SessionAuthorizationLease,
+        mutation: SecureBackupImportMutation,
+        plan: @escaping @Sendable () throws -> Void
+    ) -> RepositoryCommit {
+        let authorizedCommit = repositoryCommit(authorization, mutation: mutation)
+        return { operation in
+            try authorizedCommit {
+                try plan()
+                try operation()
+            }
+        }
+    }
+
+    private func acquireBackupSerialization() async {
+        if !backupMutationLocked {
+            backupMutationLocked = true
+        } else {
+            await withCheckedContinuation { continuation in
+                backupMutationWaiters.append(continuation)
+            }
+        }
+    }
+
+    private func acquireBackupMutation() async {
+        await acquireBackupSerialization()
+        activeStoragePermit = nil
+        activeExclusiveStoragePermit = nil
+        backupMutationGateFailure = nil
+        do {
+            activeStoragePermit = try mutationGate.beginNormal(operation: "secure_backup")
+        } catch let error as ApiRelayError {
+            backupMutationGateFailure = error
+        } catch {
+            backupMutationGateFailure = .storageRecoveryFailed(
+                operation: "secure_backup",
+                detail: "gate_failure"
+            )
+        }
+    }
+
+    private func acquireExclusiveBackupMutation(operation: String) async {
+        await acquireBackupSerialization()
+        activeStoragePermit = nil
+        activeExclusiveStoragePermit = nil
+        backupMutationGateFailure = nil
+        do {
+            activeExclusiveStoragePermit = try await mutationGate.beginExclusive(
+                operation: operation
+            )
+        } catch let error as ApiRelayError {
+            backupMutationGateFailure = error
+        } catch {
+            backupMutationGateFailure = .storageRecoveryFailed(
+                operation: operation,
+                detail: "gate_failure"
+            )
+        }
+    }
+
+    /// The only backup serializer entry that bypasses a normal write permit.
+    /// It cannot be invoked without a live capability from this shared gate.
+    private func acquireCommittedEraseMutation(
+        _ authorization: CommittedEraseToken
+    ) async throws {
+        await acquireBackupSerialization()
+        activeStoragePermit = nil
+        activeExclusiveStoragePermit = nil
+        backupMutationGateFailure = nil
+        do {
+            try mutationGate.validateCommittedEraseToken(
+                authorization,
+                operation: "secure_backup_committed_erase"
+            )
+        } catch {
+            releaseBackupMutation()
+            throw error
+        }
+    }
+
+    private func releaseBackupMutation() {
+        activeStoragePermit?.finish()
+        activeStoragePermit = nil
+        activeExclusiveStoragePermit?.finish()
+        activeExclusiveStoragePermit = nil
+        backupMutationGateFailure = nil
+        guard !backupMutationWaiters.isEmpty else {
+            backupMutationLocked = false
+            return
+        }
+        backupMutationWaiters.removeFirst().resume()
     }
 
     func inspectProtection(_ data: Data) throws -> BackupFileProtection {
@@ -72,10 +298,19 @@ actor SecureBackupService: SecureBackupServing {
         throw ApiRelayError.backupVersionUnsupported(found: 0, supported: 1)
     }
 
-    func exportBackup(passphrase: String? = nil, purpose: BackupPurpose = .fullBackup) async throws -> BackupExportResult {
-        if sessionLock.isSessionLocked() { throw ApiRelayError.sessionLocked }
-        try await gate.confirmMandatory(reason: String(localized: "gate.exportBackup"))
-        let encoded = try await encodeVaultJSON(purpose: purpose)
+    func exportBackup(passphrase: String? = nil, purpose: BackupPurpose = .fullBackup, appPassword: String? = nil) async throws -> BackupExportResult {
+        try ensureStorageIntegrity()
+        let authorization = try sessionLock.captureAuthorizationLease()
+        try await confirmCurrent(
+            reason: String(localized: "gate.exportBackup"),
+            purpose: .destructive,
+            appPassword: appPassword
+        )
+        await acquireBackupMutation()
+        defer { releaseBackupMutation() }
+        try ensureStorageIntegrity()
+        try sessionLock.validateAuthorizationLease(authorization)
+        let encoded = try await encodeVaultJSON(purpose: purpose, authorization: authorization)
         let data: Data
         if let passphrase {
             let trimmed = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -89,15 +324,22 @@ actor SecureBackupService: SecureBackupServing {
             out.append(encoded.json)
             data = out
         }
+        try ensureStorageIntegrity()
+        try sessionLock.validateAuthorizationLease(authorization)
         return BackupExportResult(
             data: data,
             keysWithoutSecretCount: encoded.keysWithoutSecretCount
         )
     }
 
-    func importBackup(data: Data, passphrase: String?) async throws -> ImportSummary {
-        if sessionLock.isSessionLocked() { throw ApiRelayError.sessionLocked }
-        try await gate.confirmMandatory(reason: String(localized: "gate.importBackup"))
+    func importBackup(data: Data, passphrase: String?, appPassword: String? = nil) async throws -> ImportSummary {
+        try ensureStorageIntegrity()
+        let authorization = try sessionLock.captureAuthorizationLease()
+        try await confirmCurrent(
+            reason: String(localized: "gate.importBackup"),
+            purpose: .destructive,
+            appPassword: appPassword
+        )
         let json: Data
         switch try inspectProtection(data) {
         case .unprotected:
@@ -109,19 +351,178 @@ actor SecureBackupService: SecureBackupServing {
             }
             json = try Self.decrypt(data, passphrase: trimmed)
         }
-        return try await applyVaultJSON(json)
+        await acquireExclusiveBackupMutation(operation: "backup_import")
+        defer { releaseBackupMutation() }
+        try ensureStorageIntegrity()
+        try sessionLock.validateAuthorizationLease(authorization)
+        var transactionId: UUID?
+        var completedSummary: ImportSummary?
+        do {
+            let begunTransactionId = try crossStoreJournal.begin(.backupImport)
+            transactionId = begunTransactionId
+            let summary = try await applyVaultJSON(
+                json,
+                authorization: authorization,
+                transactionId: begunTransactionId
+            )
+            completedSummary = summary
+            let notificationCommit = repositoryCommit(
+                authorization,
+                mutation: .notification
+            )
+            try notificationCommit {}
+            try crossStoreJournal.decideCommit(transactionId: begunTransactionId)
+            guard let committedRecord = try crossStoreJournal.load(),
+                  committedRecord.transactionId == begunTransactionId,
+                  committedRecord.phase == .commitDecided else {
+                throw ApiRelayError.storageRecoveryFailed(
+                    operation: "backup_import_commit",
+                    detail: "commit_decision_unavailable"
+                )
+            }
+            try await finalizeCommittedBackupImport(committedRecord)
+            try crossStoreJournal.clear(transactionId: begunTransactionId)
+            await MainActor.run {
+                NotificationCenter.default.post(name: .vaultDidImportBackup, object: nil)
+            }
+            return summary
+        } catch let primary {
+            if transactionId == nil {
+                do {
+                    if let record = try crossStoreJournal.load() {
+                        guard record.kind == .backupImport,
+                              record.phase == .applying,
+                              record.insertedAccounts.isEmpty,
+                              record.insertedTools.isEmpty,
+                              record.insertedKeys.isEmpty,
+                              record.insertedAssignments.isEmpty else {
+                            throw ApiRelayError.storageRecoveryFailed(
+                                operation: "backup_import_begin_recovery",
+                                detail: "unexpected_marker"
+                            )
+                        }
+                        try crossStoreJournal.clear(transactionId: record.transactionId)
+                    }
+                } catch let cleanupFailure {
+                    mutationGate.sealForCrossStoreRecovery()
+                    let detail = "primary=\(IdentityHygieneLog.typeName(primary));cleanup=\(IdentityHygieneLog.typeName(cleanupFailure))"
+                    if (try? crossStoreJournal.load()) == nil {
+                        integrityQuarantine.quarantine(
+                            operation: "backup_import_begin",
+                            detail: detail
+                        )
+                    }
+                    throw ApiRelayError.storageRecoveryFailed(
+                        operation: "backup_import_begin",
+                        detail: detail
+                    )
+                }
+                throw primary
+            }
+            do {
+                guard let transactionId else { preconditionFailure("checked above") }
+                guard let record = try crossStoreJournal.load(),
+                      record.transactionId == transactionId,
+                      record.kind == .backupImport else {
+                    throw ApiRelayError.storageRecoveryFailed(
+                        operation: "backup_import_recovery",
+                        detail: "journal_unavailable"
+                    )
+                }
+                switch record.phase {
+                case .applying:
+                    try await rollbackInterruptedBackupImport(record)
+                    try crossStoreJournal.clear(transactionId: transactionId)
+                case .commitDecided:
+                    try await finalizeCommittedBackupImport(record)
+                    try crossStoreJournal.clear(transactionId: transactionId)
+                    guard let completedSummary else {
+                        throw ApiRelayError.storageRecoveryFailed(
+                            operation: "backup_import_commit",
+                            detail: "summary_unavailable"
+                        )
+                    }
+                    await MainActor.run {
+                        NotificationCenter.default.post(name: .vaultDidImportBackup, object: nil)
+                    }
+                    return completedSummary
+                case .completed:
+                    // The import or its compensation already reached its
+                    // durable outcome; only the tombstone unlink was pending.
+                    try crossStoreJournal.clear(transactionId: transactionId)
+                    guard let completedSummary else {
+                        throw ApiRelayError.storageRecoveryFailed(
+                            operation: "backup_import_commit",
+                            detail: "summary_unavailable"
+                        )
+                    }
+                    await MainActor.run {
+                        NotificationCenter.default.post(name: .vaultDidImportBackup, object: nil)
+                    }
+                    return completedSummary
+                }
+            } catch let compensation {
+                mutationGate.sealForCrossStoreRecovery()
+                let detail = "primary=\(IdentityHygieneLog.typeName(primary));compensation=\(IdentityHygieneLog.typeName(compensation))"
+                if (try? crossStoreJournal.load()) == nil {
+                    integrityQuarantine.quarantine(
+                        operation: "backup_import",
+                        detail: detail
+                    )
+                }
+                throw ApiRelayError.storageRecoveryFailed(
+                    operation: "backup_import",
+                    detail: detail
+                )
+            }
+            throw primary
+        }
     }
 
-    private func encodeVaultJSON(purpose: BackupPurpose) async throws -> (json: Data, keysWithoutSecretCount: Int) {
+    /// Full erase has already crossed its single authorization boundary and
+    /// sealed the shared mutation gate before entering here. Serialize behind
+    /// any earlier backup transaction, then purge through the exact ModelActors
+    /// this service will keep using after erase. Opening a fresh ModelContext is
+    /// insufficient because these actors may otherwise continue serving their
+    /// registered pre-erase objects.
+    func purgeAllRecordsForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws {
+        try await acquireCommittedEraseMutation(authorization)
+        defer { releaseBackupMutation() }
+        try await assignments.deleteAllRecords()
+        try await keys.deleteAllRecords()
+        try await accounts.deleteAllRecords()
+        try await tools.deleteAllRecords()
+        try await userPrefs.deleteAllRecords()
+    }
+
+    private func encodeVaultJSON(
+        purpose: BackupPurpose,
+        authorization: SessionAuthorizationLease
+    ) async throws -> (json: Data, keysWithoutSecretCount: Int) {
+        try ensureStorageIntegrity()
         let accountDTOs = try await accounts.fetchAll()
         let keyDTOs = try await keys.fetch(lifecycles: [.active, .revokedUpstream])
         let toolDTOs = try await tools.fetchAll(includeHidden: true, includeDeleted: false)
+        try ensureStorageIntegrity()
 
         var keyPayloads: [[String: Any]] = []
         var assignmentPayloads: [[String: Any]] = []
         var keysWithoutSecretCount = 0
         for key in keyDTOs {
-            let secret = (try? await keychain.read(service: .keys, account: key.id)) ?? ""
+            try ensureStorageIntegrity()
+            try sessionLock.validateAuthorizationLease(authorization)
+            let secret: String
+            do {
+                secret = try await keychain.read(service: .keys, account: key.id)
+            } catch ApiRelayError.keychainFailure(let status) where status == errSecItemNotFound {
+                // Metadata can legitimately outlive its synchronised Keychain item on this
+                // device. Preserve that established, visible "missing secret" representation.
+                secret = ""
+            }
+            try ensureStorageIntegrity()
+            try sessionLock.validateAuthorizationLease(authorization)
             if secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 keysWithoutSecretCount += 1
             }
@@ -181,10 +582,16 @@ actor SecureBackupService: SecureBackupServing {
             "assignments": assignmentPayloads,
         ]
         let json = try JSONSerialization.data(withJSONObject: plaintext, options: [.sortedKeys])
+        try ensureStorageIntegrity()
+        try sessionLock.validateAuthorizationLease(authorization)
         return (json, keysWithoutSecretCount)
     }
 
-    private func applyVaultJSON(_ json: Data) async throws -> ImportSummary {
+    private func applyVaultJSON(
+        _ json: Data,
+        authorization: SessionAuthorizationLease,
+        transactionId: UUID
+    ) async throws -> ImportSummary {
         guard let root = try JSONSerialization.jsonObject(with: json) as? [String: Any],
               let version = root["version"] as? Int,
               version == 1,
@@ -199,8 +606,15 @@ actor SecureBackupService: SecureBackupServing {
         let toolsArr = root["tools"] as? [[String: Any]] ?? []
         let assignmentsArr = root["assignments"] as? [[String: Any]] ?? []
 
+        try ensureStorageIntegrity()
         var importedAccounts = 0
+        var importedTools = 0
+        var importedKeys = 0
+        var skippedKeys = 0
+        var keysWithoutSecret = 0
+
         for account in accountsArr {
+            try ensureStorageIntegrity()
             guard let id = Self.uuid(account["id"]),
                   let platform = account["platform"] as? String,
                   let displayName = account["displayName"] as? String else { continue }
@@ -214,13 +628,29 @@ actor SecureBackupService: SecureBackupServing {
                 avatarSymbol: account["avatarSymbol"] as? String,
                 avatarColor: account["avatarColor"] as? String
             )
-            if try await accounts.insertIfAbsent(draft, id: id) {
+            let createdAt = Date()
+            let plan = CrossStoreInsertedRecordPlan(id: id, createdAt: createdAt)
+            if try await accounts.insertIfAbsent(
+                draft,
+                id: id,
+                createdAt: createdAt,
+                committing: journaledRepositoryCommit(
+                    authorization,
+                    mutation: .accountInsert,
+                    plan: { [crossStoreJournal] in
+                        try crossStoreJournal.planInsertedAccount(
+                            plan,
+                            transactionId: transactionId
+                        )
+                    }
+                )
+            ) {
                 importedAccounts += 1
             }
         }
 
-        var importedTools = 0
         for tool in toolsArr {
+            try ensureStorageIntegrity()
             guard let id = Self.uuid(tool["id"]),
                   let name = tool["name"] as? String else { continue }
             let draft = ConsumerToolDraft(
@@ -232,17 +662,35 @@ actor SecureBackupService: SecureBackupServing {
                 avatarSymbol: tool["avatarSymbol"] as? String,
                 avatarColor: tool["avatarColor"] as? String
             )
-            guard try await tools.insertIfAbsent(draft, id: id) else { continue }
+            let createdAt = Date()
+            let plan = CrossStoreInsertedRecordPlan(id: id, createdAt: createdAt)
+            guard try await tools.insertIfAbsent(
+                draft,
+                id: id,
+                createdAt: createdAt,
+                committing: journaledRepositoryCommit(
+                    authorization,
+                    mutation: .toolInsert,
+                    plan: { [crossStoreJournal] in
+                        try crossStoreJournal.planInsertedTool(
+                            plan,
+                            transactionId: transactionId
+                        )
+                    }
+                )
+            ) else { continue }
             if tool["isHidden"] as? Bool == true {
-                try await tools.update(id: id, patch: ConsumerToolPatch(isHidden: true))
+                try await tools.update(
+                    id: id,
+                    patch: ConsumerToolPatch(isHidden: true),
+                    committing: repositoryCommit(authorization, mutation: .toolUpdate)
+                )
             }
             importedTools += 1
         }
 
-        var importedKeys = 0
-        var skippedKeys = 0
-        var keysWithoutSecret = 0
         for key in keysArr {
+            try ensureStorageIntegrity()
             guard let id = Self.uuid(key["id"]),
                   let accountId = Self.uuid(key["accountId"]),
                   let displayName = key["displayName"] as? String else {
@@ -253,9 +701,31 @@ actor SecureBackupService: SecureBackupServing {
                 skippedKeys += 1
                 continue
             }
+            guard try await keys.storageSnapshot(id: id) == nil else {
+                skippedKeys += 1
+                continue
+            }
             let secret = (key["secret"] as? String ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            let origin = (key["origin"] as? String).flatMap(KeyOrigin.init(rawValue:)) ?? .manualEntry
+            // Metadata-absent + Keychain-present is an orphan or a remote item
+            // still converging. Restore metadata only when a non-empty backup
+            // secret proves it is the same logical key. An empty or conflicting
+            // payload must not make an otherwise unreachable local secret
+            // visible merely by supplying its UUID.
+            var secretAlreadyPresent = false
+            do {
+                let existingSecret = try await keychain.read(service: .keys, account: id)
+                guard !secret.isEmpty, existingSecret == secret else {
+                    skippedKeys += 1
+                    continue
+                }
+                secretAlreadyPresent = true
+            } catch let ApiRelayError.keychainFailure(status) where status == errSecItemNotFound {
+                // Safe to attempt the later atomic add when the backup contains
+                // plaintext, or to restore metadata as explicitly secret-less.
+            }
+            let origin = (key["origin"] as? String)
+                .flatMap(KeyOrigin.init(rawValue:)) ?? .manualEntry
             let draft = KeyRecordDraft(
                 accountId: accountId,
                 displayName: displayName,
@@ -265,34 +735,97 @@ actor SecureBackupService: SecureBackupServing {
                 avatarSymbol: key["avatarSymbol"] as? String,
                 avatarColor: key["avatarColor"] as? String
             )
-            guard try await keys.insertIfAbsent(draft, id: id) else {
+            let createdAt = Date()
+            let plan = CrossStoreKeyRollbackPlan(
+                id: id,
+                accountId: accountId,
+                createdAt: createdAt
+            )
+            guard try await keys.insertIfAbsent(
+                draft,
+                id: id,
+                createdAt: createdAt,
+                committing: journaledRepositoryCommit(
+                    authorization,
+                    mutation: .keyInsert,
+                    plan: { [crossStoreJournal] in
+                        try crossStoreJournal.planInsertedKey(
+                            plan,
+                            transactionId: transactionId
+                        )
+                    }
+                )
+            ) else {
                 skippedKeys += 1
                 continue
             }
             if let lifecycleRaw = key["lifecycle"] as? String,
                let lifecycle = KeyLifecycle.init(rawValue: lifecycleRaw),
                lifecycle != .active {
-                try await keys.update(id: id, patch: KeyRecordPatch(lifecycle: lifecycle))
+                try await keys.update(
+                    id: id,
+                    patch: KeyRecordPatch(lifecycle: lifecycle),
+                    committing: repositoryCommit(authorization, mutation: .keyUpdate)
+                )
             }
             if secret.isEmpty {
                 keysWithoutSecret += 1
-            } else {
-                try await keychain.save(secret, service: .keys, account: id)
+            } else if !secretAlreadyPresent {
+                let inserted = try await keychain.insertIfAbsent(
+                    secret,
+                    service: .keys,
+                    account: id,
+                    transactionTag: transactionId,
+                    committing: keychainCommit(authorization)
+                )
+                if !inserted {
+                    // A synchronised item won the race after the preflight.
+                    // Accept it only if it is byte-for-byte the same logical
+                    // secret. Otherwise rollback the metadata rather than bind
+                    // a conflicting orphan to this record.
+                    let racedSecret = try await keychain.read(service: .keys, account: id)
+                    guard racedSecret == secret else {
+                        throw ApiRelayError.storageRecoveryFailed(
+                            operation: "backup_import",
+                            detail: "keychain_account_conflict"
+                        )
+                    }
+                }
             }
+            try ensureStorageIntegrity()
+            try sessionLock.validateAuthorizationLease(authorization)
             importedKeys += 1
         }
 
         for row in assignmentsArr {
+            try ensureStorageIntegrity()
             guard let keyId = Self.uuid(row["keyId"]),
                   let toolId = Self.uuid(row["consumerToolId"]) else { continue }
             guard try await keys.fetch(id: keyId) != nil else { continue }
             guard try await tools.fetch(id: toolId) != nil else { continue }
-            try await assignments.add(keyId: keyId, consumerToolId: toolId)
+            let createdAt = Date()
+            let plan = CrossStoreAssignmentRollbackPlan(
+                keyId: keyId,
+                consumerToolId: toolId,
+                createdAt: createdAt
+            )
+            _ = try await assignments.add(
+                keyId: keyId,
+                consumerToolId: toolId,
+                createdAt: createdAt,
+                committing: journaledRepositoryCommit(
+                    authorization,
+                    mutation: .assignmentAdd,
+                    plan: { [crossStoreJournal] in
+                        try crossStoreJournal.planInsertedAssignment(
+                            plan,
+                            transactionId: transactionId
+                        )
+                    }
+                )
+            )
         }
-
-        await MainActor.run {
-            NotificationCenter.default.post(name: .vaultDidImportBackup, object: nil)
-        }
+        try ensureStorageIntegrity()
         return ImportSummary(
             accountCount: importedAccounts,
             keyCount: importedKeys,
@@ -301,6 +834,125 @@ actor SecureBackupService: SecureBackupServing {
             keysWithoutSecretCount: keysWithoutSecret,
             purpose: purpose
         )
+    }
+
+    /// Idempotent WAL rollback. Ownership timestamps ensure a same-id CloudKit
+    /// replica is never deleted, and Keychain plaintext is removed only when
+    /// the item still carries this transaction's tag.
+    private func rollbackInterruptedBackupImport(
+        _ record: CrossStoreTransactionRecord
+    ) async throws {
+        try record.validateForRecovery()
+        guard record.kind == .backupImport, record.phase == .applying else {
+            throw ApiRelayError.storageRecoveryFailed(
+                operation: "backup_import_recovery",
+                detail: "unexpected_transaction_kind"
+            )
+        }
+        for plan in record.insertedAssignments.reversed() {
+            _ = try await assignments.removeIfCreatedAtMatches(
+                keyId: plan.keyId,
+                consumerToolId: plan.consumerToolId,
+                createdAt: plan.createdAt,
+                committing: compensationRepositoryCommit(.assignmentCompensation)
+            )
+        }
+        for plan in record.insertedKeys.reversed() {
+            _ = try await keys.deleteIfCreatedAtMatches(
+                id: plan.id,
+                createdAt: plan.createdAt,
+                committing: compensationRepositoryCommit(.keyCompensation)
+            )
+            _ = try await keychain.deleteIfTransactionTagMatches(
+                service: .keys,
+                account: plan.id,
+                transactionTag: record.transactionId
+            )
+        }
+        for plan in record.insertedTools.reversed() {
+            _ = try await tools.deleteIfCreatedAtMatches(
+                id: plan.id,
+                createdAt: plan.createdAt,
+                committing: compensationRepositoryCommit(.toolCompensation)
+            )
+        }
+        for plan in record.insertedAccounts.reversed() {
+            _ = try await accounts.deleteIfCreatedAtMatches(
+                id: plan.id,
+                createdAt: plan.createdAt,
+                committing: compensationRepositoryCommit(.accountCompensation)
+            )
+        }
+    }
+
+    private func finalizeCommittedBackupImport(
+        _ record: CrossStoreTransactionRecord
+    ) async throws {
+        try record.validateForRecovery()
+        guard record.kind == .backupImport, record.phase == .commitDecided else {
+            throw ApiRelayError.storageRecoveryFailed(
+                operation: "backup_import_finalize",
+                detail: "unexpected_transaction_state"
+            )
+        }
+        for plan in record.insertedKeys {
+            try await keychain.finalizeTransactionTagIfMatches(
+                service: .keys,
+                account: plan.id,
+                transactionTag: record.transactionId
+            )
+        }
+    }
+
+    /// Startup-only replay while the composition-root gate is pre-sealed.
+    func recoverInterruptedCrossStoreTransaction(
+        _ record: CrossStoreTransactionRecord
+    ) async throws {
+        guard record.kind == .backupImport else {
+            throw ApiRelayError.storageRecoveryFailed(
+                operation: "backup_import_recovery",
+                detail: "unexpected_transaction_kind"
+            )
+        }
+        await acquireBackupSerialization()
+        activeStoragePermit = nil
+        activeExclusiveStoragePermit = nil
+        backupMutationGateFailure = nil
+        do {
+            activeExclusiveStoragePermit = try await mutationGate.beginCrossStoreRecoveryExclusive(
+                operation: "backup_import_recovery"
+            )
+            guard let currentRecord = try crossStoreJournal.load(),
+                  currentRecord == record else {
+                throw ApiRelayError.storageRecoveryFailed(
+                    operation: "backup_import_recovery",
+                    detail: "stale_recovery_record"
+                )
+            }
+            switch currentRecord.phase {
+            case .applying:
+                try await rollbackInterruptedBackupImport(currentRecord)
+            case .commitDecided:
+                try await finalizeCommittedBackupImport(currentRecord)
+            case .completed:
+                break
+            }
+            try crossStoreJournal.clear(transactionId: currentRecord.transactionId)
+            activeExclusiveStoragePermit?.finish()
+            activeExclusiveStoragePermit = nil
+            try mutationGate.completeCrossStoreRecoveryAndReopen()
+            releaseBackupMutation()
+            await MainActor.run {
+                NotificationCenter.default.post(name: .vaultDidImportBackup, object: nil)
+            }
+        } catch {
+            mutationGate.sealForCrossStoreRecovery()
+            releaseBackupMutation()
+            throw ApiRelayError.storageRecoveryFailed(
+                operation: "backup_import_startup_recovery",
+                detail: "cause=\(IdentityHygieneLog.typeName(error))"
+            )
+        }
     }
 
     private static func compact(_ pairs: [String: Any?]) -> [String: Any] {
@@ -319,7 +971,7 @@ actor SecureBackupService: SecureBackupServing {
     }
 
     private static func encrypt(_ data: Data, passphrase: String) throws -> Data {
-        let salt = randomSalt()
+        let salt = try randomSalt()
         let iterations = SecureBackupFile.kdfIterations
         let key = try deriveKey(passphrase: passphrase, salt: salt, iterations: iterations)
         let sealed = try AES.GCM.seal(data, using: key)
@@ -361,6 +1013,28 @@ actor SecureBackupService: SecureBackupServing {
         }
     }
 
+    private func confirmCurrent(
+        reason: String,
+        purpose: AuthPurpose,
+        appPassword: String?
+    ) async throws {
+        let policy: RevealPolicy
+        do {
+            let storagePermit = try mutationGate.beginNormal(
+                operation: "backup_auth_policy_read"
+            )
+            defer { storagePermit.finish() }
+            policy = try await userPrefs.loadOrCreate().revealPolicy
+        }
+        try await CurrentRevealPolicyAuth.confirm(
+            policy,
+            gate: gate,
+            reason: reason,
+            purpose: purpose,
+            appPassword: appPassword
+        )
+    }
+
     private static func deriveKey(passphrase: String, salt: Data, iterations: UInt32) throws -> SymmetricKey {
         let passwordData = Data(passphrase.utf8)
         var derived = Data(count: 32)
@@ -387,11 +1061,11 @@ actor SecureBackupService: SecureBackupServing {
         return SymmetricKey(data: derived)
     }
 
-    private static func randomSalt() -> Data {
+    private static func randomSalt() throws -> Data {
         var bytes = [UInt8](repeating: 0, count: 16)
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
         guard status == errSecSuccess else {
-            return Data((0..<16).map { _ in UInt8.random(in: 0...255) })
+            throw ApiRelayError.keychainFailure(status)
         }
         return Data(bytes)
     }

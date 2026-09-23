@@ -1,0 +1,374 @@
+{
+  "schemaVersion": "1.0",
+  "workPackageId": "zl02-v1.13.9-identity-auth-adjustment",
+  "methodVersion": "MAIC-1.3",
+  "sourceKind": "ZL02",
+  "riskLevel": "high",
+  "objective": "Implement the approved four-level identity authentication and local app-password behavior on v1.13.9 without duplicating product authority.",
+  "repository": {
+    "implementationWorktree": "/Users/xitongzhili/Desktop/MacTransfer/08_Code/E02_ApiRelay_Github",
+    "allowedReadOnlyWorktrees": [],
+    "baselineBranch": "v1.13.9",
+    "baselineHead": "6ec5ff7c67547637bbd55f528276422395e28c03",
+    "protectedRefs": {
+      "main": "539447ea9984608c74989da48b8770cb3fe32a6c",
+      "origin/main": "539447ea9984608c74989da48b8770cb3fe32a6c",
+      "release/1.0.0": "5c5eed3f8390f51f5a26be9737bcc11f72e7d7fd"
+    },
+    "uploadTrackingRefs": [
+      "v1",
+      "origin/v1"
+    ],
+    "forbiddenBranches": []
+  },
+  "roles": {
+    "planningAuditor": "Codex",
+    "checkExecutor": "Grok",
+    "userDecides": [
+      "strategy",
+      "securityDefaults",
+      "finalPlan",
+      "upload",
+      "release"
+    ],
+    "singleWriterPerWorkspace": true,
+    "phaseOwners": {
+      "1": "Codex",
+      "2": "Grok",
+      "3": "Codex",
+      "4": "Grok",
+      "5": "Codex",
+      "6": "Grok",
+      "7": "Codex",
+      "7R": "Codex",
+      "7S": "Grok",
+      "7T": "Codex",
+      "8": "Grok",
+      "9": "Codex"
+    }
+  },
+  "paths": {
+    "allowedModify": [
+      "ApiRelay/.specify/memory/constitution.md",
+      "ApiRelay/specs/001-key-vault/spec.md",
+      "ApiRelay/specs/001-key-vault/data-model.md",
+      "ApiRelay/specs/001-key-vault/quickstart.md",
+      "ApiRelay/specs/001-key-vault/plan.md",
+      "ApiRelay/specs/001-key-vault/research.md",
+      "ApiRelay/specs/001-key-vault/tasks.md",
+      "ApiRelay/specs/001-key-vault/checklists/requirements.md",
+      "ApiRelay/specs/001-key-vault/contracts/module-interfaces.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/identity-auth/spec.md",
+      "ApiRelay/specs/playbooks/身份验证方案.md",
+      "ApiRelay/specs/playbooks/锁-加固计划.md",
+      "ApiRelay/specs/playbooks/锁-验收矩阵.md",
+      "ApiRelay/specs/playbooks/重要说明/索引.md",
+      "ApiRelay/specs/playbooks/v1-key-vault/phases/P03-保管与取出.md",
+      "ApiRelay/specs/playbooks/v1-key-vault/phases/P06-设置与备份.md",
+      "ApiRelay/specs/playbooks/v1-key-vault/phases/P07-Catalyst.md",
+      "ApiRelay/specs/playbooks/v1-key-vault/phases/P13-人工操作指南/06-TestFlight内测.md",
+      "ApiRelay/ApiRelay/Shared/DTOs/DTOs.swift",
+      "ApiRelay/ApiRelay/Shared/ApiRelayError.swift",
+      "ApiRelay/ApiRelay/Data/SwiftData/Models/UserPreferences.swift",
+      "ApiRelay/ApiRelay/Data/SwiftData/Repositories/UserPreferencesRepository.swift",
+      "ApiRelay/ApiRelay/Business/System/AppLockSession.swift",
+      "ApiRelay/ApiRelay/Business/System/DataLifecycleService.swift",
+      "ApiRelay/ApiRelay/Business/System/MasterPasswordService.swift",
+      "ApiRelay/ApiRelay/Business/System/PreferencesService.swift",
+      "ApiRelay/ApiRelay/Business/System/SecureBackupService.swift",
+      "ApiRelay/ApiRelay/Business/System/SessionLockQuerying.swift",
+      "ApiRelay/ApiRelay/Business/Vault/ConsumerToolService.swift",
+      "ApiRelay/ApiRelay/Business/Vault/KeyVaultService.swift",
+      "ApiRelay/ApiRelay/Business/Vault/KeyVaultServing.swift",
+      "ApiRelay/ApiRelay/Business/Vault/RecentlyDeletedBatchService.swift",
+      "ApiRelay/ApiRelay/Business/Vault/RevealGate.swift",
+      "ApiRelay/ApiRelay/Business/Vault/RevealGateServing.swift",
+      "ApiRelay/ApiRelay/App/AppEnvironment.swift",
+      "ApiRelay/ApiRelay/App/AppPrivacyController.swift",
+      "ApiRelay/ApiRelay/ContentView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/BackupSettingsViews.swift",
+      "ApiRelay/ApiRelay/UI/Settings/DurationSettingsViews.swift",
+      "ApiRelay/ApiRelay/UI/Settings/SettingsView.swift",
+      "ApiRelay/ApiRelay/UI/Shared/AppLockCoverView.swift",
+      "ApiRelay/ApiRelay/UI/Vault/KeyDetailView.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultHomeView.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultHomeViewModel.swift",
+      "ApiRelay/ApiRelay/Localizable.xcstrings",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeConsumerTools.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeDataLifecycle.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeKeyVault.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeMasterPassword.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakePreferences.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeRecentlyDeletedBatch.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeRevealGate.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeSecureBackup.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeSupport.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase02_Data/SwiftDataRepositoryTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase03_Vault/KeyVaultServiceTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase03_Vault/MasterPasswordServiceTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase03_Vault/RecentlyDeletedBatchTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase03_Vault/RevealGateTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/AppLockSessionTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/AppPrivacyControllerTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/CloudSyncTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/ConsumerToolSessionLockTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/DataLifecycleTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/PreferencesServiceTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/RevealGateCoordinatorTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/ScenePresenceSignalTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/SecureBackupTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/SecurityPolicyChangeTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/SecuritySettingsPersistTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/WindowPrivacyReducerTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase07_Catalyst/CatalystAdaptationTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase08_Security/SecurityReviewTests.swift",
+      "ZL01_具体说明/04-设计与规格.md",
+      "ZL01_具体说明/10-AI对话相关记录.md",
+      "ZL01_具体说明/13-上传记录.md",
+      "ZL01_具体说明/14-项目当前状态.md",
+      "ZL02_研发档案/第一阶段-密钥库/00-阶段总览.md",
+      "ApiRelay/specs/playbooks/BRANCHES.md"
+    ],
+    "allowedAdd": [
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/18-U4手机循环解锁修复.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/17-U3用户操作证据.json",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/提示词/阶段4D-Grok直接修复后独立检查.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/提示词/阶段4F-Grok集中修复独立复核.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/12-Codex范围登记与4A停止核对.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/实施波次",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/提示词/阶段4A-Codex波次审计.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/提示词/阶段4B-Grok汇总实施报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/提示词/阶段4G-Grok范围核验机制修复.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/提示词/阶段4H-Codex范围机制独立复核.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/S1-01-Grok范围机制实施报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/S1-02-Codex范围机制独立复核报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/S1-03-Grok范围机制实施报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/S1-04-Codex范围机制独立复核报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/S1-05-Codex直接修复报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/S1-06-Grok直接修复独立复核报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.9-身份验证四档与主密码调整/提示词/阶段4I-Grok直接修复独立复核.md"
+    ],
+    "allowedPrefixes": [],
+    "forbiddenPrefixes": [
+      "tools/",
+      "ApiRelay/specs/ROADMAP.md",
+      "ApiRelay/ApiRelay.xcodeproj/",
+      "ApiRelay/build/",
+      "ApiRelay/DebugScratch/",
+      "ZL00_项目总控/"
+    ],
+    "knownUntracked": [
+      "tools/",
+      "ApiRelay/ApiRelay.xcodeproj/xcshareddata/xcodecloud/manifest.json"
+    ]
+  },
+  "writerStatus": {
+    "files": [
+      "06-Grok本地实施报告.md",
+      "08-Grok整改报告.md"
+    ],
+    "runningMarker": "写入状态：未停止",
+    "stoppedMarker": "写入状态：已停止"
+  },
+  "riskReason": "Changes authentication defaults, local password behavior, synced preferences, migration, sensitive-operation gates, and app-lock behavior.",
+  "coexistingChangeRegistration": {
+    "authorization": "2026-09-15 用户授权Codex核实W5/11状态并修订范围登记，不动代码、tools或工程manifest，不提交上传。",
+    "policy": "以下方法论改动属于独立任务；仅记录归属，不放入身份验证allowedModify/allowedAdd，不放宽ZL00禁止前缀，不授予提交上传权限。检查器范围退出4仍须如实停止。",
+    "separateMethodTaskFiles": [
+      ".cursor/rules/project-governance.mdc",
+      "ZL00_项目总控/04-双AI协作与独立审计.md",
+      "ZL00_项目总控/自动化/README.md",
+      "ZL00_项目总控/自动化/check_multi_ai_workflow.py",
+      "ZL00_项目总控/自动化/task-contract.template.json",
+      "ZL00_项目总控/自动化/test_check_multi_ai_workflow.py",
+      "ZL00_项目总控/自动化/classify_small_fix.py",
+      "ZL00_项目总控/自动化/test_classify_small_fix.py",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/00-变更与验证记录.md"
+    ],
+    "unresolvedExcludedPath": "ApiRelay/ApiRelay.xcodeproj/xcshareddata/xcodecloud/manifest.json",
+    "excludedPathDisposition": "保留未跟踪、不删除、不入库；仅将精确路径登记 knownUntracked。不读正文、不修改、不暂存、不把 xcodeproj 目录前缀放行。",
+    "excludedPathDecision": "2026-09-15 用户批准：「同意S1修订的04和05，并保留manifest未跟踪、不删除、不入库。」",
+    "excludedPathMetadata": {
+      "gitStatus": "??",
+      "sizeBytes": 163,
+      "mode": "100644",
+      "birthtime": "2026-09-15 12:36:03",
+      "mtime": "2026-09-15 12:36:03",
+      "tracked": false,
+      "bodyRead": false,
+      "source": "git status --porcelain=v1、git ls-files、lstat；未读正文"
+    }
+  },
+  "quotaSplit": {
+    "broadSearchAndEdits": "Grok",
+    "scopeConflictRiskAcceptance": "Codex"
+  },
+  "requiredGates": [
+    "source",
+    "finalPlan",
+    "eachImplementationWave",
+    "migration",
+    "securityBehavior",
+    "acceptance",
+    "upload"
+  ],
+  "phaseArtifacts": {
+    "1": [
+      "01-执行计划-初稿.md",
+      "02-检查计划-初稿.md"
+    ],
+    "2": [
+      "03-Grok实施前检查报告.md"
+    ],
+    "3": [
+      "04-最终执行计划.md",
+      "05-最终检查计划.md"
+    ],
+    "4": [
+      "06-Grok本地实施报告.md"
+    ],
+    "5": [
+      "07-Codex独立审计报告.md"
+    ],
+    "6": [
+      "08-Grok整改报告.md"
+    ],
+    "7": [
+      "09-Codex最终验收报告.md"
+    ]
+  },
+  "userAuthorizationPoints": [
+    "finalPlanBeforePhase4",
+    "newSecurityDecision",
+    "uploadBeforePhase8",
+    "release"
+  ],
+  "externalInputs": [
+    {
+      "id": "identity-auth-approved-2026-09-10",
+      "source": "ApiRelay/specs/playbooks/身份验证方案.md and follow-ups/identity-auth/spec.md",
+      "observedAt": "2026-09-14",
+      "appliesToBranch": "v1.13.9",
+      "appliesToHead": "6ec5ff7c67547637bbd55f528276422395e28c03",
+      "authorityLevel": "approved-input-pending-W0",
+      "freshness": "current",
+      "undecidedItems": [],
+      "resolvedDecisions": [
+        "2026-09-14 用户批准取用验证出厂默认开启",
+        "2026-09-14 用户批准三种有验证方式互换时先用当前方式确认",
+        "2026-09-14 用户批准W0清理research、requirements、P07、P13及同类旧路牌"
+      ]
+    }
+  ],
+  "checker": {
+    "deliveryGate": {"platforms":["iOS","iPadOS","macOS"],"scenarios":["首次设置-保存-重进","已有密码-保留切换","组合-设备密码回退","组合-应用密码回退","取消及后台-不放行","管理页-输入及按钮可达"],"codeFiles":["ApiRelay/ApiRelay/Business/Vault/RevealGate.swift","ApiRelay/ApiRelay/UI/Settings/SettingsView.swift","ApiRelay/ApiRelay/App/AppEnvironment.swift","ApiRelay/ApiRelay/App/AppPrivacyController.swift","ApiRelay/ApiRelay/Business/System/MasterPasswordService.swift","ApiRelay/ApiRelay/Business/System/SessionLockQuerying.swift","ApiRelay/ApiRelay/Localizable.xcstrings"],"evidenceFile":"17-U3用户操作证据.json"},
+    "methodFile": "ZL00_项目总控/04-双AI协作与独立审计.md",
+    "contractFile": "00C-任务契约.json",
+    "promptDirectory": "提示词",
+    "genericPrompt": "通用-只检查当前阶段.md",
+    "promptsByPhase": {
+      "1": "阶段1-Codex制定初稿.md",
+      "2": "阶段2-Grok实施前检查.md",
+      "3": "阶段3-Codex确定最终计划.md",
+      "4": "阶段4-Grok执行下一波.md",
+      "5": "阶段5-Codex独立审计.md",
+      "6": "阶段6-Grok修复阻塞问题.md",
+      "7": "阶段7-Codex最终验收.md",
+      "7R": "阶段7R-Codex创建整改轮次.md",
+      "7S": "阶段7S-Grok执行轮次整改.md",
+      "7T": "阶段7T-Codex轮次复验.md",
+      "8": "阶段8-Grok提交上传.md",
+      "9": "阶段9-Codex远程复核.md"
+    },
+    "strictIdentityArtifacts": [
+      "06-Grok本地实施报告.md",
+      "07-Codex独立审计报告.md",
+      "08-Grok整改报告.md",
+      "09-Codex最终验收报告.md"
+    ],
+    "fixedConclusions": {
+      "phase5Pass": "审计通过，无阻塞问题，可以进入阶段7。",
+      "phase5Fail": "审计不通过，存在阻塞问题，不得进入阶段7或8。",
+      "phase7Pass": "验收通过，可以在用户明确授权后提交并上传 v1.13.9。",
+      "phase7Fail": "验收不通过，必须进入可重复整改轮次。",
+      "roundPass": "本轮复验通过，可以在用户明确授权后进入阶段8。",
+      "roundFail": "本轮复验不通过，必须创建下一整改轮次。"
+    },
+    "rnn": {
+      "directory": "整改轮次",
+      "namePattern": "^R[0-9]{2}$",
+      "files": [
+        "01-Codex整改定稿.md",
+        "02-Grok整改报告.md",
+        "03-Codex复验报告.md"
+      ]
+    },
+    "legacyArtifactMethodVersions": {},
+    "documentInvariants": []
+  },
+  "parallelReadOnlySnapshots": [
+    {
+      "independentTask": "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化",
+      "approvalEvidence": "2026-09-15 用户批准：「同意S1修订的04和05，并保留manifest未跟踪、不删除、不入库。」",
+      "stopReport": "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/S1-05-Codex直接修复报告.md",
+      "independentReviewReport": "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/S1-06-Grok直接修复独立复核报告.md",
+      "reviewStatus": "independently-verified",
+      "files": [
+        {
+          "path": ".cursor/rules/project-governance.mdc",
+          "gitStatus": " M",
+          "contentSha256": "0e6f3e485b3f7b090fedc41aa4e5a2df416c020febc1086060535d3e29d5c339",
+          "diffSha256": "89daedf497e7d8c98fcab68f1bf61de8c34c05058e8a07108258bafc8e51e72e"
+        },
+        {
+          "path": "ZL00_项目总控/04-双AI协作与独立审计.md",
+          "gitStatus": " M",
+          "contentSha256": "6c1598f2361877544cc63038d1e676dccbdd3723fd62ebb1f889180a2452665f",
+          "diffSha256": "a3ecaef4ff339f8bf35101fc0a096454309e8f540954fb6055cc22ad734d256c"
+        },
+        {
+          "path": "ZL00_项目总控/自动化/README.md",
+          "gitStatus": " M",
+          "contentSha256": "e6a5706d18760f0588bd9fdd7948d5474d7d9c8edc9a2d594223d9759626b929",
+          "diffSha256": "026dfbaaca8f2671e728e26b5031f58e911897ee18af337141f8cb0c0bdb7b73"
+        },
+        {
+          "path": "ZL00_项目总控/自动化/check_multi_ai_workflow.py",
+          "gitStatus": " M",
+          "contentSha256": "1f010beefd17d3fd678787b1c30040012e85e0828e4e35f624dc092064741669",
+          "diffSha256": "2bc5529d016a452194b704cdc656fa84f9350707e424eb774813856b10a85796"
+        },
+        {
+          "path": "ZL00_项目总控/自动化/task-contract.template.json",
+          "gitStatus": " M",
+          "contentSha256": "ae361d858996ee3e7ec19b8fad2f55d1ab2462391414e86d78de2fe53bd7b3d2",
+          "diffSha256": "1af42b9095edc362f89b8cb49cad7133f060ed6c555a21a387c93284862cf19f"
+        },
+        {
+          "path": "ZL00_项目总控/自动化/test_check_multi_ai_workflow.py",
+          "gitStatus": " M",
+          "contentSha256": "cdb8dbf4fffdbf2f2aec727ace305bf901e966a7121f0b0d7247e75b1e32a9da",
+          "diffSha256": "e21216ded7d71e91ab54cf52cb80994138349b220755076e5288d877342e6254"
+        },
+        {
+          "path": "ZL00_项目总控/自动化/classify_small_fix.py",
+          "gitStatus": "??",
+          "contentSha256": "b7157e39b0e3dd718ab741c9ee1ceb0241616ca687cf865b0d116b47529ce717",
+          "diffSha256": "80848fb6e896e718554e578d46178b556eb44c6d85530d2673c1c17bfe6d7c17"
+        },
+        {
+          "path": "ZL00_项目总控/自动化/test_classify_small_fix.py",
+          "gitStatus": "??",
+          "contentSha256": "f5607ab2824d5d0df55ae7f5641485b90d03e59b0fc875307c2d4a0a329788a3",
+          "diffSha256": "427864a0543d167d02eca92cc588763ae8158778572dab3a602d39b98f82dcb2"
+        },
+        {
+          "path": "ZL02_研发档案/第一阶段-密钥库/调整与优化/多AI协作-轻量直修分流优化/00-变更与验证记录.md",
+          "gitStatus": "??",
+          "contentSha256": "ff51fb37a5bbdc7d968724dc5ed4752d334c8de4b89e4e7d427c6f7c7b19cdc7",
+          "diffSha256": "bc821a168a3a846557b3073be3571966b7db4f759760351f31587b326ff08112"
+        }
+      ]
+    }
+  ]
+}

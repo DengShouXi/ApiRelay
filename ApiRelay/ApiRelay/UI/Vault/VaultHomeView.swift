@@ -48,7 +48,7 @@ struct VaultHomeView: View {
     @State private var showAddKeyFor: UpstreamAccountDTO?
     @State private var showPaywall = false
     @State private var showAccountPlaceholder = false
-    @State private var revealedSecret: String?
+    @State private var revealedSecret: SecretRevealResult?
     @State private var masterPasswordInput = ""
     @State private var pendingRevealKeyId: UUID?
     @State private var pendingCopyKeyId: UUID?
@@ -64,6 +64,7 @@ struct VaultHomeView: View {
     @State private var collapsedSectionIds: Set<String> = []
     @State private var pendingDeleteAccountId: UUID?
     @State private var pendingDeleteToolId: UUID?
+    @State private var pendingDeleteKeyId: UUID?
     /// 分区「⋯」→ 编辑上游账号（平台 / 显示名）。
     @State private var editAccountId: UUID?
     /// 分区「⋯」→ 重命名使用方。
@@ -91,6 +92,7 @@ struct VaultHomeView: View {
     @SceneStorage("vault.macSidebarWidth") private var storedSidebarWidth = 200.0
     @SceneStorage("vault.macContentWidth") private var storedContentWidth = 340.0
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     /// 侧栏身份块下方那一行；未取到状态时显示「账号」。
     @State private var sidebarCloudAccount: CloudAccountState = .unknown
 
@@ -131,6 +133,14 @@ struct VaultHomeView: View {
         trashVisibleItems = []
     }
 
+    private func abandonPasswordPromptForSceneExit() {
+        viewModel.abandonCombinationPending()
+        masterPasswordInput = ""
+        pendingRevealKeyId = nil
+        pendingCopyKeyId = nil
+        showMasterPrompt = false
+    }
+
     var body: some View {
         Group {
             if usesSidebarNavigation {
@@ -144,6 +154,7 @@ struct VaultHomeView: View {
             selectedTab = tab(for: viewModel.groupingMode)
         }
         .onChange(of: selectedTab) { _, tab in
+            viewModel.abandonCombinationPending()
             selectedKeyId = nil
             selectedTrashItem = nil
             resetTrashSelectMode()
@@ -154,6 +165,18 @@ struct VaultHomeView: View {
                 trashHasItems = nil
             }
             Task { await applyTab(tab) }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                viewModel.invalidateRevealReuseLeaveForeground()
+                revealedSecret = nil
+            }
+            if phase == .inactive && viewModel.environment.gate.isAuthenticationInProgress() {
+                return
+            }
+            if phase != .active {
+                abandonPasswordPromptForSceneExit()
+            }
         }
         .onChange(of: viewModel.allKeys.map(\.id)) { _, ids in
             if let selectedKeyId, !ids.contains(selectedKeyId) {
@@ -203,11 +226,26 @@ struct VaultHomeView: View {
             }
             .settingsTaskSheet()
         }
+        .onChange(of: viewModel.presentMasterPasswordPrompt) { _, present in
+            if present {
+                showMasterPrompt = true
+                viewModel.presentMasterPasswordPrompt = false
+            }
+        }
+        .onReceive(viewModel.environment.appPrivacy.$session) { session in
+            if session.isSessionLocked {
+                viewModel.handleSessionLocked()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesDidPersist)) { _ in
+            viewModel.invalidateRevealReuseForSecuritySettingsChange()
+        }
         .modifier(VaultHomeAlertsModifier(
             viewModel: viewModel,
             showPaywall: $showPaywall,
             pendingDeleteAccountId: $pendingDeleteAccountId,
-            pendingDeleteToolId: $pendingDeleteToolId
+            pendingDeleteToolId: $pendingDeleteToolId,
+            pendingDeleteKeyId: $pendingDeleteKeyId
         ))
         .modifier(VaultHomeSheetsModifier(
             viewModel: viewModel,
@@ -354,10 +392,15 @@ struct VaultHomeView: View {
                 revealedSecret = nil
             }
         }
-        .onChange(of: selectedKeyId) { _, _ in
+        .onChange(of: selectedKeyId) { old, new in
             revealedSecret = nil
             keyDetailIsEditing = false
             keyDetailChromeCommand = .none
+            if old != nil, new == nil {
+                viewModel.invalidateRevealReuseCloseDetail()
+            } else if let old, let new, old != new {
+                viewModel.invalidateRevealReuseSwitchKey()
+            }
         }
         .background { keySelectionShortcuts }
     }
@@ -600,16 +643,14 @@ struct VaultHomeView: View {
                     Task { await viewModel.unassign(keyId: keyId, toolId: toolId) }
                 },
                 onDelete: { id in
-                    Task {
-                        await viewModel.deleteKey(id)
-                        self.selectedKeyId = nil
-                    }
+                    pendingDeleteKeyId = id
                 },
                 onRequestMasterPassword: { id in Task { await beginReveal(id) } },
                 revealedSecret: $revealedSecret,
                 chromeCommand: $keyDetailChromeCommand,
                 onEditingChanged: { keyDetailIsEditing = $0 }
             )
+            .id(selectedKeyId)
         } else {
             ContentUnavailableView(
                 "vault.detail.pick.title",
@@ -1456,13 +1497,14 @@ struct VaultHomeView: View {
                                 Task { await viewModel.unassign(keyId: keyId, toolId: toolId) }
                             },
                             onDelete: { id in
-                                Task { await viewModel.deleteKey(id) }
+                                pendingDeleteKeyId = id
                             },
                             onRequestMasterPassword: { id in Task { await beginReveal(id) } },
                             revealedSecret: $revealedSecret,
                             chromeCommand: $keyDetailChromeCommand,
                             onEditingChanged: { keyDetailIsEditing = $0 }
                         )
+                        .id(key.id)
                     } label: {
                         keyRowLabel(key, caption: caption)
                     }
@@ -1492,7 +1534,7 @@ struct VaultHomeView: View {
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if allowDelete {
                 Button("vault.delete", role: .destructive) {
-                    Task { await viewModel.deleteKey(key.id) }
+                    pendingDeleteKeyId = key.id
                 }
             }
         }
@@ -1508,7 +1550,7 @@ struct VaultHomeView: View {
             if allowDelete {
                 Divider()
                 Button("vault.delete", role: .destructive) {
-                    Task { await viewModel.deleteKey(key.id) }
+                    pendingDeleteKeyId = key.id
                 }
             }
         }
@@ -1616,11 +1658,13 @@ struct VaultHomeView: View {
     }
 
     private func beginReveal(_ id: UUID) async {
-        if let secret = await viewModel.revealReturning(keyId: id, masterPassword: nil) {
-            revealedSecret = secret
+        if let result = await viewModel.revealReturning(keyId: id, masterPassword: nil) {
+            revealedSecret = result
         } else if viewModel.needsMasterPassword {
             pendingRevealKeyId = id
             showMasterPrompt = true
+        } else if viewModel.offerCombinationAppPassword || viewModel.hasPendingSensitiveRetry {
+            pendingRevealKeyId = id
         }
     }
 
@@ -1629,6 +1673,8 @@ struct VaultHomeView: View {
         if !ok && viewModel.needsMasterPassword {
             pendingCopyKeyId = id
             showMasterPrompt = true
+        } else if !ok && (viewModel.offerCombinationAppPassword || viewModel.hasPendingSensitiveRetry) {
+            pendingCopyKeyId = id
         }
     }
 
@@ -1728,14 +1774,28 @@ private struct VaultHomeAlertsModifier: ViewModifier {
     @Binding var showPaywall: Bool
     @Binding var pendingDeleteAccountId: UUID?
     @Binding var pendingDeleteToolId: UUID?
+    @Binding var pendingDeleteKeyId: UUID?
 
     func body(content: Content) -> some View {
         content
             .alert("vault.error.title", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
-                set: { if !$0 { viewModel.errorMessage = nil } }
+                set: {
+                    if !$0 {
+                        viewModel.errorMessage = nil
+                        viewModel.clearOrdinaryAppPasswordRecoveryOffer()
+                    }
+                }
             )) {
-                Button("gate.cancel", role: .cancel) { viewModel.errorMessage = nil }
+                if viewModel.ordinaryAppPasswordNeedsIndependentRecovery {
+                    Button("settings.appPassword.recover") {
+                        Task { await viewModel.recoverIndependentAppPasswordFromOrdinaryEntry() }
+                    }
+                }
+                Button("gate.cancel", role: .cancel) {
+                    viewModel.errorMessage = nil
+                    viewModel.clearOrdinaryAppPasswordRecoveryOffer()
+                }
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
@@ -1760,6 +1820,20 @@ private struct VaultHomeAlertsModifier: ViewModifier {
                 Button("gate.cancel", role: .cancel) {}
             } message: {
                 Text("vault.quota.exceeded.body")
+            }
+            .overlay(alignment: .bottom) {
+                if CombinationExplicitAuth.shouldShowExplicitEntry(
+                    hasBoundOperation: viewModel.hasPendingSensitiveRetry,
+                    policy: viewModel.environment.appPrivacy.session.preferences.revealPolicy
+                ) {
+                    Button("appLock.useAppPassword") {
+                        Task { await viewModel.beginCombinationAppPasswordEntry() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.bottom, 8)
+                    .accessibilityLabel(Text("appLock.useAppPassword"))
+                    .accessibilityHint(Text("appLock.combination.hint"))
+                }
             }
             .confirmationDialog(
                 "vault.account.delete.confirm",
@@ -1793,6 +1867,22 @@ private struct VaultHomeAlertsModifier: ViewModifier {
                 }
                 Button("gate.cancel", role: .cancel) { pendingDeleteToolId = nil }
             }
+            .confirmationDialog(
+                "vault.delete",
+                isPresented: Binding(
+                    get: { pendingDeleteKeyId != nil },
+                    set: { if !$0 { pendingDeleteKeyId = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("vault.delete", role: .destructive) {
+                    if let id = pendingDeleteKeyId {
+                        pendingDeleteKeyId = nil
+                        Task { await viewModel.deleteKey(id) }
+                    }
+                }
+                Button("gate.cancel", role: .cancel) { pendingDeleteKeyId = nil }
+            }
     }
 }
 
@@ -1813,7 +1903,7 @@ private struct VaultHomeSheetsModifier: ViewModifier {
     @Binding var masterPasswordInput: String
     @Binding var pendingRevealKeyId: UUID?
     @Binding var pendingCopyKeyId: UUID?
-    @Binding var revealedSecret: String?
+    @Binding var revealedSecret: SecretRevealResult?
 
     private var assignKeySheet: Binding<AssignKeySheetTarget?> {
         Binding(
@@ -1960,20 +2050,33 @@ private struct VaultHomeSheetsModifier: ViewModifier {
                     await viewModel.requestSyncNow()
                 }
             }
-            .sheet(isPresented: $showMasterPrompt) {
-                MasterPasswordPrompt(password: $masterPasswordInput) {
-                    showMasterPrompt = false
+            .sheet(isPresented: $showMasterPrompt, onDismiss: {
+                viewModel.cancelMasterPasswordPrompt()
+                masterPasswordInput = ""
+                pendingRevealKeyId = nil
+                pendingCopyKeyId = nil
+            }) {
+                MasterPasswordPrompt(
+                    password: $masterPasswordInput,
+                    title: viewModel.usesCombinationPolicy ? "appLock.useAppPassword" : "vault.masterPassword.title",
+                    hint: viewModel.usesCombinationPolicy ? "appLock.combination.hint" : "vault.masterPassword.disclosure"
+                ) {
                     let pwd = masterPasswordInput
                     masterPasswordInput = ""
-                    if let id = pendingRevealKeyId {
+                    if viewModel.hasPendingSensitiveRetry {
+                        await viewModel.submitMasterPassword(pwd)
+                    } else if let id = pendingRevealKeyId {
                         pendingRevealKeyId = nil
-                        if let secret = await viewModel.revealReturning(keyId: id, masterPassword: pwd) {
-                            revealedSecret = secret
+                        if let result = await viewModel.revealReturning(keyId: id, masterPassword: pwd) {
+                            revealedSecret = result
                         }
                     } else if let id = pendingCopyKeyId {
                         pendingCopyKeyId = nil
                         await viewModel.copy(keyId: id, masterPassword: pwd)
+                    } else {
+                        await viewModel.submitMasterPassword(pwd)
                     }
+                    showMasterPrompt = false
                 }
             }
     }
@@ -2928,6 +3031,8 @@ private struct AddKeySheet: View {
 
 private struct MasterPasswordPrompt: View {
     @Binding var password: String
+    var title: LocalizedStringKey = "vault.masterPassword.title"
+    var hint: LocalizedStringKey = "vault.masterPassword.disclosure"
     let onConfirm: () async -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -2935,11 +3040,12 @@ private struct MasterPasswordPrompt: View {
         NavigationStack {
             Form {
                 SecureField("vault.masterPassword", text: $password)
-                Text("vault.masterPassword.disclosure")
+                    .sensitivePasswordInput()
+                Text(hint)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            .navigationTitle("vault.masterPassword.title")
+            .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("gate.cancel") { dismiss() }
@@ -3295,6 +3401,7 @@ private struct RecentlyDeletedView: View {
     /// 搜索栏靠 `navigationBarDrawer(displayMode: .always)` 常驻在标题下方（与密钥页一致）。
     @State private var isSearchPresented = false
     @State private var confirmPermanentBatch = false
+    @State private var pendingSinglePermanent: TrashSelection?
     @State private var batchBusy = false
 
     private var usesSplitSelection: Bool { selection != nil && !isSelecting }
@@ -3451,6 +3558,24 @@ private struct RecentlyDeletedView: View {
             } message: {
                 Text("vault.trash.batch.confirmDelete \(actionSelection.itemCount)")
             }
+            .confirmationDialog(
+                "vault.trash.batch.confirmDelete.title",
+                isPresented: Binding(
+                    get: { pendingSinglePermanent != nil },
+                    set: { if !$0 { pendingSinglePermanent = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("vault.delete.forever", role: .destructive) {
+                    if let item = pendingSinglePermanent {
+                        pendingSinglePermanent = nil
+                        Task { await runSinglePermanent(item) }
+                    }
+                }
+                Button("gate.cancel", role: .cancel) { pendingSinglePermanent = nil }
+            } message: {
+                Text("vault.trash.batch.confirmDelete \(1)")
+            }
             .task { await reload() }
             .onAppear { Task { await reload() } }
             .onChange(of: searchText) { _, _ in
@@ -3523,7 +3648,7 @@ private struct RecentlyDeletedView: View {
                             deletedAt: key.deletedAt,
                             purgeAfter: key.purgeAfter,
                             onRestore: { await vault.restoreKey(key.id) },
-                            onPermanent: { await vault.permanentlyDeleteKey(key.id) }
+                            onPermanent: { pendingSinglePermanent = .key(key.id) }
                         )
                     }
                 }
@@ -3538,7 +3663,7 @@ private struct RecentlyDeletedView: View {
                             deletedAt: account.deletedAt,
                             purgeAfter: account.purgeAfter,
                             onRestore: { await vault.restoreAccount(account.id) },
-                            onPermanent: { await vault.permanentlyDeleteAccount(account.id) }
+                            onPermanent: { pendingSinglePermanent = .account(account.id) }
                         )
                     }
                 }
@@ -3552,7 +3677,7 @@ private struct RecentlyDeletedView: View {
                             deletedAt: tool.deletedAt,
                             purgeAfter: tool.purgeAfter,
                             onRestore: { await vault.restoreTool(tool.id) },
-                            onPermanent: { await vault.permanentlyDeleteTool(tool.id) }
+                            onPermanent: { pendingSinglePermanent = .tool(tool.id) }
                         )
                     }
                 }
@@ -3803,6 +3928,17 @@ private struct RecentlyDeletedView: View {
         await reload()
     }
 
+    private func runSinglePermanent(_ item: TrashSelection) async {
+        switch item {
+        case .key(let id):
+            await runAction { await vault.permanentlyDeleteKey(id) }
+        case .account(let id):
+            await runAction { await vault.permanentlyDeleteAccount(id) }
+        case .tool(let id):
+            await runAction { await vault.permanentlyDeleteTool(id) }
+        }
+    }
+
     private var trashBatchBottomBar: some View {
         HStack(spacing: 12) {
             Text("vault.trash.batch.selected \(actionSelection.itemCount)")
@@ -3956,6 +4092,7 @@ private struct RecentlyDeletedView: View {
                 await reload()
             }
         case .failure(let error):
+            if vault.hasPendingSensitiveRetry { return }
             actionError = error.localizedDescription
         }
     }
@@ -4138,6 +4275,7 @@ private struct RecentlyDeletedBatchDetailView: View {
                 onFinished(true)
             }
         case .failure(let error):
+            if vault.hasPendingSensitiveRetry { return }
             actionError = error.localizedDescription
         }
     }
@@ -4155,6 +4293,7 @@ private struct RecentlyDeletedDetailHost: View {
     @State private var isLoading = true
     @State private var loadError: String?
     @State private var actionError: String?
+    @State private var confirmPermanent = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -4170,7 +4309,7 @@ private struct RecentlyDeletedDetailHost: View {
                         }
                         .buttonStyle(.plain)
                         Button("vault.delete.forever", role: .destructive) {
-                            Task { await runAction(model.permanent) }
+                            confirmPermanent = true
                         }
                         .buttonStyle(.plain)
                     }
@@ -4203,6 +4342,20 @@ private struct RecentlyDeletedDetailHost: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task(id: selection) { await reload() }
+        .confirmationDialog(
+            "vault.trash.batch.confirmDelete.title",
+            isPresented: $confirmPermanent,
+            titleVisibility: .visible
+        ) {
+            Button("vault.delete.forever", role: .destructive) {
+                if let model = resolvedModel {
+                    Task { await runAction(model.permanent) }
+                }
+            }
+            Button("gate.cancel", role: .cancel) {}
+        } message: {
+            Text("vault.trash.batch.confirmDelete \(1)")
+        }
         .alert("vault.error.title", isPresented: Binding(
             get: { actionError != nil },
             set: { if !$0 { actionError = nil } }
@@ -4290,7 +4443,7 @@ private struct RecentlyDeletedDetailHost: View {
     }
 }
 
-private extension Notification.Name {
+extension Notification.Name {
     static let trashBundleDidChange = Notification.Name("ApiRelay.trashBundleDidChange")
 }
 

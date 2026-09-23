@@ -5,10 +5,15 @@ struct AppLockPreferences: Equatable, Sendable {
     var appLockEnabled: Bool
     var autoLockSeconds: Int
     var hideInAppSwitcher: Bool
-    /// App 锁跟「取出明文」同一套验证方式；`.noVerification` 时仍走设备主人验证，避免开关空转。
+    /// App 锁跟「取出明文」同一套验证方式。`.noVerification` 时自动锁设置仍保存，但不上锁、不画软件锁。
     var revealPolicy: RevealPolicy = .noVerification
 
-    /// 与 `UserPreferences` 模型默认值一致。
+    /// 自动锁开关已开，且当前验证方式不是「不验证」。
+    var isAppLockArmed: Bool {
+        appLockEnabled && revealPolicy != .noVerification
+    }
+
+    /// 与产品建模默认值一致：未读到偏好前不得伪造验证方式。未开锁、不验证都直接进列表。
     static let defaults = AppLockPreferences(
         appLockEnabled: false,
         autoLockSeconds: 60,
@@ -47,13 +52,12 @@ struct AppLockPreferences: Equatable, Sendable {
 /// iOS 冷启动会先 inactive；进前台后 1 秒内的 inactive 也不是「去了切换器」。
 /// 本机缓存只回答「上次是不是开着 App 锁」，且不得伪造验证方式。
 ///
-/// 自动锁定只在设置里打开「自动锁定」时生效（`appLockEnabled`）。
+/// 自动锁定只在设置里打开「自动锁定」且验证方式不是「不验证」时生效。
 ///
 /// 遮罩、上锁、系统验证是三件事，不要焊在同一次 inactive 上：
 /// - `noteWillResignActive` 只盖多任务遮罩（系统此时拍缩略图）。
-/// - `noteDidEnterBackground` 才开始自动锁计时；「立即」也在这里静默上锁。
-///   调用方 MUST 先确认窗口已离开当前空间。台前同一组里的其它软件仍能看到本窗时，
-///   Catalyst 误发的 background 不得传进来。
+/// - iPhone/iPad 在真正 `noteDidEnterBackground` 后开始计时；桌面端把整个应用 resign
+///   视为离开并立即补发该事件，因为切到其它 App 时窗口可能仍留在屏上。
 /// - 回到前台后由调用方决定是否弹出系统验证。Mac 默认不自动弹，避免盖到别的软件上。
 ///
 /// 自动锁计时以**第一次真正进后台**为准。控制中心 / 触控 ID 框只有 resign、
@@ -87,9 +91,11 @@ struct AppLockSession: Equatable, Sendable {
         )
     }
 
-    /// 软件锁挡住列表。多任务遮罩不走这里——那会把冷启动画成一张白屏。
+    /// Authoritative security preferences must be loaded before any vault
+    /// content is rendered. The unready state uses a neutral privacy barrier,
+    /// not a lock icon or an invented authentication policy.
     var blocksContent: Bool {
-        isSessionLocked || showsSnapshotCover
+        !isPreferencesReady || isSessionLocked || showsSnapshotCover
     }
 
     /// 软件锁界面（白底锁 / 解锁）。没开 App 锁时必须为 false。
@@ -110,11 +116,11 @@ struct AppLockSession: Equatable, Sendable {
         isPreferencesReady && isSessionLocked && !isInactive
     }
 
-    /// 冷启动：App 锁开着则先锁，避免首帧闪出列表。
+    /// 冷启动：已武装的 App 锁先挡住列表；不验证即使开关开着也直接进内容。
     mutating func completeColdStart(with prefs: AppLockPreferences) {
         preferences = normalized(prefs)
         isPreferencesReady = true
-        isSessionLocked = preferences.appLockEnabled
+        isSessionLocked = preferences.isAppLockArmed
     }
 
     /// 本机记得上次开着 App 锁：立刻挡列表，但验证方式仍等 `start()`。
@@ -122,11 +128,11 @@ struct AppLockSession: Equatable, Sendable {
         isSessionLocked = true
     }
 
-    /// 设置页改开关：关 App 锁立即解锁；打开不立刻锁，等下次离开/冷启动。
+    /// 设置页改开关：关掉或改成不验证立即解锁；打开/换回验证档不立刻锁，等下次离开/冷启动。
     mutating func applyLivePreferences(_ prefs: AppLockPreferences) {
         preferences = normalized(prefs)
         isPreferencesReady = true
-        if !preferences.appLockEnabled {
+        if !preferences.isAppLockArmed {
             isSessionLocked = false
         }
     }
@@ -146,8 +152,8 @@ struct AppLockSession: Equatable, Sendable {
         isInactive = true
     }
 
-    /// 应用已进后台：开始自动锁计时；「立即」在这里静默锁会话。
-    /// 调用方 MUST 只在窗口已离开当前空间时调用。台前同一组点别的软件不是后台。
+    /// 应用已离开：开始自动锁计时；「立即」在这里静默锁会话。
+    /// iPhone/iPad 调用方只在窗口离开当前空间时调用；桌面端应用失焦即算离开。
     mutating func noteDidEnterBackground(now: Date, uptime: TimeInterval? = nil) {
         guard hasBecomeActiveOnce else { return }
         isInactive = true
@@ -158,7 +164,7 @@ struct AppLockSession: Equatable, Sendable {
             lastLeftActiveAt = now
             lastLeftMonotonic = mark
         }
-        if preferences.appLockEnabled && preferences.autoLockSeconds <= 0 {
+        if preferences.isAppLockArmed && preferences.autoLockSeconds <= 0 {
             isSessionLocked = true
         }
     }
@@ -166,7 +172,7 @@ struct AppLockSession: Equatable, Sendable {
     /// 必须在 `noteDidBecomeActive` 之前调用，避免先揭开列表再上锁。
     mutating func noteWillEnterForeground(now: Date, uptime: TimeInterval? = nil) {
         guard isPreferencesReady else { return }
-        guard preferences.appLockEnabled else {
+        guard preferences.isAppLockArmed else {
             isSessionLocked = false
             return
         }
@@ -216,8 +222,8 @@ struct AppLockSession: Equatable, Sendable {
     }
 }
 
-/// 本 App 的窗口相对于当前空间的关系。台前调度同一组里点别的软件时，
-/// 窗仍在屏上（`.onScreenIdle`），那不是离开，也不得弹系统验证。
+/// 本 App 的窗口相对于当前空间的关系。iPad 台前调度同一组里点别的软件时，
+/// 窗仍在屏上（`.onScreenIdle`），不是离开；桌面端另以整个应用是否 active 判定离开。
 ///
 /// iPadOS 26 起同组里的窗可以一直保持 `foregroundActive`。这时「人没在用我们」
 /// 要靠本窗不是 Key、外观是闲置来认，不能再只看 scene 是否 Active。
@@ -235,7 +241,8 @@ enum AppLockScenePresence: Equatable, Sendable {
 enum AppLockLaunchCache: Sendable {
     nonisolated static let defaultsKey = "ApiRelay.appLock.enabled"
 
-    /// `nil` = 从未写过（升级前的安装）。此时不得当成已开锁，也不要先画锁图标。
+    /// `nil` = 从未写过（升级前的安装）。`false` 也只是启动提示，不能在
+    /// authoritative SwiftData/Cloud 偏好读完前用来放行保险库首帧。
     nonisolated static func read() -> Bool? {
         let defaults = AppRuntime.userDefaultsForCurrentRuntime()
         guard defaults.object(forKey: defaultsKey) != nil else { return nil }

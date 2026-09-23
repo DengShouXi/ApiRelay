@@ -20,6 +20,9 @@ struct DurationFeatureSettingsView: View {
             SettingsCard {
                 enabledToggle
             }
+            if kind == .autoLock, prefs.revealPolicy == .noVerification, prefs.appLockEnabled {
+                SettingsFooterNote(text: "settings.pausedWhileNoVerification")
+            }
 
             SettingsCard {
                 if options.isEmpty {

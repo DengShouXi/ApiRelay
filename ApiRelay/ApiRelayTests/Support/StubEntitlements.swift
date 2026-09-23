@@ -35,6 +35,12 @@ actor StubEntitlements: EntitlementServing {
 
     func purgeLocalSnapshotForErase() async throws {}
 
+    func purgeLocalSnapshotForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws {
+        try authorization.validate(operation: "stub_entitlement_committed_erase")
+    }
+
     #if DEBUG
     func debugOverride(tier: EntitlementTier?) async throws {
         self.tier = tier ?? .free

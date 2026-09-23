@@ -195,6 +195,31 @@ final class ScenePresenceSignalTests: XCTestCase {
                 activeAppearanceIsActive: false
             ),
             expected: .onScreenIdle
+        ),
+        Row(
+            name: "Mac 切到其它 App：scene 仍 Active 但 application inactive → 离屏",
+            signals: .known(
+                sceneIsForegroundActive: true,
+                sceneIsForegroundInactive: false,
+                applicationIsActive: false,
+                isKeyWindow: false,
+                activeAppearanceIsActive: false,
+                applicationInactivityMeansOffScreen: true
+            ),
+            expected: .offScreen
+        ),
+        Row(
+            name: "Mac Touch ID：application inactive 但验证仍在进行 → 仍 A",
+            signals: .known(
+                sceneIsForegroundActive: true,
+                sceneIsForegroundInactive: false,
+                applicationIsActive: false,
+                isKeyWindow: false,
+                activeAppearanceIsActive: false,
+                authenticationInProgress: true,
+                applicationInactivityMeansOffScreen: true
+            ),
+            expected: .userFacing
         )
     ]
 }

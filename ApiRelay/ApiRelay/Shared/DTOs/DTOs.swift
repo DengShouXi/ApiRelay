@@ -154,6 +154,8 @@ struct PreferencesDTO: Sendable {
     var autoLockSeconds: Int
     var autoLockDurationOptions: [Int]
     var revealPolicy: RevealPolicy
+    /// 取用验证。缺字段 / 新建默认 true。查看与复制共用，不得拆成两个开关。
+    var revealAuthEnabled: Bool = true
     var clipboardClearEnabled: Bool
     var clipboardClearSeconds: Int
     var clipboardClearDurationOptions: [Int]
@@ -191,7 +193,8 @@ struct PreferencesDTO: Sendable {
         if let v = patch.appLockEnabled { next.appLockEnabled = v }
         if let v = patch.autoLockSeconds { next.autoLockSeconds = v }
         if let v = patch.autoLockDurationOptions { next.autoLockDurationOptions = v }
-        if let v = patch.revealPolicy { next.revealPolicy = v }
+        if let v = patch.revealPolicy { next.revealPolicy = RevealPolicyPersistence.canonical(v) }
+        if let v = patch.revealAuthEnabled { next.revealAuthEnabled = v }
         if let v = patch.clipboardClearEnabled { next.clipboardClearEnabled = v }
         if let v = patch.clipboardClearSeconds { next.clipboardClearSeconds = v }
         if let v = patch.clipboardClearDurationOptions { next.clipboardClearDurationOptions = v }
@@ -289,6 +292,7 @@ struct PreferencesPatch: Sendable {
     var autoLockSeconds: Int? = nil
     var autoLockDurationOptions: [Int]? = nil
     var revealPolicy: RevealPolicy? = nil
+    var revealAuthEnabled: Bool? = nil
     var clipboardClearEnabled: Bool? = nil
     var clipboardClearSeconds: Int? = nil
     var clipboardClearDurationOptions: [Int]? = nil
@@ -320,6 +324,7 @@ struct PreferencesPatch: Sendable {
             || autoLockSeconds != nil
             || autoLockDurationOptions != nil
             || revealPolicy != nil
+            || revealAuthEnabled != nil
             || clipboardClearEnabled != nil
             || clipboardClearSeconds != nil
             || clipboardClearDurationOptions != nil
@@ -354,11 +359,97 @@ struct PreferencesPatch: Sendable {
 // MARK: - 门闩与剪贴板
 
 enum RevealPolicy: String, Sendable, CaseIterable {
-    case biometricOrPasscode   // LAPolicy.deviceOwnerAuthentication
-    case biometricOnly         // LAPolicy.deviceOwnerAuthenticationWithBiometrics
-    case masterPassword        // 应用层主密码（FR-003 / FR-038）
-    /// 不验证（默认）。rawValue 固定为 `none`，兼容已写入 SwiftData / CloudKit 的旧值。
+    case biometricOrPasscode   // 设备验证（出厂默认）；LAPolicy.deviceOwnerAuthentication
+    case masterPassword        // 应用密码（FR-003 / FR-038）
+    /// 生物验证或应用密码。MUST NOT 复用旧 raw 字符串 `biometricOnly`。
+    case biometryOrAppPassword
+    /// 不验证。rawValue 固定为 `none`，兼容已写入 SwiftData / CloudKit 的旧值。不是出厂默认。
     case noVerification = "none"
+
+    /// 13.9 四档合同。旧 `biometricOnly` 只在解码层识别，不是运行时 case。
+    nonisolated static var selectableCases: [RevealPolicy] {
+        [.biometricOrPasscode, .masterPassword, .biometryOrAppPassword, .noVerification]
+    }
+
+    nonisolated var requiresAuthentication: Bool {
+        self != .noVerification
+    }
+}
+
+/// 持久 rawValue 的显式解码：旧值、未知值、规范值。
+enum RevealPolicyPersistence: Sendable {
+    /// 旧「仅生物识别」存储值。只在这里识别，MUST NOT 回到 `RevealPolicy`。
+    nonisolated static let legacyBiometricOnlyRawValue = "biometricOnly"
+
+    struct Resolution: Equatable, Sendable {
+        var policy: RevealPolicy
+        /// 需要写回商店的规范 rawValue。`nil` 表示存储已是规范值，不要改。
+        var persistRawValue: String?
+        var wasUnknown: Bool
+    }
+
+    nonisolated static func canonical(_ policy: RevealPolicy) -> RevealPolicy {
+        policy
+    }
+
+    nonisolated static func resolve(_ raw: String) -> Resolution {
+        switch raw {
+        case RevealPolicy.noVerification.rawValue:
+            return Resolution(policy: .noVerification, persistRawValue: nil, wasUnknown: false)
+        case RevealPolicy.biometricOrPasscode.rawValue:
+            return Resolution(policy: .biometricOrPasscode, persistRawValue: nil, wasUnknown: false)
+        case legacyBiometricOnlyRawValue:
+            return Resolution(
+                policy: .biometricOrPasscode,
+                persistRawValue: RevealPolicy.biometricOrPasscode.rawValue,
+                wasUnknown: false
+            )
+        case RevealPolicy.masterPassword.rawValue:
+            return Resolution(policy: .masterPassword, persistRawValue: nil, wasUnknown: false)
+        case RevealPolicy.biometryOrAppPassword.rawValue:
+            return Resolution(policy: .biometryOrAppPassword, persistRawValue: nil, wasUnknown: false)
+        default:
+            return Resolution(
+                policy: .biometricOrPasscode,
+                persistRawValue: RevealPolicy.biometricOrPasscode.rawValue,
+                wasUnknown: true
+            )
+        }
+    }
+}
+
+/// 规范化写回。`save` 失败时调用方看到的仍是原 rawValue；运行时策略仍 fail-closed。
+enum RevealPolicyCanonicalPersist: Sendable {
+    struct Attempt: Equatable, Sendable {
+        var storedRawValues: [String]
+        var didPersist: Bool
+        var runtimePolicies: [RevealPolicy]
+    }
+
+    nonisolated static func persistIfNeeded(
+        storedRawValues: [String],
+        save: ([String]) throws -> Void
+    ) -> Attempt {
+        let resolved = storedRawValues.map(RevealPolicyPersistence.resolve)
+        let runtime = resolved.map(\.policy)
+        var next = storedRawValues
+        var didWrite = false
+        for index in next.indices {
+            if let raw = resolved[index].persistRawValue, raw != next[index] {
+                next[index] = raw
+                didWrite = true
+            }
+        }
+        guard didWrite else {
+            return Attempt(storedRawValues: storedRawValues, didPersist: false, runtimePolicies: runtime)
+        }
+        do {
+            try save(next)
+            return Attempt(storedRawValues: next, didPersist: true, runtimePolicies: runtime)
+        } catch {
+            return Attempt(storedRawValues: storedRawValues, didPersist: false, runtimePolicies: runtime)
+        }
+    }
 }
 
 enum BiometryKind: Sendable {

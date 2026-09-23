@@ -1,6 +1,31 @@
 import Foundation
 import SwiftData
 
+/// 仅供业务层补偿事务使用的完整持久化快照；不向 UI 暴露。
+nonisolated struct APIKeyRecordStorageSnapshot: Sendable {
+    let id: UUID
+    let accountId: UUID
+    let displayName: String
+    let maskedHint: String?
+    let origin: KeyOrigin
+    let providerKeyRef: String?
+    let lifecycle: KeyLifecycle
+    let spendLimit: Decimal?
+    let notes: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let deletedAt: Date?
+    let purgeAfter: Date?
+    let lastVerifiedAt: Date?
+    let healthState: KeyHealthState
+    let lastCheckedAt: Date?
+    let lastCheckNote: String?
+    let secretLength: Int?
+    let sortOrder: Int
+    let avatarSymbol: String?
+    let avatarColor: String?
+}
+
 @ModelActor
 actor APIKeyRecordRepository {
     func fetch(
@@ -29,6 +54,89 @@ actor APIKeyRecordRepository {
         return try map(model)
     }
 
+    func storageSnapshot(id: UUID) throws -> APIKeyRecordStorageSnapshot? {
+        guard let model = SyncedIdentity.winner(in: try fetchModels(id: id), rank: Self.rank) else {
+            return nil
+        }
+        return APIKeyRecordStorageSnapshot(
+            id: model.id,
+            accountId: model.accountId,
+            displayName: model.displayName,
+            maskedHint: model.maskedHint,
+            origin: KeyOrigin(rawValue: model.origin) ?? .manualEntry,
+            providerKeyRef: model.providerKeyRef,
+            lifecycle: KeyLifecycle(rawValue: model.lifecycle) ?? .active,
+            spendLimit: model.spendLimit,
+            notes: model.notes,
+            createdAt: model.createdAt,
+            updatedAt: model.updatedAt,
+            deletedAt: model.deletedAt,
+            purgeAfter: model.purgeAfter,
+            lastVerifiedAt: model.lastVerifiedAt,
+            healthState: KeyHealthState(rawValue: model.healthState) ?? .unknown,
+            lastCheckedAt: model.lastCheckedAt,
+            lastCheckNote: model.lastCheckNote,
+            secretLength: model.secretLength,
+            sortOrder: model.sortOrder,
+            avatarSymbol: model.avatarSymbol,
+            avatarColor: model.avatarColor
+        )
+    }
+
+    /// 补偿专用：存在则原样覆盖，不存在则以原 id 重建；一次 save 恢复全部元数据。
+    func restoreStorageSnapshot(_ snapshot: APIKeyRecordStorageSnapshot) throws {
+        let models = try fetchModels(id: snapshot.id)
+        if models.isEmpty {
+            modelContext.insert(APIKeyRecord(
+                id: snapshot.id,
+                accountId: snapshot.accountId,
+                displayName: snapshot.displayName,
+                maskedHint: snapshot.maskedHint,
+                origin: snapshot.origin,
+                providerKeyRef: snapshot.providerKeyRef,
+                lifecycle: snapshot.lifecycle,
+                spendLimit: snapshot.spendLimit,
+                notes: snapshot.notes,
+                createdAt: snapshot.createdAt,
+                updatedAt: snapshot.updatedAt,
+                deletedAt: snapshot.deletedAt,
+                purgeAfter: snapshot.purgeAfter,
+                lastVerifiedAt: snapshot.lastVerifiedAt,
+                healthState: snapshot.healthState,
+                lastCheckedAt: snapshot.lastCheckedAt,
+                lastCheckNote: snapshot.lastCheckNote,
+                secretLength: snapshot.secretLength,
+                sortOrder: snapshot.sortOrder,
+                avatarSymbol: snapshot.avatarSymbol,
+                avatarColor: snapshot.avatarColor
+            ))
+        } else {
+            for model in models {
+                model.accountId = snapshot.accountId
+                model.displayName = snapshot.displayName
+                model.maskedHint = snapshot.maskedHint
+                model.origin = snapshot.origin.rawValue
+                model.providerKeyRef = snapshot.providerKeyRef
+                model.lifecycle = snapshot.lifecycle.rawValue
+                model.spendLimit = snapshot.spendLimit
+                model.notes = snapshot.notes
+                model.createdAt = snapshot.createdAt
+                model.updatedAt = snapshot.updatedAt
+                model.deletedAt = snapshot.deletedAt
+                model.purgeAfter = snapshot.purgeAfter
+                model.lastVerifiedAt = snapshot.lastVerifiedAt
+                model.healthState = snapshot.healthState.rawValue
+                model.lastCheckedAt = snapshot.lastCheckedAt
+                model.lastCheckNote = snapshot.lastCheckNote
+                model.secretLength = snapshot.secretLength
+                model.sortOrder = snapshot.sortOrder
+                model.avatarSymbol = snapshot.avatarSymbol
+                model.avatarColor = snapshot.avatarColor
+            }
+        }
+        try modelContext.save()
+    }
+
     func countActiveNonDeleted() throws -> Int {
         let active = KeyLifecycle.active.rawValue
         let all = try modelContext.fetch(FetchDescriptor<APIKeyRecord>())
@@ -38,7 +146,12 @@ actor APIKeyRecordRepository {
     }
 
     @discardableResult
-    func insert(_ draft: KeyRecordDraft, id: UUID? = nil) throws -> UUID {
+    func insert(
+        _ draft: KeyRecordDraft,
+        id: UUID? = nil,
+        createdAt: Date = Date(),
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws -> UUID {
         let id = id ?? UUID()
         if !(try fetchModels(id: id)).isEmpty {
             throw ApiRelayError.validationFailed(field: "id", reason: "already_exists")
@@ -47,7 +160,7 @@ actor APIKeyRecordRepository {
         guard !trimmed.isEmpty, trimmed.count <= 64 else {
             throw ApiRelayError.validationFailed(field: "displayName", reason: "required_1_to_64")
         }
-        let now = Date()
+        let now = createdAt
         let sortOrder = draft.sortOrder > 0 ? draft.sortOrder : (try nextSortOrder(in: draft.accountId))
         let model = APIKeyRecord(
             id: id,
@@ -65,21 +178,37 @@ actor APIKeyRecordRepository {
             avatarSymbol: AvatarChoice.stored(symbol: draft.avatarSymbol, color: draft.avatarColor).0,
             avatarColor: AvatarChoice.stored(symbol: draft.avatarSymbol, color: draft.avatarColor).1
         )
-        modelContext.insert(model)
-        try modelContext.save()
+        do {
+            try committing {
+                modelContext.insert(model)
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
         return id
     }
 
     /// 备份导入：业务 `id` 已存在则跳过，MUST NOT 假装写入成功。
-    func insertIfAbsent(_ draft: KeyRecordDraft, id: UUID) throws -> Bool {
+    func insertIfAbsent(
+        _ draft: KeyRecordDraft,
+        id: UUID,
+        createdAt: Date = Date(),
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws -> Bool {
         if !(try fetchModels(id: id)).isEmpty {
             return false
         }
-        _ = try insert(draft, id: id)
+        _ = try insert(draft, id: id, createdAt: createdAt, committing: committing)
         return true
     }
 
-    func update(id: UUID, patch: KeyRecordPatch) throws {
+    func update(
+        id: UUID,
+        patch: KeyRecordPatch,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let models = try fetchModels(id: id)
         guard !models.isEmpty else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
@@ -90,23 +219,40 @@ actor APIKeyRecordRepository {
                 throw ApiRelayError.validationFailed(field: "displayName", reason: "required_1_to_64")
             }
         }
-        let now = Date()
-        for model in models {
-            Self.apply(patch, to: model, now: now)
+        do {
+            try committing {
+                let now = Date()
+                for model in models {
+                    Self.apply(patch, to: model, now: now)
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
     /// 按给定顺序重写 `sortOrder`（0…n-1）。用于分区内拖拽排序。
-    func reorder(orderedIds: [UUID]) throws {
-        let now = Date()
-        for (index, id) in orderedIds.enumerated() {
-            for model in try fetchModels(id: id) {
-                model.sortOrder = index
-                model.updatedAt = now
+    func reorder(
+        orderedIds: [UUID],
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        do {
+            try committing {
+                let now = Date()
+                for (index, id) in orderedIds.enumerated() {
+                    for model in try fetchModels(id: id) {
+                        model.sortOrder = index
+                        model.updatedAt = now
+                    }
+                }
+                try modelContext.save()
             }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
     private func nextSortOrder(in accountId: UUID) throws -> Int {
@@ -120,20 +266,32 @@ actor APIKeyRecordRepository {
     }
 
     /// 移入回收站：显式写 lifecycle / deletedAt / purgeAfter（默认 30 天）。
-    func softDelete(id: UUID, deletedAt: Date = Date(), retainDays: Int = 30) throws {
+    func softDelete(
+        id: UUID,
+        deletedAt: Date = Date(),
+        retainDays: Int = 30,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let models = try fetchModels(id: id)
         guard !models.isEmpty else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
         }
         let purgeAfter = deletedAt.addingTimeInterval(TimeInterval(retainDays * 24 * 3600))
-        let now = Date()
-        for model in models {
-            model.lifecycle = KeyLifecycle.softDeleted.rawValue
-            model.deletedAt = deletedAt
-            model.purgeAfter = purgeAfter
-            model.updatedAt = now
+        do {
+            try committing {
+                let now = Date()
+                for model in models {
+                    model.lifecycle = KeyLifecycle.softDeleted.rawValue
+                    model.deletedAt = deletedAt
+                    model.purgeAfter = purgeAfter
+                    model.updatedAt = now
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
     /// 回收站列表（按删除时间新→旧）。
@@ -149,11 +307,44 @@ actor APIKeyRecordRepository {
             }
     }
 
-    func delete(id: UUID) throws {
-        for model in try fetchModels(id: id) {
-            modelContext.delete(model)
+    func delete(
+        id: UUID,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
+        let models = try fetchModels(id: id)
+        do {
+            try committing {
+                for model in models {
+                    modelContext.delete(model)
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
+    }
+
+    /// Crash-recovery ownership delete. Same-id CloudKit replicas with a
+    /// different creation token survive the rollback.
+    @discardableResult
+    func deleteIfCreatedAtMatches(
+        id: UUID,
+        createdAt: Date,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws -> Bool {
+        let owned = try fetchModels(id: id).filter { $0.createdAt == createdAt }
+        guard !owned.isEmpty else { return false }
+        do {
+            try committing {
+                for model in owned { modelContext.delete(model) }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+        return true
     }
 
     /// FR-061：清空本仓库上下文中的全部密钥（含回收站），避免另开 ModelContext 删库后本 actor 仍读到旧对象。
@@ -204,19 +395,29 @@ actor APIKeyRecordRepository {
         try modelContext.save()
     }
 
-    func clearDeletionMarks(id: UUID) throws {
+    func clearDeletionMarks(
+        id: UUID,
+        committing: RepositoryCommit = { operation in try operation() }
+    ) throws {
         let models = try fetchModels(id: id)
         guard !models.isEmpty else {
             throw ApiRelayError.validationFailed(field: "id", reason: "not_found")
         }
-        let now = Date()
-        for model in models {
-            model.lifecycle = KeyLifecycle.active.rawValue
-            model.deletedAt = nil
-            model.purgeAfter = nil
-            model.updatedAt = now
+        do {
+            try committing {
+                let now = Date()
+                for model in models {
+                    model.lifecycle = KeyLifecycle.active.rawValue
+                    model.deletedAt = nil
+                    model.purgeAfter = nil
+                    model.updatedAt = now
+                }
+                try modelContext.save()
+            }
+        } catch {
+            modelContext.rollback()
+            throw error
         }
-        try modelContext.save()
     }
 
     private func fetchModels(id: UUID) throws -> [APIKeyRecord] {

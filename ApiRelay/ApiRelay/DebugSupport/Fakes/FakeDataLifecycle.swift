@@ -5,8 +5,17 @@ import Foundation
 actor FakeDataLifecycle: DataLifecycleServing {
     var journal = FakeJournal()
 
-    func eraseAllUserData() async throws {
+    nonisolated func hasPendingErase() -> Bool { false }
+
+    func eraseAllUserData(appPassword: String?) async throws {
+        lastAppPassword = appPassword
         try journal.record("eraseAllUserData")
     }
+
+    func eraseAllUserDataForStorageRecovery() async throws {
+        try journal.record("eraseAllUserDataForStorageRecovery")
+    }
+
+    private(set) var lastAppPassword: String?
 }
 #endif

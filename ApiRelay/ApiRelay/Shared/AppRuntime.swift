@@ -13,8 +13,11 @@ enum AppRuntime: Sendable {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
-    /// 测试专用 UserDefaults suite。MUST 与生产 `.standard` 不同名。
-    nonisolated static let testUserDefaultsSuiteName = "com.apirelay.tests.defaults"
+    /// 测试专用 UserDefaults suite。MUST 与生产 `.standard` 不同名，也必须按
+    /// runner 进程隔离；native macOS 与 Catalyst 可能同时在同一台 Mac 上执行，
+    /// 固定 suite 会让一边的 tearDown 删除另一边正在断言的安全缓存。
+    nonisolated static let testUserDefaultsSuiteName =
+        "com.apirelay.tests.defaults.\(ProcessInfo.processInfo.processIdentifier)"
 
     /// 按运行环境给出应使用的 UserDefaults。
     nonisolated static func userDefaultsForCurrentRuntime() -> UserDefaults {

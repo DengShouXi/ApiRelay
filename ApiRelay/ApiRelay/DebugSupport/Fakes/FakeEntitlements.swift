@@ -39,6 +39,14 @@ actor FakeEntitlements: EntitlementServing {
         tier = .free
     }
 
+    func purgeLocalSnapshotForCommittedErase(
+        authorization: CommittedEraseToken
+    ) async throws {
+        try authorization.validate(operation: "fake_entitlement_committed_erase")
+        try journal.record("purgeLocalSnapshotForErase")
+        tier = .free
+    }
+
     func debugOverride(tier: EntitlementTier?) async throws {
         try journal.record("debugOverride")
         self.tier = tier ?? .free

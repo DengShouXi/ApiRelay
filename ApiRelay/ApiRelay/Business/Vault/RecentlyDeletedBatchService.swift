@@ -36,10 +36,20 @@ nonisolated struct TrashBatchOutcome: Sendable, Equatable {
     }
 }
 
-/// 回收站批量恢复 / 永久删除（FR-006a）。整批一次 `confirmMandatory`。
+/// 回收站批量恢复 / 永久删除（FR-006a）。整批一次当前验证方式。
 protocol RecentlyDeletedBatchServing: Actor {
-    func restore(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome
-    func permanentlyDelete(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome
+    func restore(_ selection: TrashBatchSelection, appPassword: String?) async throws -> TrashBatchOutcome
+    func permanentlyDelete(_ selection: TrashBatchSelection, appPassword: String?) async throws -> TrashBatchOutcome
+}
+
+extension RecentlyDeletedBatchServing {
+    func restore(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome {
+        try await restore(selection, appPassword: nil)
+    }
+
+    func permanentlyDelete(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome {
+        try await permanentlyDelete(selection, appPassword: nil)
+    }
 }
 
 actor RecentlyDeletedBatchService: RecentlyDeletedBatchServing {
@@ -60,37 +70,66 @@ actor RecentlyDeletedBatchService: RecentlyDeletedBatchServing {
         self.sessionLock = sessionLock
     }
 
-    private func rejectIfSessionLocked() throws {
-        if sessionLock.isSessionLocked() {
-            throw ApiRelayError.sessionLocked
-        }
-    }
-
-    func restore(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome {
+    func restore(_ selection: TrashBatchSelection, appPassword: String?) async throws -> TrashBatchOutcome {
         guard !selection.isEmpty else { return .empty }
-        try rejectIfSessionLocked()
+        let authorization = try sessionLock.captureAuthorizationLease()
         try await vault.preflightRestoreQuota(
             keyIds: selection.keyIds,
             accountIds: selection.accountIds
         )
-        try await gate.confirmMandatory(reason: String(localized: "gate.restoreTrashBatch"))
-        let keysAndAccounts = await vault.restoreDeletedAfterAuthentication(
-            keyIds: selection.keyIds,
-            accountIds: selection.accountIds
+        try await confirmCurrent(
+            reason: String(localized: "gate.restoreTrashBatch"),
+            purpose: .destructive,
+            appPassword: appPassword
         )
-        let tools = await consumerTools.restoreToolsAfterAuthentication(ids: selection.toolIds)
+        try sessionLock.validateAuthorizationLease(authorization)
+        let keysAndAccounts = try await vault.restoreDeletedAfterAuthentication(
+            keyIds: selection.keyIds,
+            accountIds: selection.accountIds,
+            authorization: authorization
+        )
+        try sessionLock.validateAuthorizationLease(authorization)
+        let tools = try await consumerTools.restoreToolsAfterAuthentication(
+            ids: selection.toolIds,
+            authorization: authorization
+        )
         return keysAndAccounts.merging(tools)
     }
 
-    func permanentlyDelete(_ selection: TrashBatchSelection) async throws -> TrashBatchOutcome {
+    func permanentlyDelete(_ selection: TrashBatchSelection, appPassword: String?) async throws -> TrashBatchOutcome {
         guard !selection.isEmpty else { return .empty }
-        try rejectIfSessionLocked()
-        try await gate.confirmMandatory(reason: String(localized: "gate.permanentDeleteTrashBatch"))
-        let keysAndAccounts = await vault.permanentlyDeleteDeletedAfterAuthentication(
-            keyIds: selection.keyIds,
-            accountIds: selection.accountIds
+        let authorization = try sessionLock.captureAuthorizationLease()
+        try await confirmCurrent(
+            reason: String(localized: "gate.permanentDeleteTrashBatch"),
+            purpose: .destructive,
+            appPassword: appPassword
         )
-        let tools = await consumerTools.permanentlyDeleteToolsAfterAuthentication(ids: selection.toolIds)
+        try sessionLock.validateAuthorizationLease(authorization)
+        let keysAndAccounts = try await vault.permanentlyDeleteDeletedAfterAuthentication(
+            keyIds: selection.keyIds,
+            accountIds: selection.accountIds,
+            authorization: authorization
+        )
+        try sessionLock.validateAuthorizationLease(authorization)
+        let tools = try await consumerTools.permanentlyDeleteToolsAfterAuthentication(
+            ids: selection.toolIds,
+            authorization: authorization
+        )
         return keysAndAccounts.merging(tools)
+    }
+
+    private func confirmCurrent(
+        reason: String,
+        purpose: AuthPurpose,
+        appPassword: String?
+    ) async throws {
+        let policy = try await vault.currentRevealPolicy()
+        try await CurrentRevealPolicyAuth.confirm(
+            policy,
+            gate: gate,
+            reason: reason,
+            purpose: purpose,
+            appPassword: appPassword
+        )
     }
 }
