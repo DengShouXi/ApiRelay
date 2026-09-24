@@ -13,6 +13,17 @@ enum AppRuntime: Sendable {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
+    /// XCUITest runs in a separate runner process, so the app itself is not a
+    /// unit-test host. Only these fixed DEBUG scenarios may use fake storage.
+    nonisolated static var uiTestScenario: String? {
+        #if DEBUG
+        let value = ProcessInfo.processInfo.environment["APIRELAY_UI_TEST_SCENARIO"]
+        return value == "settings" || value == "lock" ? value : nil
+        #else
+        return nil
+        #endif
+    }
+
     /// 测试专用 UserDefaults suite。MUST 与生产 `.standard` 不同名，也必须按
     /// runner 进程隔离；native macOS 与 Catalyst 可能同时在同一台 Mac 上执行，
     /// 固定 suite 会让一边的 tearDown 删除另一边正在断言的安全缓存。
@@ -21,7 +32,7 @@ enum AppRuntime: Sendable {
 
     /// 按运行环境给出应使用的 UserDefaults。
     nonisolated static func userDefaultsForCurrentRuntime() -> UserDefaults {
-        if isRunningTests {
+        if isRunningTests || uiTestScenario != nil {
             guard let defaults = UserDefaults(suiteName: testUserDefaultsSuiteName) else {
                 preconditionFailure("AppRuntime: 无法创建测试 UserDefaults suite \(testUserDefaultsSuiteName)")
             }

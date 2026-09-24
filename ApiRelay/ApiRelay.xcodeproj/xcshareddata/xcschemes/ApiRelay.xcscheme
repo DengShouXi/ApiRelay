@@ -35,6 +35,20 @@
                ReferencedContainer = "container:ApiRelay.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A13100000000000000000003"
+               BuildableName = "ApiRelayUITests.xctest"
+               BlueprintName = "ApiRelayUITests"
+               ReferencedContainer = "container:ApiRelay.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -50,6 +64,16 @@
                BlueprintIdentifier = "D1D113580218B3F0AAAA0002"
                BuildableName = "ApiRelayTests.xctest"
                BlueprintName = "ApiRelayTests"
+               ReferencedContainer = "container:ApiRelay.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A13100000000000000000003"
+               BuildableName = "ApiRelayUITests.xctest"
+               BlueprintName = "ApiRelayUITests"
                ReferencedContainer = "container:ApiRelay.xcodeproj">
             </BuildableReference>
          </TestableReference>

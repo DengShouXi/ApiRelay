@@ -5,6 +5,10 @@ import Foundation
 actor FakeMasterPassword: MasterPasswordServing {
     var journal = FakeJournal()
     private var password: String?
+
+    init(initialPassword: String? = nil) {
+        password = initialPassword
+    }
     private var revision: UInt64 = 0
     private var mutationInFlight = false
     private var statusOverride: AppPasswordMaterialStatus?

@@ -555,6 +555,11 @@ final class AppEnvironment: ObservableObject {
 
     static func bootstrap() -> AppEnvironment {
         do {
+            #if DEBUG
+            if let scenario = AppRuntime.uiTestScenario {
+                return try UITestFixture.makeEnvironment(scenario: scenario)
+            }
+            #endif
             // Install the process-wide raw CloudKit observer before SwiftData
             // can start mirroring. AppEnvironment is assembled later, so an
             // early import-start edge must remain buffered for its policy fence.

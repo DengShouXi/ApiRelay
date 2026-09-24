@@ -1,0 +1,247 @@
+{
+  "schemaVersion": "1.0",
+  "workPackageId": "v1.13.10-structural-stabilization",
+  "methodVersion": "MAIC-1.3.1",
+  "sourceKind": "SpecKit",
+  "riskLevel": "high",
+  "objective": "不改变产品功能地补齐真实 XCUITest、拆分职责过载文件并统一实际重复的运行期状态来源",
+  "repository": {
+    "implementationWorktree": "/Users/xitongzhili/.codex/worktrees/v1-13-10-structural/E02_ApiRelay_Github",
+    "allowedReadOnlyWorktrees": [
+      "/Users/xitongzhili/Desktop/MacTransfer/08_Code/E02_ApiRelay_Github"
+    ],
+    "readOnlyWorktreeSnapshots": [
+      {
+        "path": "/Users/xitongzhili/Desktop/MacTransfer/08_Code/E02_ApiRelay_Github",
+        "branch": "v1.13.9",
+        "head": "25fe006896a816475e269e155530c1464cc19304",
+        "fingerprint": "f65cbd67583845544e575820540a90a8390db14257faff9b4a2a6d1ad445ecbd"
+      }
+    ],
+    "baselineBranch": "v1.13.10",
+    "baselineHead": "ead076af9bd706a3bf4b97a67fc692cfcda58060",
+    "protectedRefs": {
+      "main": "539447ea9984608c74989da48b8770cb3fe32a6c",
+      "origin/main": "539447ea9984608c74989da48b8770cb3fe32a6c",
+      "release/1.0.0": "5c5eed3f8390f51f5a26be9737bcc11f72e7d7fd",
+      "v1.13.9": "25fe006896a816475e269e155530c1464cc19304",
+      "origin/v1.13.9": "25fe006896a816475e269e155530c1464cc19304",
+      "v1.14": "f80b1a65a7f28e1e5afbebfda6c646331a3b9b02",
+      "origin/v1.14": "f80b1a65a7f28e1e5afbebfda6c646331a3b9b02"
+    },
+    "uploadTrackingRefs": [
+      "v1.13.10",
+      "origin/v1.13.10",
+      "v1",
+      "origin/v1"
+    ],
+    "forbiddenBranches": []
+  },
+  "roles": {
+    "planningAuditor": "Codex planning/audit agent",
+    "checkExecutor": "Codex implementation agent",
+    "userDecides": ["strategy", "version", "finalPlan", "upload"],
+    "singleWriterPerWorkspace": true,
+    "phaseOwners": {
+      "1": "Codex planning/audit agent",
+      "2": "Codex preflight agent",
+      "3": "Codex planning/audit agent",
+      "4": "Codex implementation agent",
+      "5": "Codex independent audit agent",
+      "6": "Codex implementation agent",
+      "7": "Codex independent audit agent",
+      "7R": "Codex planning/audit agent",
+      "7S": "Codex implementation agent",
+      "7T": "Codex independent audit agent",
+      "8": "Codex implementation agent",
+      "9": "Codex independent audit agent"
+    }
+  },
+  "paths": {
+    "allowedModify": [
+      "ApiRelay/ApiRelay.xcodeproj/project.pbxproj",
+      "ApiRelay/ApiRelay.xcodeproj/xcshareddata/xcschemes/ApiRelay.xcscheme",
+      "ApiRelay/ApiRelay/Shared/AppRuntime.swift",
+      "ApiRelay/ApiRelay/App/AppEnvironment.swift",
+      "ApiRelay/ApiRelay/App/AppPrivacyController.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultHomeView.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultHomeViewModel.swift",
+      "ApiRelay/ApiRelay/UI/Settings/SettingsView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/BackupSettingsViews.swift",
+      "ApiRelay/ApiRelay/UI/Settings/DurationSettingsViews.swift",
+      "ApiRelay/ApiRelay/UI/Shared/AppLockCoverView.swift",
+      "ApiRelay/ApiRelay/Business/Vault/KeyVaultService.swift",
+      "ApiRelay/ApiRelay/Business/System/SecureBackupService.swift",
+      "ApiRelay/ApiRelay/Business/System/SessionLockQuerying.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakePreferences.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeMasterPassword.swift",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/release-sequence.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/decision-log.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/tasks.md",
+      "ApiRelay/specs/playbooks/BRANCHES.md",
+      "ZL01_具体说明/02-代码地图.md",
+      "ZL01_具体说明/04-设计与规格.md",
+      "ZL01_具体说明/09-上传流程.md",
+      "ZL01_具体说明/10-AI对话相关记录.md",
+      "ZL01_具体说明/14-项目当前状态.md"
+    ],
+    "allowedAdd": [
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/00F-方法接入重基线记录.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/01-Codex执行计划.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/02-Codex实施前检查.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/03-Codex最终计划.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/04-不可逆标识基线.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/06-Codex本地实施报告.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/07-Codex独立审计报告.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/08-Codex整改报告.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/09-Codex最终验收报告.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/00D-受控重基线记录.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/00E-原工作树只读清单.json.gz",
+      "ApiRelay/ApiRelayUITests/README.md",
+      "ApiRelay/ApiRelayUITests/Support/UITestSupport.swift",
+      "ApiRelay/ApiRelayUITests/SecuritySettingsUITests.swift",
+      "ApiRelay/ApiRelayUITests/PrivacyLifecycleUITests.swift",
+      "ApiRelay/ApiRelay/DebugSupport/UITesting/UITestFixture.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase13_StructuralStabilization/StructuralCharacterizationTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase13_StructuralStabilization/StateOwnershipTests.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultHomeModifiers.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultAssignmentSheets.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultEntitySheets.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultKeyCreationSheet.swift",
+      "ApiRelay/ApiRelay/UI/Vault/CloudAccountSheet.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultTrashViews.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultDuplicateAlert.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultHomeDomainModels.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultTrashStore.swift",
+      "ApiRelay/ApiRelay/UI/Settings/RevealPolicySettingsView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/AppPasswordSettingsView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/PaywallView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/SettingsEraseAllFlow.swift",
+      "ApiRelay/ApiRelay/UI/Settings/BackupPassphraseView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/BackupExportView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/BackupImportView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/BackupFileSupport.swift",
+      "ApiRelay/ApiRelay/UI/Settings/BackupAuthenticationSupport.swift",
+      "ApiRelay/ApiRelay/Business/System/SessionAuthorization.swift",
+      "ApiRelay/ApiRelay/Business/System/SecurityPolicyRefreshFence.swift",
+      "ApiRelay/ApiRelay/Business/System/SecurityPreferenceCommit.swift",
+      "ApiRelay/ApiRelay/Business/System/CurrentRevealPolicyAuthentication.swift",
+      "ApiRelay/ApiRelay/Business/System/AppPasswordPolicy.swift",
+      "ApiRelay/ApiRelay/Business/System/AppPasswordSettingsFlow.swift",
+      "ApiRelay/ApiRelay/Business/System/SettingsPreferencesStore.swift",
+      "ApiRelay/ApiRelay/Business/System/SecureBackupModels.swift",
+      "ApiRelay/ApiRelay/Business/System/SecureBackupCodec.swift",
+      "ApiRelay/ApiRelay/App/AppSwitcherSnapshotCover.swift",
+      "ApiRelay/ApiRelay/App/AppPrivacyLifecycleReducer.swift",
+      "ApiRelay/ApiRelay/App/AppPrivacyPlatformAdapters.swift"
+    ],
+    "allowedPrefixes": [
+      "ApiRelay/specs/001-key-vault/follow-ups/v1.13.10-structural-stabilization/"
+    ],
+    "forbiddenPrefixes": [
+      "ApiRelay/ApiRelay/ApiRelay.entitlements",
+      "ApiRelay/ApiRelay/Data/Keychain/",
+      "ApiRelay/ApiRelay/Data/SwiftData/",
+      "ApiRelay/ApiRelay/Resources/",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/contracts/",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/data-model.md"
+    ],
+    "knownUntracked": []
+  },
+  "writerStatus": {
+    "files": ["重基线复验/06-接入与自测报告.md", "重基线复验/08-阻塞整改报告.md"],
+    "runningMarker": "写入状态：未停止",
+    "stoppedMarker": "写入状态：已停止"
+  },
+  "riskReason": "涉及 Xcode target、大范围文件移动以及认证/锁定相关状态 ownership，但明确禁止改变产品语义和持久格式",
+  "quotaSplit": {
+    "broadSearchAndEdits": "Codex implementation agent",
+    "scopeConflictRiskAcceptance": "Codex planning/audit agent"
+  },
+  "requiredGates": ["source", "finalPlan", "acceptance", "upload"],
+  "phaseArtifacts": {
+    "1": ["重基线复验/01-计划延续核对.md"],
+    "2": ["重基线复验/02-前置条件核对.md"],
+    "3": ["重基线复验/03-计划延续决定.md", "重基线复验/04-不可逆基线复核.md"],
+    "4": ["重基线复验/06-接入与自测报告.md"],
+    "5": ["重基线复验/07-独立审计报告.md"],
+    "6": ["重基线复验/08-阻塞整改报告.md"],
+    "7": ["重基线复验/09-独立最终验收报告.md"]
+  },
+  "userAuthorizationPoints": ["finalPlanBeforePhase4", "uploadBeforePhase8"],
+  "externalInputs": [
+    {
+      "id": "user-controlled-readonly-rebaseline-2026-09-24",
+      "source": "current task user messages",
+      "observedAt": "2026-09-24",
+      "appliesToBranch": "v1.13.10",
+      "appliesToHead": "25fe006896a816475e269e155530c1464cc19304",
+      "authorityLevel": "owner-approved",
+      "freshness": "current",
+      "undecidedItems": ["commit", "push", "TestFlight", "App review", "purchase", "cloud sync"]
+    },
+    {
+      "id": "user-authorization-2026-09-24",
+      "source": "current task user message",
+      "observedAt": "2026-09-24",
+      "appliesToBranch": "v1.13.10",
+      "appliesToHead": "25fe006896a816475e269e155530c1464cc19304",
+      "authorityLevel": "owner-approved",
+      "freshness": "current",
+      "undecidedItems": ["commit", "push", "v1.14", "UI redesign", "release"]
+    },
+    {
+      "id": "user-authorized-method-import-and-stage8-2026-09-24",
+      "source": "current task user messages",
+      "observedAt": "2026-09-24",
+      "appliesToBranch": "v1.13.10",
+      "appliesToHead": "ead076af9bd706a3bf4b97a67fc692cfcda58060",
+      "authorityLevel": "owner-approved",
+      "freshness": "current",
+      "undecidedItems": ["main", "tag", "Archive", "TestFlight", "App review", "purchase", "cloud sync"]
+    }
+  ],
+  "checker": {
+    "methodFile": "ZL00_项目总控/04-双AI协作与独立审计.md",
+    "contractFile": "00C-任务契约.json",
+    "promptDirectory": "提示词",
+    "genericPrompt": "通用-只检查当前阶段.md",
+    "promptsByPhase": {
+      "1": "阶段1-Codex制定初稿.md",
+      "2": "阶段2-Codex实施前检查.md",
+      "3": "阶段3-Codex确定最终计划.md",
+      "4": "阶段4-Codex本地实施.md",
+      "5": "阶段5-Codex独立审计.md",
+      "6": "阶段6-Codex修复阻塞问题.md",
+      "7": "阶段7-Codex最终验收.md",
+      "7R": "阶段7R-Codex创建整改轮次.md",
+      "7S": "阶段7S-Codex执行轮次整改.md",
+      "7T": "阶段7T-Codex轮次复验.md",
+      "8": "阶段8-Codex提交上传.md",
+      "9": "阶段9-Codex远程复核.md"
+    },
+    "strictIdentityArtifacts": ["重基线复验/06-接入与自测报告.md", "重基线复验/07-独立审计报告.md", "重基线复验/08-阻塞整改报告.md", "重基线复验/09-独立最终验收报告.md"],
+    "fixedConclusions": {
+      "phase5Pass": "审计通过，无阻塞问题，可以进入阶段7。",
+      "phase5Fail": "审计不通过，存在阻塞问题，不得进入阶段7或8。",
+      "phase7Pass": "验收通过，可以在用户明确授权后提交并上传 v1.13.10。",
+      "phase7Fail": "验收不通过，必须进入可重复整改轮次。",
+      "roundPass": "本轮复验通过，可以在用户明确授权后进入阶段8。",
+      "roundFail": "本轮复验不通过，必须创建下一整改轮次。"
+    },
+    "rnn": {
+      "directory": "整改轮次",
+      "namePattern": "^R[0-9]{2}$",
+      "files": ["01-Codex整改定稿.md", "02-Codex整改报告.md", "03-Codex复验报告.md"]
+    },
+    "legacyArtifactMethodVersions": {
+      "MAIC-1.3": [
+        "01-Codex执行计划.md",
+        "02-Codex实施前检查.md",
+        "03-Codex最终计划.md",
+        "04-不可逆标识基线.md"
+      ]
+    },
+    "documentInvariants": []
+  }
+}

@@ -4,11 +4,19 @@ import Foundation
 /// 假偏好：内存 DTO。`persist` 走非隔离箱，不碰 SwiftData / CloudKit。
 actor FakePreferences: PreferencesServing {
     var journal = FakeJournal()
-    private let store = Store()
+    private let store: Store
+
+    init(initial: PreferencesDTO = .fakeDefault()) {
+        store = Store(initial: initial)
+    }
 
     private final class Store: @unchecked Sendable {
         private let lock = NSLock()
-        private var value = PreferencesDTO.fakeDefault()
+        private var value: PreferencesDTO
+
+        init(initial: PreferencesDTO) {
+            value = initial
+        }
 
         func load() -> PreferencesDTO {
             lock.lock()

@@ -16,7 +16,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
-    @State private var prefs: PreferencesDTO?
+    @State private var preferencesStore = SettingsPreferencesStore()
     @State private var masterPasswordMaterial: AppPasswordMaterialStatus = .unset
     @State private var backupPassphraseIsSet = false
     @State private var confirmErase = false
@@ -26,20 +26,46 @@ struct SettingsView: View {
     @State private var showPaywall = false
     @State private var entitlementTier: EntitlementTier = .free
     @State private var persistError = ""
-    @State private var pendingWeakenPatch: PreferencesPatch?
+    @State private var pendingSecurityAction = SettingsPendingActionState()
     @State private var weakenPassword = ""
     @State private var showWeakenPasswordPrompt = false
     @State private var showEraseAppPassword = false
     @State private var eraseAppPasswordInput = ""
     @State private var eraseFlowTrace = SettingsEraseAllFlow.Trace()
     @State private var combinationNeedsSetup = false
-    @State private var eraseAwaitingIdentity = false
     /// Ordinary security downgrades use the same page-generation discipline as
     /// password setup. It stays alive until the queued repository commit ends.
     @State private var securityPreferenceAuthorization: SecurityPreferenceAuthorization?
     @State private var authenticationScope: AuthenticationRequestScope?
     /// 子页退出或场景离开会推进代次；任何 await 后迟到的选档请求都不得重建提示或提交。
     @State private var securityPreferenceRequestRevision: UInt64 = 0
+
+    private var prefs: PreferencesDTO? {
+        get { preferencesStore.presented }
+        nonmutating set {
+            var next = preferencesStore
+            next.presentDraft(newValue)
+            preferencesStore = next
+        }
+    }
+
+    private var pendingWeakenPatch: PreferencesPatch? {
+        get { pendingSecurityAction.weakenPatch }
+        nonmutating set {
+            var next = pendingSecurityAction
+            next.setWeakenPatch(newValue)
+            pendingSecurityAction = next
+        }
+    }
+
+    private var eraseAwaitingIdentity: Bool {
+        get { pendingSecurityAction.eraseAwaitingIdentity }
+        nonmutating set {
+            var next = pendingSecurityAction
+            next.setEraseAwaitingIdentity(newValue)
+            pendingSecurityAction = next
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -89,11 +115,21 @@ struct SettingsView: View {
                 } message: {
                     Text("settings.eraseAll.message")
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesPersistFailed)) { _ in
+                .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesPersistFailed)) { notification in
+                    guard SecurityPreferenceCommit.isCurrent(
+                        notification,
+                        requestRevision: securityPreferenceRequestRevision,
+                        draftRevision: preferencesStore.draftRevision
+                    ) else { return }
                     persistError = String(localized: "settings.securityPersistFailed.message")
                     Task { await reload() }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesDidPersist)) { _ in
+                .onReceive(NotificationCenter.default.publisher(for: .securityPreferencesDidPersist)) { notification in
+                    guard SecurityPreferenceCommit.isCurrent(
+                        notification,
+                        requestRevision: securityPreferenceRequestRevision,
+                        draftRevision: preferencesStore.draftRevision
+                    ) else { return }
                     Task { await reload() }
                 }
                 .onDisappear {
@@ -154,11 +190,13 @@ struct SettingsView: View {
         ) {
             SecureField("vault.masterPassword", text: $weakenPassword)
                 .sensitivePasswordInput()
+                .accessibilityIdentifier("settings.passwordConfirmation.field")
             Button("settings.done") {
                 let password = weakenPassword
                 weakenPassword = ""
                 Task { await confirmPendingWeakenWithAppPassword(password) }
             }
+            .accessibilityIdentifier("settings.passwordConfirmation.submit")
             Button("settings.cancel", role: .cancel) {
                 abandonSettingsCombinationPending()
             }
@@ -285,6 +323,7 @@ struct SettingsView: View {
                                     Task { await refreshMasterPasswordStatus() }
                                 }
                             }
+                            .accessibilityIdentifier("settings.revealPolicy.entry")
 
                             if CombinationExplicitAuth.shouldShowExplicitEntry(
                                 hasBoundOperation: pendingWeakenPatch != nil,
@@ -934,7 +973,12 @@ struct SettingsView: View {
             patch,
             relativeTo: current,
             using: environment.preferences,
-            authorization: authorization
+            authorization: authorization,
+            notificationContext: SecurityPreferenceNotificationContext(
+                requestRevision: requestRevision,
+                draftRevision: preferencesStore.draftRevision &+
+                    (SecurityPreferenceCommit.appliesMemoryBeforePersist(patch, relativeTo: current) ? 1 : 0)
+            )
         ) { next in
             prefs = next
             environment.appPrivacy.applyLivePreferences(AppLockPreferences(next))
@@ -1076,7 +1120,13 @@ struct SettingsView: View {
     }
 
     private func reload() async {
-        prefs = try? await environment.preferences.load()
+        var next = preferencesStore
+        let revision = next.beginReload()
+        preferencesStore = next
+        let loaded = try? await environment.preferences.load()
+        next = preferencesStore
+        guard next.completeReload(loaded, revision: revision) else { return }
+        preferencesStore = next
         if let prefs {
             environment.appPrivacy.applyLivePreferences(AppLockPreferences(prefs))
         }
@@ -1165,7 +1215,6 @@ private struct RevealPolicySettingsView: View {
 
     @State private var goAppPasswordPage = false
     @State private var pendingTarget: RevealPolicy = .masterPassword
-    @State private var highlightedPolicy: RevealPolicy
     /// Navigation destinations may retain the value captured when this page was
     /// first pushed. Keep the policy used by the next authentication flow in
     /// step with the authoritative persisted value, not just the visible checkmark.
@@ -1181,7 +1230,6 @@ private struct RevealPolicySettingsView: View {
         self.currentPolicy = currentPolicy
         self.applyPolicy = applyPolicy
         self.onAppPasswordCommitted = onAppPasswordCommitted
-        _highlightedPolicy = State(initialValue: currentPolicy)
         _effectiveCurrentPolicy = State(initialValue: currentPolicy)
     }
 
@@ -1241,7 +1289,6 @@ private struct RevealPolicySettingsView: View {
             Task { await refreshHighlightedPolicyFromPersistence() }
         }
         .onChange(of: currentPolicy) { _, newValue in
-            highlightedPolicy = newValue
             effectiveCurrentPolicy = newValue
         }
     }
@@ -1254,13 +1301,14 @@ private struct RevealPolicySettingsView: View {
     ) -> some View {
         SettingsChoiceRow(
             title: title,
-            selected: highlightedPolicy == value,
+            selected: effectiveCurrentPolicy == value,
             subtitle: subtitle,
             helpTitle: title,
             helpMessage: detail
         ) {
             Task { await selectPolicy(value) }
         }
+        .accessibilityIdentifier("settings.policy.\(value.rawValue)")
     }
 
     /// 两种密码依赖档都进入同一页并绑定原目标；进入本身不改当前策略。
@@ -1278,7 +1326,6 @@ private struct RevealPolicySettingsView: View {
     private func refreshHighlightedPolicyFromPersistence() async {
         guard let stored = try? await environment.preferences.load() else { return }
         let persistedPolicy = RevealPolicyPersistence.canonical(stored.revealPolicy)
-        highlightedPolicy = persistedPolicy
         effectiveCurrentPolicy = persistedPolicy
     }
 }
@@ -1876,302 +1923,6 @@ private struct MasterPasswordRulesList: View {
                  ? String(localized: "settings.masterPassword.rule.met")
                  : String(localized: "settings.masterPassword.rule.unmet"))
         )
-    }
-}
-
-struct PaywallView: View {
-    let environment: AppEnvironment
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var message = ""
-    @State private var product: Product?
-    @State private var isLoadingProduct = true
-    @State private var isPurchasing = false
-    @State private var isRestoring = false
-    @State private var alreadyOwned = false
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("paywall.body")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if isLoadingProduct {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
-                    } else {
-                        unlimitedPlanCard
-                    }
-
-                    Button {
-                        Task { await purchase() }
-                    } label: {
-                        Group {
-                            if isPurchasing {
-                                ProgressView()
-                                    .frame(maxWidth: .infinity)
-                            } else if alreadyOwned {
-                                Text("paywall.owned")
-                                    .frame(maxWidth: .infinity)
-                            } else if let product {
-                                Text("paywall.upgradeWithPrice \(product.displayPrice)")
-                                    .frame(maxWidth: .infinity)
-                            } else {
-                                Text("paywall.upgrade")
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
-                        .font(.body.weight(.semibold))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(isPurchasing || isRestoring || product == nil || alreadyOwned)
-
-                    Button("paywall.restore") {
-                        Task { await restore() }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .disabled(isPurchasing || isRestoring)
-
-                    if !message.isEmpty {
-                        Text(message)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .padding(20)
-                .frame(maxWidth: 520)
-                .frame(maxWidth: .infinity)
-            }
-            .background(paywallBackground.ignoresSafeArea())
-            .navigationTitle("paywall.nav")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #if !targetEnvironment(macCatalyst)
-            .toolbarBackground(paywallBackground, for: .navigationBar)
-            #endif
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("gate.cancel") { dismiss() }
-                }
-            }
-            .task {
-                await loadProductAndTier()
-            }
-            #if targetEnvironment(macCatalyst)
-            .frame(minWidth: 520, minHeight: 620)
-            #endif
-        }
-    }
-
-    private var unlimitedPlanCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("paywall.plan.unlimited.title")
-                    .font(.headline)
-                Spacer(minLength: 8)
-                if alreadyOwned {
-                    Text("paywall.plan.badge.owned")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.green)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(Color.green.opacity(0.15))
-                        )
-                } else {
-                    Text("paywall.plan.badge.current")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(Color.accentColor.opacity(0.12))
-                        )
-                }
-            }
-
-            Text("paywall.plan.unlimited.detail")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                if let product {
-                    Text(product.displayPrice)
-                        .font(.title2.weight(.bold))
-                    Text("paywall.plan.once")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("paywall.productUnavailable")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.top, 2)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(paywallCardFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(alreadyOwned ? 0.15 : 0.35), lineWidth: 1)
-        )
-    }
-
-    private var paywallBackground: Color {
-        if colorScheme == .dark {
-            return Color(white: 0.14)
-        }
-        #if canImport(UIKit) && !os(watchOS)
-        return Color(uiColor: .systemGroupedBackground)
-        #else
-        return Color(red: 0.949, green: 0.949, blue: 0.969)
-        #endif
-    }
-
-    private var paywallCardFill: Color {
-        if colorScheme == .dark {
-            return Color(white: 0.18)
-        }
-        #if canImport(UIKit)
-        return Color(uiColor: .secondarySystemGroupedBackground)
-        #elseif canImport(AppKit)
-        return Color(nsColor: .textBackgroundColor)
-        #else
-        return Color.white
-        #endif
-    }
-
-    private func loadProductAndTier() async {
-        isLoadingProduct = true
-        defer { isLoadingProduct = false }
-
-        do {
-            let tier = try await environment.entitlements.currentTier()
-            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
-        } catch {
-            alreadyOwned = false
-        }
-
-        do {
-            let products = try await Product.products(
-                for: [EntitlementService.unlimitedKeysProductID]
-            )
-            product = products.first
-            if products.isEmpty {
-                message = String(localized: "paywall.productUnavailable")
-            }
-        } catch {
-            message = error.localizedDescription
-            product = nil
-        }
-    }
-
-    private func purchase() async {
-        message = ""
-        isPurchasing = true
-        defer { isPurchasing = false }
-        do {
-            let tier = try await environment.entitlements.purchaseUnlimitedKeys()
-            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
-            message = String(localized: "paywall.success")
-            if alreadyOwned {
-                dismiss()
-            }
-        } catch ApiRelayError.authenticationCancelled {
-            // 用户取消，不刷错误文案
-        } catch {
-            message = error.localizedDescription
-        }
-    }
-
-    private func restore() async {
-        message = ""
-        isRestoring = true
-        defer { isRestoring = false }
-        do {
-            let tier = try await environment.entitlements.restorePurchases()
-            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
-            message = alreadyOwned
-                ? String(localized: "paywall.restored")
-                : String(localized: "paywall.restore.none")
-        } catch {
-            message = error.localizedDescription
-        }
-    }
-}
-
-/// 清空全部数据的界面顺序。设置页必须走这里；测试可直接驱动，观察
-/// 「破坏性确认 → 身份验证 → 删除」且应用密码档在口令前不得调用删除。
-enum SettingsEraseAllFlow: Sendable {
-    enum Command: Equatable, Sendable {
-        case none
-        case promptAppPassword
-        case erase(appPassword: String?)
-    }
-
-    struct Trace: Equatable, Sendable {
-        var steps: [String] = []
-    }
-
-    static func isPasswordPrompt(_ error: ApiRelayError) -> Bool {
-        if case .validationFailed(_, let reason) = error {
-            return reason == "master_password_prompt_required" || reason == "required"
-        }
-        return false
-    }
-
-    static func afterDestructiveConfirm(
-        policy: RevealPolicy,
-        trace: inout Trace
-    ) -> Command {
-        trace.steps.append("destructiveConfirmed")
-        switch RevealPolicyPersistence.canonical(policy) {
-        case .masterPassword:
-            trace.steps.append("identityPrompt")
-            return .promptAppPassword
-        case .noVerification, .biometricOrPasscode, .biometryOrAppPassword:
-            trace.steps.append("identityStarted")
-            return .erase(appPassword: nil)
-        }
-    }
-
-    static func afterCombinationBiometricEnded(trace: inout Trace) -> Command {
-        trace.steps.append("combinationOffer")
-        return .promptAppPassword
-    }
-
-    static func afterAppPasswordEntry(_ password: String, trace: inout Trace) -> Command {
-        let trimmed = password.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            trace.steps.append("identityRejected.empty")
-            return .none
-        }
-        trace.steps.append("identityStarted")
-        return .erase(appPassword: trimmed)
-    }
-
-    static func afterAppPasswordCancel(trace: inout Trace) -> Command {
-        trace.steps.append("identityCancelled")
-        return .none
-    }
-
-    static func noteEraseStarted(trace: inout Trace) {
-        trace.steps.append("eraseStarted")
     }
 }
 

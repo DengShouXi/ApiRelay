@@ -11,6 +11,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A1310000000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B62E135130218B3F002E0DE6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B62E135830218B3F002E0DE6;
+			remoteInfo = ApiRelay;
+		};
 		D1D1136A0218B3F0AAAA0009 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B62E135130218B3F002E0DE6 /* Project object */;
@@ -21,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A13100000000000000000001 /* ApiRelayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ApiRelayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B62E135930218B3F002E0DE6 /* ApiRelay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ApiRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6B1CD55302C3C7B004BAA1B /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		D1D113590218B3F0AAAA0001 /* ApiRelayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ApiRelayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -37,6 +45,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A13100000000000000000002 /* ApiRelayUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ApiRelayUITests;
+			sourceTree = "<group>";
+		};
 		B62E135B30218B3F002E0DE6 /* ApiRelay */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -53,6 +66,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A13100000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B62E135630218B3F002E0DE6 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -76,6 +96,7 @@
 			children = (
 				B62E135B30218B3F002E0DE6 /* ApiRelay */,
 				D1D1135B30218B3F0AAAA0008 /* ApiRelayTests */,
+				A13100000000000000000002 /* ApiRelayUITests */,
 				B6B1CD54302C3C7B004BAA1B /* Frameworks */,
 				B62E135A30218B3F002E0DE6 /* Products */,
 			);
@@ -86,6 +107,7 @@
 			children = (
 				B62E135930218B3F002E0DE6 /* ApiRelay.app */,
 				D1D113590218B3F0AAAA0001 /* ApiRelayTests.xctest */,
+				A13100000000000000000001 /* ApiRelayUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -101,6 +123,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A13100000000000000000003 /* ApiRelayUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A13100000000000000000006 /* Build configuration list for PBXNativeTarget "ApiRelayUITests" */;
+			buildPhases = (
+				A13100000000000000000004 /* Sources */,
+				A13100000000000000000005 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A13100000000000000000009 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A13100000000000000000002 /* ApiRelayUITests */,
+			);
+			name = ApiRelayUITests;
+			packageProductDependencies = (
+			);
+			productName = ApiRelayUITests;
+			productReference = A13100000000000000000001 /* ApiRelayUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		B62E135830218B3F002E0DE6 /* ApiRelay */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B62E136730218B40002E0DE6 /* Build configuration list for PBXNativeTarget "ApiRelay" */;
@@ -155,6 +199,9 @@
 				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
+					A13100000000000000000003 = {
+						CreatedOnToolsVersion = 26.6;
+					};
 					B62E135830218B3F002E0DE6 = {
 						CreatedOnToolsVersion = 26.6;
 					};
@@ -180,6 +227,7 @@
 			targets = (
 				B62E135830218B3F002E0DE6 /* ApiRelay */,
 				D1D113580218B3F0AAAA0002 /* ApiRelayTests */,
+				A13100000000000000000003 /* ApiRelayUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -195,6 +243,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A13100000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B62E135530218B3F002E0DE6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -212,6 +267,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A13100000000000000000009 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B62E135830218B3F002E0DE6 /* ApiRelay */;
+			targetProxy = A1310000000000000000000A /* PBXContainerItemProxy */;
+		};
 		D1D1136B0218B3F0AAAA000A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B62E135830218B3F002E0DE6 /* ApiRelay */;
@@ -220,6 +280,50 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		A13100000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 9;
+				DEVELOPMENT_TEAM = 8NDLKZ4SSF;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apirelay.ApiRelayUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TEST_TARGET_NAME = ApiRelay;
+			};
+			name = Debug;
+		};
+		A13100000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 9;
+				DEVELOPMENT_TEAM = 8NDLKZ4SSF;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apirelay.ApiRelayUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TEST_TARGET_NAME = ApiRelay;
+			};
+			name = Release;
+		};
 		B62E136830218B40002E0DE6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -509,6 +613,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A13100000000000000000006 /* Build configuration list for PBXNativeTarget "ApiRelayUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A13100000000000000000007 /* Debug */,
+				A13100000000000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		B62E135430218B3F002E0DE6 /* Build configuration list for PBXProject "ApiRelay" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

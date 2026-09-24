@@ -16,12 +16,12 @@
 
 ## P1 — G0 前序关账与只读盘点（未来；写操作需另授权）
 
-- [ ] **T010** 完成 v1.13.9 尚欠验收与证据，不重开认证主链；在上传/远程复核前只标记“待关账”。
-- [ ] **T011** 只读盘点当前工作树归属、parked v1.14 的旧 13.6 指向、legacy hygiene T006/T008 的真实状态；不移动分支、不裁决任务。
-- [ ] **T012** 只读清点不可逆标识、store path、Keychain service/access group 与 Production schema。
-- [ ] **T013** 在用户明确授权后提交/上传 v1.13.9，并记录候选 closure SHA；本计划不构成该授权。
-- [ ] **T014** 对已上传的候选 SHA 做独立远程复核，并确认工作区没有会被夹带到下一线的未归属相关差异；确认与验收证据一致后，才在当前状态中登记 v1.13.9 已关账及最终 closure SHA。
-- [ ] **T015** 用户批准 `release-sequence.md` 后，另行授权从 v1.13.9 closure SHA 建立 v1.13.10；不在脏工作树直接续做。
+- [x] **T010** v1.13.9 已完成本轮身份验证验收、上传并冻结认证主链；尚欠的系统边界全矩阵继续作为发布闸门，不阻塞纯结构分支，也不得写成已通过。
+- [x] **T011** 已盘点原工作树归属、parked v1.14 的旧 13.6 指向、legacy hygiene T006/T008 的真实状态；v1.13.10 使用独立干净 worktree，未移动 v1.14。
+- [x] **T012** 已只读清点不可逆标识、store path、Keychain service/access group 与 schema；基线写入 `follow-ups/v1.13.10-structural-stabilization/04-不可逆标识基线.md`，实施后必须逐项复核不漂移。
+- [x] **T013** v1.13.9 已按授权完成内容提交 A、记账 B 和上传；closure SHA 为 `25fe006896a816475e269e155530c1464cc19304`。
+- [x] **T014** 已核对本地/远端 `v1.13.9` 与 `v1` 均指向同一 closure SHA；原工作树剩余差异均未带入下一线。
+- [x] **T015** 产品负责人已批准 `release-sequence.md` 并授权实施；已从 closure SHA 建立独立 `v1.13.10` 分支与干净 worktree。
 - [ ] **T016** v1.13.10 先补 characterization 与真正的 `ApiRelayUITests` target/fixture/accessibility identifiers，记录系统认证仍需真机人工验收的边界。
 - [ ] **T017** 按一次一职责/一提交拆分超大 View、ViewModel、service 与 privacy controller；保留 façade，不同时改行为。
 - [ ] **T018** 按 ownership 表逐项统一 session/auth request/presence/cover/preferences/write gate/clipboard 状态来源；每项单独等价验证。

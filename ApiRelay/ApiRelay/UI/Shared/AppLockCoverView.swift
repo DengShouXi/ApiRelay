@@ -68,6 +68,7 @@ struct AppLockCoverView: View {
             }
         }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("vault.lock.cover")
         .accessibilityAddTraits(.isModal)
         .onAppear {
             if !usesTouchKeyboard, showsUnlockChrome, showsPasswordField {
@@ -153,6 +154,7 @@ struct AppLockCoverView: View {
             titleAndHint
             if showsPasswordField {
                 SecureField("vault.masterPassword", text: $masterPassword)
+                    .accessibilityIdentifier("vault.lock.password")
                     .sensitivePasswordInput()
                     .textFieldStyle(.roundedBorder)
                     .focused($macPasswordFocused)
@@ -243,6 +245,7 @@ struct AppLockCoverView: View {
             }
         }
         .buttonStyle(.borderedProminent)
+        .accessibilityIdentifier("vault.lock.unlock")
         .disabled(isBusy)
     }
 
@@ -348,6 +351,7 @@ struct AppLockCoverView: View {
             activateKeyboard: showsUnlockChrome && showsPasswordField,
             onSubmit: submitVisiblePassword
         )
+        .accessibilityIdentifier("vault.lock.password")
         .frame(maxWidth: .infinity)
         .frame(minHeight: 44)
         #else
@@ -431,6 +435,7 @@ private struct AppLockTouchPasswordField: UIViewRepresentable {
         field.isSecureTextEntry = true
         field.placeholder = placeholder
         field.accessibilityLabel = placeholder
+        field.accessibilityIdentifier = "vault.lock.password"
         field.borderStyle = .roundedRect
         field.returnKeyType = .go
         field.enablesReturnKeyAutomatically = true
