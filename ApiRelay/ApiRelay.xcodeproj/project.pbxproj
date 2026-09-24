@@ -567,6 +567,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0.1;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-error=deprecated-declarations";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apirelay.ApiRelayTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -594,6 +595,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0.1;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-error=deprecated-declarations";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apirelay.ApiRelayTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;

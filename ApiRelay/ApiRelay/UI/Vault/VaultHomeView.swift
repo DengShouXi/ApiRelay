@@ -851,9 +851,22 @@ struct VaultHomeView: View {
             .scrollContentBackground(.hidden)
             .background(vaultGroupedBackground)
             .safeAreaInset(edge: .top, spacing: 0) {
-                if !isSearching, let quota = viewModel.remainingQuota {
-                    quotaBanner(quota)
-                        .background(vaultGroupedBackground)
+                if !isSearching {
+                    switch viewModel.quotaState {
+                    case .free(let quota):
+                        quotaBanner(quota)
+                            .background(vaultGroupedBackground)
+                    case .unavailable:
+                        Text("vault.quota.unavailable")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(vaultGroupedBackground)
+                    case .checking, .unlimited:
+                        EmptyView()
+                    }
                 }
             }
             .onAppear { scrollToPendingLocate(using: proxy) }
@@ -1626,7 +1639,7 @@ struct VaultHomeView: View {
 
     /// 免费档用尽时先弹配额，不打开添加表单。
     private func beginAddKey(for accountId: UUID) {
-        if viewModel.remainingQuota == 0 {
+        if viewModel.quotaState == .free(remaining: 0) {
             viewModel.showQuotaAlert = true
             return
         }

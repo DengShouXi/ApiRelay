@@ -1423,6 +1423,24 @@
         }
       }
     },
+    "paywall.activationPending" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Purchase completed. Waiting for StoreKit to activate unlimited keys. Check again or restore purchases; you won't be charged again here." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "购买已完成，正在等待商店权益生效。可重新核对或恢复购买；此处不会再次发起购买。" } }
+      }
+    },
+    "paywall.entitlementChecking" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Checking your purchase…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在核对购买权益…" } }
+      }
+    },
+    "paywall.entitlementUnavailable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "We couldn't verify your purchase. Try again or restore purchases." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂时无法核对购买权益。请重试或恢复购买。" } }
+      }
+    },
     "paywall.nav" : {
       "localizations" : {
         "en" : {
@@ -1535,6 +1553,12 @@
         }
       }
     },
+    "paywall.purchasePending" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Purchase is awaiting approval. Unlimited keys will unlock after it completes." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "购买正在等待批准，完成后才会解锁无限密钥。" } }
+      }
+    },
     "paywall.productUnavailable" : {
       "localizations" : {
         "en" : {
@@ -1549,6 +1573,12 @@
             "value" : "暂时无法获取升级商品，请稍后重试。"
           }
         }
+      }
+    },
+    "paywall.retry" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Check Again" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新核对" } }
       }
     },
     "paywall.restore" : {
@@ -1613,6 +1643,12 @@
             "value" : "购买成功"
           }
         }
+      }
+    },
+    "paywall.verificationFailed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The purchase could not be verified. No paid access was granted." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法验证此次购买，尚未授予付费权益。" } }
       }
     },
     "paywall.title" : {
@@ -5423,6 +5459,12 @@
         }
       }
     },
+    "settings.upgrade.status.checking" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Checking" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "核对中" } }
+      }
+    },
     "settings.upgrade.status.action" : {
       "localizations" : {
         "en" : {
@@ -5453,6 +5495,12 @@
             "value" : "已解锁"
           }
         }
+      }
+    },
+    "settings.upgrade.status.unavailable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Can't Verify" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂不可核对" } }
       }
     },
     "settings.weakenConfirm.appPassword.message" : {
@@ -8528,6 +8576,12 @@
             "value" : "已达免费上限"
           }
         }
+      }
+    },
+    "vault.quota.unavailable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unable to check your free-key limit right now." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂时无法核对免费密钥额度。" } }
       }
     },
     "vault.quota.remaining %lld" : {

@@ -5,13 +5,38 @@ import Foundation
 actor FakeEntitlements: EntitlementServing {
     var journal = FakeJournal()
     private var tier: EntitlementTier
+    private let queryFails: Bool
+    private let queryDelayNanoseconds: UInt64
+    private let activationDelayNanoseconds: UInt64
+    private let purchaseIsPending: Bool
+    private var activationReadyUptime: TimeInterval?
 
-    init(tier: EntitlementTier = .free) {
+    init(
+        tier: EntitlementTier = .free,
+        queryFails: Bool = false,
+        queryDelayNanoseconds: UInt64 = 0,
+        activationDelayNanoseconds: UInt64 = 0,
+        purchaseIsPending: Bool = false
+    ) {
         self.tier = tier
+        self.queryFails = queryFails
+        self.queryDelayNanoseconds = queryDelayNanoseconds
+        self.activationDelayNanoseconds = activationDelayNanoseconds
+        self.purchaseIsPending = purchaseIsPending
     }
 
     func currentTier() async throws -> EntitlementTier {
+        if queryDelayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: queryDelayNanoseconds)
+        }
         try journal.record("currentTier")
+        if queryFails {
+            throw ApiRelayError.networkUnavailable
+        }
+        if let activationReadyUptime,
+           ProcessInfo.processInfo.systemUptime < activationReadyUptime {
+            return .free
+        }
         return tier
     }
 
@@ -26,7 +51,14 @@ actor FakeEntitlements: EntitlementServing {
 
     func purchaseUnlimitedKeys() async throws -> EntitlementTier {
         try journal.record("purchaseUnlimitedKeys")
+        if purchaseIsPending {
+            throw ApiRelayError.validationFailed(field: "product", reason: "purchase_pending")
+        }
         tier = .unlimitedKeys
+        if activationDelayNanoseconds > 0 {
+            activationReadyUptime = ProcessInfo.processInfo.systemUptime
+                + TimeInterval(activationDelayNanoseconds) / 1_000_000_000
+        }
         return tier
     }
 
@@ -37,6 +69,7 @@ actor FakeEntitlements: EntitlementServing {
     func purgeLocalSnapshotForErase() async throws {
         try journal.record("purgeLocalSnapshotForErase")
         tier = .free
+        activationReadyUptime = nil
     }
 
     func purgeLocalSnapshotForCommittedErase(
@@ -45,11 +78,13 @@ actor FakeEntitlements: EntitlementServing {
         try authorization.validate(operation: "fake_entitlement_committed_erase")
         try journal.record("purgeLocalSnapshotForErase")
         tier = .free
+        activationReadyUptime = nil
     }
 
     func debugOverride(tier: EntitlementTier?) async throws {
         try journal.record("debugOverride")
         self.tier = tier ?? .free
+        activationReadyUptime = nil
     }
 }
 #endif

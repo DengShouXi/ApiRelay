@@ -144,6 +144,7 @@ struct SettingsColumnScroll<Content: View>: View {
             .frame(maxWidth: SettingsChrome.columnMaxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: placement.centersColumn ? .center : .leading)
         }
+        .accessibilityIdentifier("settings.columnScroll")
         .scrollContentBackground(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onGeometryChange(for: CGFloat.self) { proxy in

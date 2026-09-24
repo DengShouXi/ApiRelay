@@ -71,7 +71,8 @@ final class VaultHomeViewModel: ObservableObject {
     @Published var groupingMode: GroupingMode = .byPlatform
     @Published var platformSectionSort: SectionSortPreference = .nameAscending
     @Published var consumerSectionSort: SectionSortPreference = .nameAscending
-    @Published var remainingQuota: Int?
+    @Published var quotaState: FreeQuotaDisplayState = .checking
+    private var quotaRequestRevision: UInt64 = 0
     /// 产品写死的默认头像；设置页不再提供改默认的入口。单条覆盖存在账号 / 使用方 / 密钥上。
     let avatarDefaults = AvatarPreferenceDefaults.builtIn
     @Published var errorMessage: String?
@@ -254,10 +255,16 @@ final class VaultHomeViewModel: ObservableObject {
         }
 
         // 额度状态依赖 StoreKit；失败不能把已经成功加载的密钥列表判成失败。
+        quotaRequestRevision &+= 1
+        let quotaRevision = quotaRequestRevision
+        quotaState = .checking
         do {
-            remainingQuota = try await vault.remainingFreeQuota()
+            let remaining = try await vault.remainingFreeQuota()
+            guard quotaRevision == quotaRequestRevision else { return }
+            quotaState = FreeQuotaDisplayState(remaining: remaining)
         } catch {
-            remainingQuota = nil
+            guard quotaRevision == quotaRequestRevision else { return }
+            quotaState = .unavailable
         }
     }
 

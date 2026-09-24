@@ -5,6 +5,19 @@ import SwiftData
 
 @MainActor
 final class EntitlementServiceTests: XCTestCase {
+    func testDisplayStatesKeepUnknownSeparateFromFreeAndUnlimited() {
+        XCTAssertEqual(EntitlementDisplayState(tier: .free), .free)
+        XCTAssertEqual(EntitlementDisplayState(tier: .unlimitedKeys), .owned)
+        XCTAssertEqual(EntitlementDisplayState(tier: .relay), .owned)
+        XCTAssertFalse(EntitlementDisplayState.checking.canPurchase)
+        XCTAssertFalse(EntitlementDisplayState.unavailable.canPurchase)
+        XCTAssertTrue(EntitlementDisplayState.free.canPurchase)
+
+        XCTAssertEqual(FreeQuotaDisplayState(remaining: 0), .free(remaining: 0))
+        XCTAssertEqual(FreeQuotaDisplayState(remaining: nil), .unlimited)
+        XCTAssertNotEqual(FreeQuotaDisplayState.unavailable, .unlimited)
+    }
+
     func testRelayTierUnreachableInV1() async throws {
         let container = try AppSchema.makeInMemoryContainer()
         let sut = EntitlementService(modelContainer: container)

@@ -51,6 +51,9 @@ actor EntitlementService: EntitlementServing {
                 case .verified(let transaction):
                     await transaction.finish()
                     _ = try? await currentTier()
+                    await MainActor.run {
+                        NotificationCenter.default.post(name: .entitlementDidChange, object: nil)
+                    }
                 case .unverified:
                     // 不放行，也不 finish：保留 StoreKit 后续重新验签 / 重放的机会。
                     continue

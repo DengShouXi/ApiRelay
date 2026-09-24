@@ -5,12 +5,17 @@ struct PaywallView: View {
     let environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @State private var message = ""
     @State private var product: Product?
     @State private var isLoadingProduct = true
     @State private var isPurchasing = false
     @State private var isRestoring = false
-    @State private var alreadyOwned = false
+    @State private var purchaseApprovalPending = false
+    @State private var purchaseAwaitingEntitlement = false
+    @State private var isCheckingActivation = false
+    @State private var entitlementState: EntitlementDisplayState = .checking
+    @State private var entitlementRequestRevision: UInt64 = 0
 
     var body: some View {
         NavigationStack {
@@ -29,6 +34,33 @@ struct PaywallView: View {
                         unlimitedPlanCard
                     }
 
+                    if entitlementState == .checking {
+                        Text("paywall.entitlementChecking")
+                            .accessibilityIdentifier("paywall.entitlement.checking")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else if entitlementState == .unavailable {
+                        Text("paywall.entitlementUnavailable")
+                            .accessibilityIdentifier("paywall.entitlement.unavailable")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Button("paywall.retry") {
+                            Task { await refreshTier() }
+                        }
+                        .accessibilityIdentifier("paywall.entitlement.retry")
+                    }
+                    if purchaseAwaitingEntitlement {
+                        Text("paywall.activationPending")
+                            .accessibilityIdentifier("paywall.entitlement.activationPending")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Button("paywall.retry") {
+                            Task { await waitForPurchaseActivation() }
+                        }
+                        .accessibilityIdentifier("paywall.entitlement.activationRetry")
+                        .disabled(isPurchasing || isRestoring || isCheckingActivation)
+                    }
+
                     Button {
                         Task { await purchase() }
                     } label: {
@@ -36,7 +68,7 @@ struct PaywallView: View {
                             if isPurchasing {
                                 ProgressView()
                                     .frame(maxWidth: .infinity)
-                            } else if alreadyOwned {
+                            } else if entitlementState.isOwned {
                                 Text("paywall.owned")
                                     .frame(maxWidth: .infinity)
                             } else if let product {
@@ -50,8 +82,12 @@ struct PaywallView: View {
                         .font(.body.weight(.semibold))
                     }
                     .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("paywall.purchase")
                     .controlSize(.large)
-                    .disabled(isPurchasing || isRestoring || product == nil || alreadyOwned)
+                    .disabled(
+                        isPurchasing || isRestoring || purchaseApprovalPending || purchaseAwaitingEntitlement
+                            || product == nil || !entitlementState.canPurchase
+                    )
 
                     Button("paywall.restore") {
                         Task { await restore() }
@@ -61,6 +97,9 @@ struct PaywallView: View {
 
                     if !message.isEmpty {
                         Text(message)
+                            .accessibilityIdentifier(
+                                purchaseApprovalPending ? "paywall.purchasePending" : "paywall.message"
+                            )
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -85,7 +124,16 @@ struct PaywallView: View {
                 }
             }
             .task {
-                await loadProductAndTier()
+                await loadProduct()
+            }
+            .task { await refreshTier() }
+            .onReceive(NotificationCenter.default.publisher(for: .entitlementDidChange)) { _ in
+                Task { await refreshTier() }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    Task { await refreshTier() }
+                }
             }
             #if targetEnvironment(macCatalyst)
             .frame(minWidth: 520, minHeight: 620)
@@ -99,7 +147,7 @@ struct PaywallView: View {
                 Text("paywall.plan.unlimited.title")
                     .font(.headline)
                 Spacer(minLength: 8)
-                if alreadyOwned {
+                if entitlementState.isOwned {
                     Text("paywall.plan.badge.owned")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.green)
@@ -109,7 +157,7 @@ struct PaywallView: View {
                             Capsule(style: .continuous)
                                 .fill(Color.green.opacity(0.15))
                         )
-                } else {
+                } else if entitlementState == .free {
                     Text("paywall.plan.badge.current")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.accentColor)
@@ -143,6 +191,7 @@ struct PaywallView: View {
             .padding(.top, 2)
         }
         .padding(16)
+        .accessibilityIdentifier("paywall.entitlement.state.\(entitlementState.accessibilityCode)")
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -150,7 +199,7 @@ struct PaywallView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(alreadyOwned ? 0.15 : 0.35), lineWidth: 1)
+                .strokeBorder(Color.accentColor.opacity(entitlementState.isOwned ? 0.15 : 0.35), lineWidth: 1)
         )
     }
 
@@ -178,16 +227,9 @@ struct PaywallView: View {
         #endif
     }
 
-    private func loadProductAndTier() async {
+    private func loadProduct() async {
         isLoadingProduct = true
         defer { isLoadingProduct = false }
-
-        do {
-            let tier = try await environment.entitlements.currentTier()
-            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
-        } catch {
-            alreadyOwned = false
-        }
 
         do {
             let products = try await Product.products(
@@ -203,35 +245,118 @@ struct PaywallView: View {
         }
     }
 
+    private func refreshTier() async {
+        guard !isRestoring, !isPurchasing else { return }
+        entitlementRequestRevision &+= 1
+        let revision = entitlementRequestRevision
+        entitlementState = .checking
+        do {
+            let tier = try await environment.entitlements.currentTier()
+            guard revision == entitlementRequestRevision else { return }
+            if purchaseAwaitingEntitlement {
+                if tier == .free {
+                    entitlementState = .checking
+                } else {
+                    purchaseApprovalPending = false
+                    purchaseAwaitingEntitlement = false
+                    entitlementState = .owned
+                    dismiss()
+                }
+            } else {
+                entitlementState = EntitlementDisplayState(tier: tier)
+                if entitlementState.isOwned { purchaseApprovalPending = false }
+            }
+        } catch {
+            guard revision == entitlementRequestRevision else { return }
+            entitlementState = purchaseAwaitingEntitlement ? .checking : .unavailable
+        }
+    }
+
     private func purchase() async {
+        guard entitlementState.canPurchase, product != nil else { return }
         message = ""
         isPurchasing = true
         defer { isPurchasing = false }
         do {
             let tier = try await environment.entitlements.purchaseUnlimitedKeys()
-            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
-            message = String(localized: "paywall.success")
-            if alreadyOwned {
-                dismiss()
+            entitlementRequestRevision &+= 1
+            if tier == .free {
+                entitlementState = .free
+            } else {
+                // Verified purchase can precede Transaction.currentEntitlements.
+                // Keep the sheet open until the same authoritative check used by
+                // the fourth-key write gate sees the grant; never trust snapshot.
+                purchaseAwaitingEntitlement = true
+                entitlementState = .checking
+                await waitForPurchaseActivation()
             }
         } catch ApiRelayError.authenticationCancelled {
             // 用户取消，不刷错误文案
+        } catch ApiRelayError.validationFailed(let field, let reason)
+            where field == "product" && reason == "purchase_pending" {
+            purchaseApprovalPending = true
+            message = String(localized: "paywall.purchasePending")
+        } catch ApiRelayError.validationFailed(let field, let reason)
+            where field == "product" && reason == "unverified_transaction" {
+            message = String(localized: "paywall.verificationFailed")
         } catch {
             message = error.localizedDescription
         }
     }
 
+    private func waitForPurchaseActivation() async {
+        guard purchaseAwaitingEntitlement, !isCheckingActivation else { return }
+        isCheckingActivation = true
+        defer { isCheckingActivation = false }
+        entitlementState = .checking
+        for attempt in 0..<20 {
+            guard !Task.isCancelled, purchaseAwaitingEntitlement else { return }
+            if let tier = try? await environment.entitlements.currentTier(), tier != .free {
+                guard purchaseAwaitingEntitlement else { return }
+                purchaseAwaitingEntitlement = false
+                entitlementState = .owned
+                message = String(localized: "paywall.success")
+                dismiss()
+                return
+            }
+            if attempt < 19 {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+        }
+        guard purchaseAwaitingEntitlement else { return }
+        message = String(localized: "paywall.activationPending")
+    }
+
     private func restore() async {
         message = ""
         isRestoring = true
+        entitlementRequestRevision &+= 1
+        let revision = entitlementRequestRevision
+        entitlementState = .checking
         defer { isRestoring = false }
         do {
             let tier = try await environment.entitlements.restorePurchases()
-            alreadyOwned = (tier == .unlimitedKeys || tier == .relay)
-            message = alreadyOwned
+            guard revision == entitlementRequestRevision else { return }
+            if purchaseAwaitingEntitlement, tier != .free {
+                purchaseApprovalPending = false
+                purchaseAwaitingEntitlement = false
+                entitlementState = .owned
+                dismiss()
+            } else {
+                entitlementState = purchaseAwaitingEntitlement
+                    ? .checking : EntitlementDisplayState(tier: tier)
+                if entitlementState.isOwned { purchaseApprovalPending = false }
+            }
+            message = entitlementState.isOwned
                 ? String(localized: "paywall.restored")
-                : String(localized: "paywall.restore.none")
+                : purchaseAwaitingEntitlement
+                    ? String(localized: "paywall.activationPending")
+                    : purchaseApprovalPending
+                        ? String(localized: "paywall.purchasePending")
+                        : String(localized: "paywall.restore.none")
         } catch {
+            guard revision == entitlementRequestRevision else { return }
+            entitlementState = purchaseAwaitingEntitlement ? .checking : .unavailable
             message = error.localizedDescription
         }
     }

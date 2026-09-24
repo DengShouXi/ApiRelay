@@ -23,7 +23,27 @@ enum UITestFixture {
         let vault = FakeKeyVault(seedPreviewSample: true)
         let tools = FakeConsumerTools(seedPreviewSample: true)
         let trash = FakeRecentlyDeletedBatch()
-        let entitlements = FakeEntitlements(tier: .unlimitedKeys)
+        let entitlements: FakeEntitlements
+        switch scenario {
+        case "entitlement-free":
+            entitlements = FakeEntitlements(tier: .free)
+        case "entitlement-failure":
+            entitlements = FakeEntitlements(tier: .unlimitedKeys, queryFails: true)
+        case "entitlement-loading":
+            entitlements = FakeEntitlements(
+                tier: .unlimitedKeys,
+                queryDelayNanoseconds: 30_000_000_000
+            )
+        case "entitlement-delayed-activation":
+            entitlements = FakeEntitlements(
+                tier: .free,
+                activationDelayNanoseconds: 3_000_000_000
+            )
+        case "entitlement-pending-purchase":
+            entitlements = FakeEntitlements(tier: .free, purchaseIsPending: true)
+        default:
+            entitlements = FakeEntitlements(tier: .unlimitedKeys)
+        }
         let preferences = FakePreferences(initial: initial)
         let backups = FakeSecureBackup()
         let backupPassphrase = FakeBackupPassphrase()
@@ -33,8 +53,8 @@ enum UITestFixture {
             gate: gate,
             preferences: preferences,
             masterPassword: master,
-            installsSnapshotCover: true,
-            enablesUnlockPrompt: true,
+            installsSnapshotCover: scenario == "lock",
+            enablesUnlockPrompt: scenario == "lock",
             launchAppLockEnabled: initial.appLockEnabled,
             autoPromptsSystemAuth: false
         )

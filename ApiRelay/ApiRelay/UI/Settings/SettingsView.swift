@@ -24,7 +24,8 @@ struct SettingsView: View {
     @State private var restoreStatus = ""
     @State private var isRestoringPurchases = false
     @State private var showPaywall = false
-    @State private var entitlementTier: EntitlementTier = .free
+    @State private var entitlementState: EntitlementDisplayState = .checking
+    @State private var entitlementRequestRevision: UInt64 = 0
     @State private var persistError = ""
     @State private var pendingSecurityAction = SettingsPendingActionState()
     @State private var weakenPassword = ""
@@ -108,6 +109,9 @@ struct SettingsView: View {
                     PaywallView(environment: environment)
                         .settingsTaskSheet()
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .entitlementDidChange)) { _ in
+                    Task { await refreshEntitlementTier() }
+                }
                 .confirmationDialog("settings.eraseAll.confirm", isPresented: $confirmErase) {
                     Button("settings.eraseAll", role: .destructive) {
                         Task { await confirmEraseAfterDestructiveDialog() }
@@ -136,6 +140,9 @@ struct SettingsView: View {
                     abandonSettingsCombinationPending()
                 }
                 .onChange(of: scenePhase) { _, phase in
+                    if phase == .active {
+                        Task { await refreshEntitlementTier() }
+                    }
                     if phase != .active {
                         clearSettingsSensitiveInputs()
                     }
@@ -498,13 +505,8 @@ struct SettingsView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityValue(
-                            Text(
-                                hasUnlimitedKeys
-                                    ? "settings.upgrade.status.owned"
-                                    : "settings.upgrade.status.action"
-                            )
-                        )
+                        .accessibilityIdentifier("settings.entitlement.state.\(entitlementState.accessibilityCode)")
+                        .accessibilityValue(Text(upgradeStatus))
                         InlineHelpButton(
                             title: "settings.upgrade",
                             message: hasUnlimitedKeys
@@ -517,15 +519,11 @@ struct SettingsView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Spacer(minLength: 8)
-                                Text(
-                                    hasUnlimitedKeys
-                                        ? String(localized: "settings.upgrade.status.owned")
-                                        : String(localized: "settings.upgrade.status.action")
-                                )
-                                .font(.subheadline)
-                                .foregroundStyle(hasUnlimitedKeys ? .secondary : Color.accentColor)
-                                .lineLimit(1)
-                                .layoutPriority(1)
+                                Text(upgradeStatus)
+                                    .font(.subheadline)
+                                    .foregroundStyle(hasUnlimitedKeys ? .secondary : Color.accentColor)
+                                    .lineLimit(1)
+                                    .layoutPriority(1)
                             }
                             .contentShape(Rectangle())
                         }
@@ -1141,25 +1139,51 @@ struct SettingsView: View {
     }
 
     private var hasUnlimitedKeys: Bool {
-        entitlementTier == .unlimitedKeys || entitlementTier == .relay
+        entitlementState.isOwned
+    }
+
+    private var upgradeStatus: String {
+        switch entitlementState {
+        case .checking: String(localized: "settings.upgrade.status.checking")
+        case .free: String(localized: "settings.upgrade.status.action")
+        case .owned: String(localized: "settings.upgrade.status.owned")
+        case .unavailable: String(localized: "settings.upgrade.status.unavailable")
+        }
     }
 
     private func refreshEntitlementTier() async {
-        entitlementTier = (try? await environment.entitlements.currentTier()) ?? .free
+        guard !isRestoringPurchases else { return }
+        entitlementRequestRevision &+= 1
+        let revision = entitlementRequestRevision
+        entitlementState = .checking
+        do {
+            let tier = try await environment.entitlements.currentTier()
+            guard revision == entitlementRequestRevision else { return }
+            entitlementState = EntitlementDisplayState(tier: tier)
+        } catch {
+            guard revision == entitlementRequestRevision else { return }
+            entitlementState = .unavailable
+        }
     }
 
     /// FR-028：设置内始终可达的恢复购买（不依赖免费额度条 / 付费墙）。
     private func restorePurchasesFromSettings() async {
         restoreStatus = ""
         isRestoringPurchases = true
+        entitlementRequestRevision &+= 1
+        let revision = entitlementRequestRevision
+        entitlementState = .checking
         defer { isRestoringPurchases = false }
         do {
             let tier = try await environment.entitlements.restorePurchases()
-            entitlementTier = tier
+            guard revision == entitlementRequestRevision else { return }
+            entitlementState = EntitlementDisplayState(tier: tier)
             restoreStatus = tier == .free
                 ? String(localized: "settings.restorePurchases.none")
                 : String(localized: "settings.restorePurchases.done")
         } catch {
+            guard revision == entitlementRequestRevision else { return }
+            entitlementState = .unavailable
             restoreStatus = error.localizedDescription
         }
     }
