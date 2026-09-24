@@ -6,7 +6,7 @@
 **Threat model**: [threat-model.md](./threat-model.md)
 **Data model**: [data-model.md](./data-model.md)
 **Decision record**: [decision-log.md](./decision-log.md)
-**Release sequence**: [v1.13.9 → v1.13.10 → v1.14 → UI](./release-sequence.md)
+**Release sequence**: [v1.13.9 → v1.13.10 → v1.13.11 → v1.14 → UI](./release-sequence.md)
 **Contracts**: [crypto-envelope](./contracts/crypto-envelope.md) · [sync-state-machine](./contracts/sync-state-machine.md) · [device-lifecycle](./contracts/device-lifecycle.md) · [migration-protocol](./contracts/migration-protocol.md)
 
 ## 1. 总体判断
@@ -95,19 +95,19 @@ UI 继续只依赖业务协议，不得同时知道 legacy Keychain、CKRecord�
 
 ## 5. 分阶段实施与硬闸门
 
-### G0 — 前序版本关账与只读盘点（未来；本轮不执行 Git 动作）
+### G0 — 前序版本关账与只读盘点（`13.11` 尚未关账；本轮不执行 v1.14 Git 动作）
 
-目标：按治理顺序先把 `v1.13.9` 关账，再用独立 `v1.13.10` 做纯结构稳定化；同步只能以最终 `v1.13.10` 为基线。在新方案尚未获批时，只写计划和盘点，不改分支与产品权威。
+目标：`v1.13.9` 与纯结构稳定化 `v1.13.10` 已关账；接着用独立 `v1.13.11` 只验收购买权益。同步正式实施只能以未来经关账及远端复核的 `v1.13.11` closure SHA 为基线。在新同步方案尚未获批时，只写计划和盘点，不移动 parked `v1.14` 或修改同步产品语义。
 
-- **G0a（只读/验证）**：`v1.13.9` 认证代码保持冻结；完成尚欠验收与证据，盘点工作树归属、旧任务状态、不可逆标识、store path、Keychain service/access group 和 Production schema。此时只能标记“待上传/待复核”，不能写成“已关账”。
-- **G0b（另行授权）**：只有用户明确授权后，才按治理规定的分批范围提交并上传 `v1.13.9`；随后必须由独立远程复核确认远端内容、本地验收与计划入库范围一致，并确认工作区没有会被夹带到下一线的未归属相关差异。复核通过后，才记录“已关账”和精确 closure SHA。
-- **G0c（未来独立阶段）**：从 `v1.13.9` closure SHA 建立 `v1.13.10`，只按 [release-sequence.md](./release-sequence.md) 拆分超大文件、统一状态 ownership、增加真正的 XCUITest；不改认证功能、同步架构、持久数据和视觉设计。
-- **G0d（另行授权）**：`v1.13.10` 完成等价性、三平台/真机与独立审查后，另获提交/上传授权并做远程复核；只有此后才形成同步可引用的 closure SHA。
+- **G0a（历史已完成）**：`v1.13.9` 认证代码已冻结；工作树归属、旧任务状态、不可逆标识、store path、Keychain service/access group 和 Production schema 已盘点。尚欠的真实系统边界全矩阵继续是发布闸门，不追写成已通过。
+- **G0b（历史已完成）**：`v1.13.9` 经用户授权按精确范围提交上传，独立远端复核后记录关账 SHA `25fe006896a816475e269e155530c1464cc19304`。原工作树未提交差异仍保留且不带入后续分支；原包检查器退出 4 仍是其自身隔离阻塞。
+- **G0c（已完成）**：从 `v1.13.9` closure SHA 建立 `v1.13.10`，只做结构稳定化和真正的 XCUITest；其 closure SHA 为 `8e6c22109b9f5851dacb31b96e8915d855b0e0f3`。真实系统边界仍须发布前验证，不把自动测试扩大为真机全矩阵。
+- **G0d（进行中）**：从 `v1.13.10` closure SHA 建立干净独立 `v1.13.11`，只做购买权益验收；其真实 closure SHA 需等实施、测试、独立复核、授权上传和远端核对后记录。
 - 当前 parked `v1.14` 无独有提交但停在 13.6，只记录该事实；G0 不前移、不重建、不切换它。
 - 旧同步卫生包保留；G0 只如实登记 T006/T008 未完成状态，不在新方案获批前替它们作产品处置。
 - 只记录现行权威冲突；未获 G1 批准前，不把建议改写成产品事实。
 
-**Exit**：`v1.13.9` 和随后纯结构稳定化 `v1.13.10` 均完成各自验收、用户授权后的提交/上传、独立远程复核与关账；工作区相关差异均已归属；两个 closure SHA、工作树归属、旧任务现状和不可逆配置清单均有书面记录。任一阶段尚未完成时，G0 保持未完成，不得用本地工作树冒充同步基线。
+**Exit**：`v1.13.9`、`v1.13.10`、`v1.13.11` 均完成各自验收、授权提交上传、独立远程复核与关账；工作区差异均有归属；三个 closure SHA、工作树归属、旧任务现状和不可逆配置清单均有书面记录。在 `13.11` 未关账前，G0 对同步仍未完成，不得用其本机起点冒充最终同步基线。
 
 ### G1 — 产品与威胁模型裁决
 
@@ -136,7 +136,7 @@ UI 继续只依赖业务协议，不得同时知道 legacy Keychain、CKRecord�
 获批后才执行以下激活动作：
 
 - 按 §10 顺序回写产品权威并做一致性复核，明确处置 legacy hygiene T006/T008；被取代只能记 `superseded` 和理由，未完成项不得假勾；
-- 另经用户明确授权后，只允许把当前无独有提交的 parked `v1.14` **fast-forward** 到 `v1.13.10` closure SHA；若届时不能纯快进，立即停止并重新裁决，禁止隐含删除、重建、reset 或 force push；
+- 另经用户明确授权后，只允许把当前无独有提交的 parked `v1.14` **fast-forward** 到最终 `v1.13.11` closure SHA；若届时不能纯快进，立即停止并重新裁决，禁止隐含删除、重建、reset 或 force push；
 - 记录新分支 base SHA、权威版本和只允许进入的下一 gate。
 
 **Exit**：`spec.md §7` 无未决项并写入 [decision-log.md](./decision-log.md)；威胁模型与承诺/不承诺表经用户批准；权威回写、一致性复核、旧任务处置与 `v1.14` 精确基线均完成。仅批准产品方向不等于授权回写、建分支、改代码或迁移数据；每一步都服从其单独授权边界。

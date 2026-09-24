@@ -5,8 +5,8 @@
 ## 范围与权威
 
 - [ ] v1.14 被明确为 Stage 1 同步架构维护；产品 V2 仍是 2.0 用量看板。
-- [ ] v1.13.9 已关账；v1.13.10 已只做结构稳定化并完成真正 XCUITest、授权上传和远端复核；其 closure SHA 是 v1.14 唯一基线。
-- [ ] parked v1.14 已经另行授权后纯 fast-forward 到 v1.13.10 closure SHA；不能纯快进时已停止而非 reset/recreate/force。
+- [ ] 核对 v1.13.9 与 v1.13.10 关账证据；等待 v1.13.11 单独完成购买权益验收、授权上传和远端复核，取得未来 closure SHA 后才把它作为 v1.14 唯一实施基线。
+- [ ] 核对 parked v1.14 未提前移动；未来另获授权后只允许纯 fast-forward 到 v1.13.11 closure SHA，不能纯快进时停止而非 reset/recreate/force。
 - [ ] 旧 cloudkit-sync-hygiene 保留为 legacy 包，T006/T008 处置明确。
 - [ ] ROADMAP、constitution、spec、research、plan、data-model、interfaces 的回写清单获批。
 - [ ] 本次授权明确到 gate，没有用“执行计划”一次性授权不可逆 cleanup。

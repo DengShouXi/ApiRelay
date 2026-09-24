@@ -4,7 +4,7 @@
 
 ## 1. 核心原则
 
-1. 先关账 v1.13.9，再完成“不改功能”的 v1.13.10 结构稳定化；最终关账的 v1.13.10 是唯一迁移输入基线。
+1. v1.13.9 和“不改功能”的 v1.13.10 已关账；还须单独完成 v1.13.11 购买权益验收。未来只有经关账、授权上传与远端复核的 v1.13.11 closure SHA 才可成为迁移输入基线；目前尚无这个 SHA。
 2. 旧 SwiftData/CloudKit 与 synchronizable Keychain 在 shadow 阶段仍是权威。
 3. 先复制、再逐条核对、再切换；旧明文最后才删。
 4. 所有迁移步骤幂等、有 stable migration ID、有持久 checkpoint。
@@ -15,8 +15,9 @@
 ## 2. 前置闸门
 
 - v1.13.9 已冻结、测试、授权上传、远端复核并关账；
-- v1.13.10 已按 `release-sequence.md` 完成结构稳定化、真正 XCUITest、三平台/真机、授权上传与远端复核，并形成精确 closure SHA；
-- parked v1.14 已在另行授权下纯 fast-forward 到 v1.13.10 closure SHA；若不能纯快进则已经停止并重新裁决；
+- v1.13.10 结构稳定化已有 `8e6c221` closure SHA；真机系统边界仍属发布矩阵，不冒充三平台全真机通过；
+- v1.13.11 尚待完成购买权益验收、独立复核、授权上传与远端复核；前述条件完成后才记录其精确 closure SHA；
+- parked v1.14 尚未前移；将来只有另获授权且能纯 fast-forward 到 v1.13.11 closure SHA 时才能前移，否则停止并重新裁决；
 - legacy 的未完成 CrossStore WAL、DataEraseJournal 和 integrity quarantine 已清零或人工处置；
 - 旧 Keychain service/access group、iCloud container、ModelConfiguration 名称和 store path 保持不变；
 - Recovery Credential 已生成并验证；控制面永久丢失时是“明确不可恢复”还是提供加密 Recovery Kit 已在 G1/G3 裁决；

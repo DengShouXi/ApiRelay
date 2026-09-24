@@ -4,7 +4,7 @@
 
 ## Preflight
 
-- [ ] v1.13.9 与 v1.13.10 closure SHA 均已记录；v1.14 精确基于后者。Bundle ID、Team ID、Keychain group、iCloud container、store paths 已记录。
+- [ ] 核对 v1.13.9 与 v1.13.10 closure SHA；等待 v1.13.11 关账后记录其 SHA，才允许将其作为 v1.14 输入基线。Bundle ID、Team ID、Keychain group、iCloud container、store paths 仍须按实际核对。
 - [ ] legacy WAL/erase journal/quarantine 无未完成状态。
 - [ ] 当前 vault 加密备份 round-trip 通过。
 - [ ] Recovery Credential 可用并完成一次恢复演练；control zone 丢失时 Recovery Kit/不可恢复边界已裁决。

@@ -4,7 +4,7 @@
 **Date**: 2026-09-24
 **Target line**: 建议归入 Stage 1 小迭代 `v1.14`，不占用产品路线图的 V2（2.0 用量看板）
 **Implementation authorization**: **没有**。本文不授权改 Swift、改生产 CloudKit、迁移真实数据、切换分支、提交或上传。
-**Depends on**: `v1.13.9` 最终关账后，先完成并关账纯结构稳定化 `v1.13.10`；顺序见 [release-sequence.md](./release-sequence.md)；另依赖[现行 Stage 1 规格](../../spec.md)与[旧同步卫生包](../cloudkit-sync-hygiene/spec.md)
+**Depends on**: 已关账的 `v1.13.9`、纯结构稳定化 `v1.13.10`，以及尚待独立验收并关账的 `v1.13.11` 购买权益阶段；顺序见 [release-sequence.md](./release-sequence.md)。另依赖[现行 Stage 1 规格](../../spec.md)与[旧同步卫生包](../cloudkit-sync-hygiene/spec.md)。
 
 ## 1. 结论与边界
 
@@ -155,7 +155,7 @@
 
 ### 6.5 迁移与兼容
 
-- **CES-026**：先按 [release-sequence.md](./release-sequence.md) 关账 `v1.13.9`，再用独立 `v1.13.10` 完成“不改功能”的拆文件、状态单一来源和真实 XCUITest；同步实现必须以最终关账的 `v1.13.10` 为精确基线。当前停在 v1.13.6 tip 的 parked `v1.14` 不得直接开发。
+- **CES-026**：按 [release-sequence.md](./release-sequence.md)，`v1.13.9` 与“不改功能”的 `v1.13.10` 已关账；尚未关账的 `v1.13.11` 只处理购买权益。同步实现必须等待 `v1.13.11` 独立验收、授权上传及远端复核后，以其未来 closure SHA 为精确基线；目前不得预填该 SHA。停在 v1.13.6 tip 的 parked `v1.14` 不得直接开发。
 - **CES-027**：影子阶段旧通道仍是真相源，新通道只写密文并做只读核对；任何核对失败都阻止切换。
 - **CES-028**：迁移以稳定 migration ID 幂等；每条记录记录来源、结果、缺明文/孤儿/冲突原因和核对摘要，但摘要不得由密钥明文本身派生后上传。
 - **CES-029**：切换前必须验证至少两台真实设备，并冻结 `LegacyParticipant` 集合及各自签名 inventory checkpoint；本机 fallback store 的独有元数据候选也必须上报。旧架构没有可证明完整的全局设备 roster，因此只能声称“所有已登记迁移参与设备已核对”，未知永久离线设备风险必须通过 grace window 与用户逐项排除裁决。旧版本仍可写时，新架构不得再次导入旧域 mutation；切换后的 legacy 数据只可作为人工恢复源，不再是自动真相源。
@@ -206,12 +206,12 @@
 
 闸门分成三层，不能合并授权：先由 G1 批准产品决定；再精确授权并完成权威回写与一致性复核；最后由用户只授权一个实施 gate。以下事项按顺序全部完成后，代码仍须取得该 gate 的单独实施授权；“批准方案”本身不等于授权 Git、CloudKit 或真实数据操作：
 
-1. `v1.13.9` 尚欠验收与证据完成，在此之前只标“待关账”；
-2. 用户单独授权后完成 `v1.13.9` 提交/上传；独立远程复核通过后，才登记已关账及精确 closure SHA；
-3. `v1.13.10` 仅按 `release-sequence.md` 做结构稳定化，真实 XCUITest、三平台/真机回归、独立审查、授权上传与远端复核完成后，登记自己的 closure SHA；
+1. `v1.13.9` 已按其冻结范围关账，closure SHA 为 `25fe006896a816475e269e155530c1464cc19304`；尚欠的真实系统边界全矩阵仍属发布闸门；
+2. `v1.13.9` 的授权提交/上传与独立远端复核已完成；原工作树未提交差异不进入后续分支，原包检查器退出 4 的独立阻塞继续保留；
+3. `v1.13.10` 仅按 `release-sequence.md` 做结构稳定化，closure SHA 为 `8e6c22109b9f5851dacb31b96e8915d855b0e0f3`；真机系统边界仍属发布矩阵。`v1.13.11` 须在独立购买验收、独立审查、授权上传与远端复核后，才登记自己的 closure SHA；
 4. §7 全部 D01–D17 产品裁决（含控制管理员权、高风险认证、两类轮换、FR-061 清除语义与无 Secure Enclave 设备策略）已逐项签字；
 5. G1 决定已完整写入 `decision-log.md`；ROADMAP、宪法、现行 spec/plan/research/data-model/interfaces 的冲突回写清单另获授权并实际回写，一致性复核通过；legacy T006/T008 有明确且不造假的处置；
-6. 用户另行授权后，当前无独有提交的 parked `v1.14` 只以 fast-forward 前移到最终 `v1.13.10` closure SHA 并记录精确 base SHA；若不能纯快进则停止并重新裁决；
+6. 只有在 `v1.13.11` 关账且用户另行授权后，才可评估将当前 parked `v1.14` 纯 fast-forward 至该未来 closure SHA；实际未执行，若不能纯快进则停止并重新裁决；
 7. 加密信封、设备生命周期、同步状态机、迁移/回滚契约完成统一冻结与独立安全/迁移审查；
 8. Development 环境 schema、feature flag、测试账号和真实设备矩阵准备完成；
 9. 明确本次只进入哪个实施 gate，不能一次授权直接跨到删除旧钥匙串明文或旧 CloudKit 元数据。

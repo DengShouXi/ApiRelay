@@ -4,7 +4,7 @@
 
 当前只审查以下内容：
 
-1. [release-sequence.md](./release-sequence.md) 的 `v1.13.9 → v1.13.10 → v1.14 → UI` 隔离顺序；
+1. [release-sequence.md](./release-sequence.md) 的 `v1.13.9 → v1.13.10 → v1.13.11 → v1.14 → UI` 隔离顺序；`13.11` 只验收购买权益，`v1.14` 仍未获同步实施授权；
 2. [spec.md](./spec.md) 的目标、非目标和 G1 产品裁决；
 3. [plan.md](./plan.md) 的 G0–G7 顺序；
 4. [data-model.md](./data-model.md) 的控制面/数据面/本机模型；
@@ -42,9 +42,10 @@
 ## 正式开工前
 
 - v1.13.9 已完成验收、经用户授权提交/上传、通过独立远程复核，随后才登记关账与精确 closure SHA；
-- v1.13.10 已只做结构稳定化并完成真正的 XCUITest、三平台/真机、独立审查、授权上传和远端复核；
+- v1.13.10 结构稳定化已在 `8e6c221` 关账；尚欠的真实系统边界留在发布矩阵，不冒充已测；
+- v1.13.11 已单独完成购买权益验收、授权上传及远端复核，记录精确 closure SHA；此前不得把其起点 `8e6c221` 当成同步基线；
 - G1 决定、权威回写和一致性复核已分别完成；
-- v1.14 经另行授权只从 v1.13.10 closure SHA fast-forward 建立；若不能纯快进则停止，不 reset/recreate/force；
+- v1.14 经另行授权只向 v1.13.11 closure SHA 纯 fast-forward；若不能纯快进则停止，不 reset/recreate/force；
 - 工作树干净且现有用户改动已归属；
 - 只为当前 gate 建任务/分支；
 - Development/disposable CloudKit 与 Production 分离；

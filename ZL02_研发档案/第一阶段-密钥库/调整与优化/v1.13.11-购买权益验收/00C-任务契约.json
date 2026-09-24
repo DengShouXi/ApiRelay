@@ -1,0 +1,179 @@
+{
+  "schemaVersion": "1.0",
+  "workPackageId": "v1.13.11-entitlement-acceptance",
+  "methodVersion": "MAIC-1.3.1",
+  "sourceKind": "ZL02",
+  "riskLevel": "high",
+  "objective": "独立验收并在必要时最小修复 StoreKit 购买权益、恢复购买、状态错误和免费额度，不改变密码、同步或整体 UI",
+  "repository": {
+    "implementationWorktree": "/Users/xitongzhili/.codex/worktrees/v1-13-11-entitlements/E02_ApiRelay_Github",
+    "allowedReadOnlyWorktrees": [
+      "/Users/xitongzhili/Desktop/MacTransfer/08_Code/E02_ApiRelay_Github",
+      "/Users/xitongzhili/.codex/worktrees/v1-13-10-structural/E02_ApiRelay_Github"
+    ],
+    "readOnlyWorktreeSnapshots": [
+      {
+        "path": "/Users/xitongzhili/Desktop/MacTransfer/08_Code/E02_ApiRelay_Github",
+        "branch": "v1.13.9",
+        "head": "25fe006896a816475e269e155530c1464cc19304",
+        "fingerprint": "f65cbd67583845544e575820540a90a8390db14257faff9b4a2a6d1ad445ecbd"
+      },
+      {
+        "path": "/Users/xitongzhili/.codex/worktrees/v1-13-10-structural/E02_ApiRelay_Github",
+        "branch": "v1.13.10",
+        "head": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+        "fingerprint": "44caecab438774f7e79e1ccc65acb071c1f3f3a9c242c09a9a7a5c97f1f0e75c"
+      }
+    ],
+    "frozenExternalFiles": [],
+    "baselineBranch": "v1.13.11",
+    "baselineHead": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+    "protectedRefs": {
+      "main": "539447ea9984608c74989da48b8770cb3fe32a6c",
+      "origin/main": "539447ea9984608c74989da48b8770cb3fe32a6c",
+      "release/1.0.0": "5c5eed3f8390f51f5a26be9737bcc11f72e7d7fd",
+      "v1": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+      "origin/v1": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+      "v1.13.9": "25fe006896a816475e269e155530c1464cc19304",
+      "origin/v1.13.9": "25fe006896a816475e269e155530c1464cc19304",
+      "v1.13.10": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+      "origin/v1.13.10": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+      "v1.14": "f80b1a65a7f28e1e5afbebfda6c646331a3b9b02",
+      "origin/v1.14": "f80b1a65a7f28e1e5afbebfda6c646331a3b9b02"
+    },
+    "uploadTrackingRefs": ["v1.13.11", "origin/v1.13.11"],
+    "forbiddenBranches": []
+  },
+  "roles": {
+    "planningAuditor": "Codex independent planning/audit role",
+    "checkExecutor": "Codex designated implementation role",
+    "userDecides": ["strategy", "version", "securityDefaults", "finalPlan", "upload"],
+    "singleWriterPerWorkspace": true,
+    "phaseOwners": {
+      "1": "Codex planning role", "2": "Codex preflight role", "3": "Codex planning role",
+      "4": "Codex implementation role", "5": "Codex independent audit role",
+      "6": "Codex implementation role", "7": "Codex independent audit role",
+      "7R": "Codex planning role", "7S": "Codex implementation role",
+      "7T": "Codex independent audit role", "8": "Codex implementation role",
+      "9": "Codex independent remote review role"
+    }
+  },
+  "paths": {
+    "allowedModify": [
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/release-sequence.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/decision-log.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/quickstart.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/plan.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/spec.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/tasks.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/contracts/migration-protocol.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/checklists/requirements.md",
+      "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/checklists/migration.md",
+      "ZL01_具体说明/14-项目当前状态.md",
+      "ApiRelay/ApiRelay/UI/Settings/SettingsView.swift",
+      "ApiRelay/ApiRelay/UI/Settings/SettingsGroupedChrome.swift",
+      "ApiRelay/ApiRelay/UI/Settings/PaywallView.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultHomeView.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultHomeViewModel.swift",
+      "ApiRelay/ApiRelay/Business/System/EntitlementService.swift",
+      "ApiRelay/ApiRelay/DebugSupport/UITesting/UITestFixture.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeEntitlements.swift",
+      "ApiRelay/ApiRelay/Shared/AppRuntime.swift",
+      "ApiRelay/ApiRelay/Localizable.xcstrings",
+      "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/EntitlementServiceTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase03_Vault/KeyVaultServiceTests.swift",
+      "ApiRelay/ApiRelay.xcodeproj/xcshareddata/xcschemes/ApiRelay.xcscheme",
+      "ApiRelay/ApiRelay.xcodeproj/project.pbxproj"
+    ],
+    "allowedAdd": [
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/00-总流程操作台.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/00C-任务契约.json",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/00D-实施前基线与隔离记录.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/01-执行计划.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/02-检查计划.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/03-实施前检查.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/04-最终计划.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/06-本地实施报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/07-独立审计报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/08-阻塞整改报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/09-最终验收报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/10-上传记录.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/11-远端复核报告.md",
+      "ApiRelay/ApiRelay/UI/Settings/EntitlementDisplayState.swift",
+      "ApiRelay/ApiRelayUITests/PurchaseEntitlementUITests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/StoreKitTransactionTests.swift",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/00-提示词索引与使用说明.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/通用-只检查当前阶段.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段1-规划.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段2-预查.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段3-定稿.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段4-实施.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段5-审计.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段6-整改.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段7-验收.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段7R-整改定稿.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段7S-轮次整改.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段7T-轮次复验.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段8-上传.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段9-远端复核.md"
+    ],
+    "allowedPrefixes": ["ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/"],
+    "forbiddenPrefixes": ["ZL00_项目总控/"],
+    "knownUntracked": []
+  },
+  "writerStatus": {
+    "files": ["06-本地实施报告.md", "08-阻塞整改报告.md"],
+    "runningMarker": "写入状态：未停止",
+    "stoppedMarker": "写入状态：已停止"
+  },
+  "riskReason": "购买权益与额度决定付费访问；必须区分经验证交易、缓存显示和错误状态，并使用真实环境验收",
+  "quotaSplit": {
+    "broadSearchAndEdits": "Codex implementation role",
+    "scopeConflictRiskAcceptance": "Codex independent planning/audit role"
+  },
+  "requiredGates": ["source", "finalPlan", "acceptance", "upload"],
+  "phaseArtifacts": {
+    "1": ["01-执行计划.md"], "2": ["03-实施前检查.md"], "3": ["04-最终计划.md"],
+    "4": ["06-本地实施报告.md"], "5": ["07-独立审计报告.md"],
+    "6": ["08-阻塞整改报告.md"], "7": ["09-最终验收报告.md"],
+    "8": ["10-上传记录.md"], "9": ["11-远端复核报告.md"]
+  },
+  "userAuthorizationPoints": ["finalPlanBeforePhase4", "uploadBeforePhase8"],
+  "externalInputs": [
+    {
+      "id": "owner-approved-v1-13-11-sequence-2026-09-24",
+      "source": "current task user approval of reviewed phased plan",
+      "observedAt": "2026-09-24", "appliesToBranch": "v1.13.11",
+      "appliesToHead": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+      "authorityLevel": "owner-approved", "freshness": "current",
+      "undecidedItems": ["v1.14 G1 D01-D17", "production migration", "main", "tag", "TestFlight", "App review"]
+    }
+  ],
+  "checker": {
+    "methodFile": "ZL00_项目总控/04-双AI协作与独立审计.md",
+    "contractFile": "00C-任务契约.json",
+    "promptDirectory": "提示词",
+    "genericPrompt": "通用-只检查当前阶段.md",
+    "promptsByPhase": {
+      "1": "阶段1-规划.md", "2": "阶段2-预查.md", "3": "阶段3-定稿.md",
+      "4": "阶段4-实施.md", "5": "阶段5-审计.md", "6": "阶段6-整改.md",
+      "7": "阶段7-验收.md", "7R": "阶段7R-整改定稿.md", "7S": "阶段7S-轮次整改.md",
+      "7T": "阶段7T-轮次复验.md", "8": "阶段8-上传.md", "9": "阶段9-远端复核.md"
+    },
+    "strictIdentityArtifacts": ["06-本地实施报告.md", "07-独立审计报告.md", "08-阻塞整改报告.md", "09-最终验收报告.md"],
+    "fixedConclusions": {
+      "phase5Pass": "审计通过，无阻塞问题，可以进入阶段7。",
+      "phase5Fail": "审计不通过，存在阻塞问题，不得进入阶段7或8。",
+      "phase7Pass": "验收通过，可以在用户明确授权后提交并上传 v1.13.11。",
+      "phase7Fail": "验收不通过，必须进入可重复整改轮次。",
+      "roundPass": "本轮复验通过，可以在用户明确授权后进入阶段8。",
+      "roundFail": "本轮复验不通过，必须创建下一整改轮次。"
+    },
+    "rnn": {
+      "directory": "整改轮次", "namePattern": "^R[0-9]{2}$",
+      "files": ["01-整改定稿.md", "02-整改报告.md", "03-复验报告.md"]
+    },
+    "legacyArtifactMethodVersions": {},
+    "documentInvariants": []
+  }
+}

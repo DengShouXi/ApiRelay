@@ -14,7 +14,7 @@
 
 **Checkpoint P0**：T004/T005 未完成时只能继续改计划，不得进入代码。
 
-## P1 — G0 前序关账与只读盘点（未来；写操作需另授权）
+## P1 — G0 前序关账与只读盘点（13.9/13.10 已完成，13.11 进行中；同步写操作仍需另授权）
 
 - [x] **T010** v1.13.9 已完成本轮身份验证验收、上传并冻结认证主链；尚欠的系统边界全矩阵继续作为发布闸门，不阻塞纯结构分支，也不得写成已通过。
 - [x] **T011** 已盘点原工作树归属、parked v1.14 的旧 13.6 指向、legacy hygiene T006/T008 的真实状态；v1.13.10 使用独立干净 worktree，未移动 v1.14。
@@ -22,10 +22,12 @@
 - [x] **T013** v1.13.9 已按授权完成内容提交 A、记账 B 和上传；closure SHA 为 `25fe006896a816475e269e155530c1464cc19304`。
 - [x] **T014** 已核对本地/远端 `v1.13.9` 与 `v1` 均指向同一 closure SHA；原工作树剩余差异均未带入下一线。
 - [x] **T015** 产品负责人已批准 `release-sequence.md` 并授权实施；已从 closure SHA 建立独立 `v1.13.10` 分支与干净 worktree。
-- [ ] **T016** v1.13.10 先补 characterization 与真正的 `ApiRelayUITests` target/fixture/accessibility identifiers，记录系统认证仍需真机人工验收的边界。
-- [ ] **T017** 按一次一职责/一提交拆分超大 View、ViewModel、service 与 privacy controller；保留 façade，不同时改行为。
-- [ ] **T018** 按 ownership 表逐项统一 session/auth request/presence/cover/preferences/write gate/clipboard 状态来源；每项单独等价验证。
-- [ ] **T019** v1.13.10 完成单元/集成/XCUITest、三平台/真机和独立审查后，另获提交上传授权并远程复核；随后才记录 closure SHA。
+- [x] **T016** v1.13.10 已补 characterization 与真正的 `ApiRelayUITests` target/fixture/accessibility identifiers；系统认证真机边界另列发布闸门。
+- [x] **T017** 已按职责拆分超大 View、ViewModel、service 与 privacy controller，并保留等价验证证据。
+- [x] **T018** 已统一本阶段已证实重复的运行期状态来源；未把冻结密码语义或同步协议带入。
+- [x] **T019** v1.13.10 已完成自动回归、三平台构建、独立审查、授权提交上传及远端复核；closure SHA 为 `8e6c22109b9f5851dacb31b96e8915d855b0e0f3`。iPhone/iPad/Mac 真实系统边界全矩阵未完成，继续作为发布闸门，不能因本项勾选视为通过。
+- [x] **T019A** 已对照 `v1.13.10@8e6c221` 关账证据核对 T016–T019 的结构范围与未完成真机边界；不把自动测试冒充真机验收。
+- [ ] **T019B** `v1.13.11` 在独立工作树只做购买权益验收；待测试、独立复核、授权上传和远端核对真实完成后，才记录其 closure SHA。工作包在 `ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/`。
 
 ## P2 — G1 产品与威胁模型（未来，需另授权）
 
@@ -48,7 +50,7 @@
 - [ ] **T028** 把最终选择、未采用方案、批准人/证据、回写位置和 ZL01/14 状态记入 `decision-log.md`；只批准决定，不自动授权回写。
 - [ ] **T029** 获得精确文档回写授权后，按计划 §10 回写 ROADMAP/constitution/current spec 等权威；消除 v1.14 与产品 V2 命名冲突，并做链接/语义一致性复核。
 - [ ] **T02A** 裁决 legacy hygiene T006/T008：未完成项继续做、被新协议正式取代或保留为旧路径证据；每项写明理由。被取代记 `superseded`，不得假勾为完成。
-- [ ] **T02B** 在 v1.13.10 已关账、产品裁决、权威回写、一致性复核和用户单独建分支授权都完成后，只将当前无独有提交的 parked v1.14 fast-forward 到 v1.13.10 closure SHA；若不能纯快进则停止，禁止 reset/recreate/force，并记录 base SHA。
+- [ ] **T02B** 在 v1.13.11 也已关账、G1 产品裁决、权威回写、一致性复核和用户单独前移分支授权都完成后，才评估将 parked v1.14 纯 fast-forward 至 v1.13.11 closure SHA；若不能纯快进则停止，禁止 reset/recreate/force，并记录真实 base SHA。
 - [ ] **T02C** 用户再次确认最终计划和本次仅授权的实施 gate；此前不得创建 Swift 实施任务。
 
 **Checkpoint G1**：产品负责人逐项确认；不能由开发者默认。
