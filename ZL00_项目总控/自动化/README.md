@@ -27,4 +27,8 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest ZL00_项目总控/自动化/tes
 
 `documentInvariants` 在推导下一阶段之前执行。空数组不改变阶段推导。文件不存在、无法按 UTF-8 读取、`uniqueExactLines` 中任一行出现次数不等于 1，或命中任一 `forbiddenSubstrings` 时退出 3，只报告路径和失败规则。字段类型错误、空规则、非法路径、重复路径或同项重复规则退出 2。检查器只读，发现失败时不得修改目标文件、Git 或任务契约。
 
+已有脏主工作树必须先列入 `repository.allowedReadOnlyWorktrees`，再由获批的独立方法任务生成 `readOnlyWorktreeSnapshots`：规范绝对 `path`、`branch`、完整 `head` 和检查器计算的 `fingerprint`。指纹覆盖 Git 可见状态与每个文件的类型、权限和内容，不覆盖 Git 忽略文件；生成后任一变化均退出 4。普通只读树仍须干净。不能通过清理用户文件或将其加入产品白名单求通过。
+
+同一实施树内经独立审计的外部治理差异可列入 `repository.frozenExternalFiles`，每项为精确 `path`、两字符 Git `status`、普通文件 `kind`、整数 `mode` 和内容 `sha256`，同时填写 `frozenExternalReview` 指向清单内已停止且含独立通过结论的审计报告。冻结只排除完全一致的外部差异，不授予修改权；任何新路径、内容、文件类型、权限或 Git 状态变化仍失败。方法升版时，旧阶段产物须通过精确 legacy 映射保留原身份。
+
 脚本只调用只读 Git 子命令，不得暂存、切换、提交或上传。

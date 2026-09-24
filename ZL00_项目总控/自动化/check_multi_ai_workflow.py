@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -149,6 +151,8 @@ def validate_nested_contract(data: dict[str, Any]) -> None:
     repository = require_mapping(data.get("repository"), "repository", REQUIRED_REPOSITORY)
     if not isinstance(repository.get("protectedRefs"), dict) or not repository["protectedRefs"]:
         raise CheckerError(EXIT_INPUT, "契约 repository.protectedRefs 必须是非空对象")
+    validate_readonly_snapshots(repository)
+    validate_frozen_external_files(repository)
     roles = require_mapping(data.get("roles"), "roles", ("phaseOwners",))
     if not isinstance(roles.get("phaseOwners"), dict) or not roles["phaseOwners"]:
         raise CheckerError(EXIT_INPUT, "契约 roles.phaseOwners 必须是非空对象")
@@ -412,6 +416,144 @@ def porcelain(repo: Path) -> list[tuple[str, str]]:
     return entries
 
 
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+HEAD_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
+
+def validate_readonly_snapshots(repository: dict[str, Any]) -> dict[str, dict[str, str]]:
+    raw = repository.get("readOnlyWorktreeSnapshots", [])
+    allowed = repository.get("allowedReadOnlyWorktrees", [])
+    if not isinstance(raw, list) or not isinstance(allowed, list):
+        raise CheckerError(EXIT_INPUT, "只读 worktree 快照和名单必须是数组")
+    if any(not isinstance(path, str) or not os.path.isabs(path) for path in allowed):
+        raise CheckerError(EXIT_INPUT, "只读 worktree 名单必须是绝对路径字符串")
+    implementation_path = repository["implementationWorktree"]
+    if not isinstance(implementation_path, str) or not os.path.isabs(implementation_path):
+        raise CheckerError(EXIT_INPUT, "唯一实施 worktree 必须是绝对路径字符串")
+    allowed_paths = {os.path.realpath(path) for path in allowed}
+    implementation = os.path.realpath(implementation_path)
+    snapshots: dict[str, dict[str, str]] = {}
+    for index, item in enumerate(raw):
+        field = f"repository.readOnlyWorktreeSnapshots[{index}]"
+        if not isinstance(item, dict) or set(item) != {"path", "branch", "head", "fingerprint"}:
+            raise CheckerError(EXIT_INPUT, f"{field} 字段必须恰为 path/branch/head/fingerprint")
+        path, branch, head, fingerprint = (item[key] for key in ("path", "branch", "head", "fingerprint"))
+        if not isinstance(path, str) or not os.path.isabs(path) or os.path.realpath(path) != path:
+            raise CheckerError(EXIT_INPUT, f"{field}.path 必须是规范绝对路径")
+        if path == implementation or path not in allowed_paths or path in snapshots:
+            raise CheckerError(EXIT_INPUT, f"{field}.path 不是唯一、已登记的只读 worktree")
+        if not isinstance(branch, str) or not branch or branch.strip() != branch:
+            raise CheckerError(EXIT_INPUT, f"{field}.branch 无效")
+        if not isinstance(head, str) or not HEAD_SHA_RE.fullmatch(head):
+            raise CheckerError(EXIT_INPUT, f"{field}.head 必须是完整 SHA")
+        if not isinstance(fingerprint, str) or not SHA256_RE.fullmatch(fingerprint):
+            raise CheckerError(EXIT_INPUT, f"{field}.fingerprint 必须是 SHA-256")
+        snapshots[path] = item
+    return snapshots
+
+
+def validate_frozen_external_files(repository: dict[str, Any]) -> dict[str, dict[str, str]]:
+    raw = repository.get("frozenExternalFiles", [])
+    if not isinstance(raw, list):
+        raise CheckerError(EXIT_INPUT, "repository.frozenExternalFiles 必须是数组")
+    frozen: dict[str, dict[str, str]] = {}
+    for index, item in enumerate(raw):
+        field = f"repository.frozenExternalFiles[{index}]"
+        if not isinstance(item, dict) or set(item) != {"path", "status", "kind", "mode", "sha256"}:
+            raise CheckerError(EXIT_INPUT, f"{field} 字段必须恰为 path/status/kind/mode/sha256")
+        path = validate_package_rel_path(item["path"], f"{field}.path")
+        if path in frozen or not path.startswith(("ZL00_项目总控/", "ZL02_研发档案/")):
+            raise CheckerError(EXIT_INPUT, f"{field}.path 必须是唯一的治理或独立任务文件")
+        if item["status"] not in (" M", "??"):
+            raise CheckerError(EXIT_INPUT, f"{field}.status 只允许未暂存的修改或新增")
+        if item["kind"] != "file" or isinstance(item["mode"], bool) or not isinstance(item["mode"], int) or not 0 <= item["mode"] <= 0o777:
+            raise CheckerError(EXIT_INPUT, f"{field} 只接受普通文件和三位权限值")
+        if not isinstance(item["sha256"], str) or not SHA256_RE.fullmatch(item["sha256"]):
+            raise CheckerError(EXIT_INPUT, f"{field}.sha256 必须是 SHA-256")
+        frozen[path] = item
+    review = repository.get("frozenExternalReview")
+    if frozen and (not isinstance(review, str) or review not in frozen):
+        raise CheckerError(EXIT_INPUT, "冻结的外部差异必须登记清单内的独立审计报告")
+    if not frozen and review is not None:
+        raise CheckerError(EXIT_INPUT, "没有冻结文件时不得登记外部审计报告")
+    return frozen
+
+
+def git_status_bytes(repo: Path) -> bytes:
+    completed = subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain=v1", "-z", "-uall"],
+        check=False, capture_output=True,
+    )
+    if completed.returncode != 0:
+        raise CheckerError(EXIT_INPUT, completed.stderr.decode("utf-8", "replace").strip() or "git status 失败")
+    return completed.stdout
+
+
+def content_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(descriptor, "rb") as source:
+            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                raise CheckerError(EXIT_SCOPE, f"快照路径不是普通文件: {path}")
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError as exc:
+        raise CheckerError(EXIT_SCOPE, f"无法读取快照文件: {path}") from exc
+    return digest.hexdigest()
+
+
+def readonly_worktree_fingerprint(tree: Path) -> str:
+    before = git_status_bytes(tree)
+    records: list[tuple[str, str, str, int, str]] = []
+    parts = before.split(b"\0")
+    for item in parts:
+        if not item:
+            continue
+        if len(item) < 4 or item[2:3] != b" ":
+            raise CheckerError(EXIT_SCOPE, "只读快照 Git 状态格式无效")
+        try:
+            code = item[:2].decode("ascii", "strict")
+        except UnicodeDecodeError as exc:
+            raise CheckerError(EXIT_SCOPE, "只读快照 Git 状态码无效") from exc
+        if "R" in code or "C" in code:
+            raise CheckerError(EXIT_SCOPE, "只读快照不接受重命名或复制状态")
+        if code[0] not in " ?":
+            raise CheckerError(EXIT_SCOPE, "只读快照工作树存在暂存差异")
+        path = os.fsdecode(item[3:])
+        if path.startswith("/") or any(part in ("", ".", "..") for part in path.split("/")):
+            raise CheckerError(EXIT_SCOPE, "只读快照 Git 路径无效")
+        target = tree / path
+        try:
+            info = target.lstat()
+        except FileNotFoundError:
+            records.append((code, path, "missing", 0, ""))
+            continue
+        except OSError as exc:
+            raise CheckerError(EXIT_SCOPE, f"无法读取只读快照文件状态: {path}") from exc
+        mode = stat.S_IMODE(info.st_mode)
+        if stat.S_ISLNK(info.st_mode):
+            try:
+                digest = hashlib.sha256(os.fsencode(os.readlink(target))).hexdigest()
+            except OSError as exc:
+                raise CheckerError(EXIT_SCOPE, f"无法读取只读快照符号链接: {path}") from exc
+            kind = "symlink"
+        elif stat.S_ISREG(info.st_mode):
+            digest = content_sha256(target)
+            kind = "file"
+        else:
+            raise CheckerError(EXIT_SCOPE, f"只读快照不接受特殊文件或目录: {path}")
+        records.append((code, path, kind, mode, digest))
+    after = git_status_bytes(tree)
+    if after != before:
+        raise CheckerError(EXIT_SCOPE, "只读快照计算期间 Git 状态发生变化")
+    canonical = json.dumps(
+        {"statusSha256": hashlib.sha256(before).hexdigest(), "files": records},
+        ensure_ascii=True, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def artifact_exists(package: Path, relative: str) -> bool:
     return (package / relative).is_file()
 
@@ -543,6 +685,10 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
     dirty = [path for code, path in status_entries if code != "??"]
 
     expected_worktree = os.path.realpath(contract["repository"]["implementationWorktree"])
+    if os.path.realpath(repo) != expected_worktree:
+        raise CheckerError(EXIT_SCOPE, "当前目录不是契约唯一实施 worktree")
+    readonly_snapshots = validate_readonly_snapshots(contract["repository"])
+    frozen_external = validate_frozen_external_files(contract["repository"])
     allowed_trees = {
         os.path.realpath(item)
         for item in contract["repository"].get("allowedReadOnlyWorktrees", [])
@@ -563,6 +709,15 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
         if item and os.path.realpath(item) != expected_worktree
     ]
     for tree in readonly_trees:
+        snapshot = readonly_snapshots.get(tree)
+        if snapshot is not None:
+            actual_branch = git(Path(tree), "rev-parse", "--abbrev-ref", "HEAD").strip()
+            actual_head = git(Path(tree), "rev-parse", "HEAD").strip()
+            if actual_branch != snapshot["branch"] or actual_head != snapshot["head"]:
+                raise CheckerError(EXIT_SCOPE, "只读 worktree 分支或 HEAD 偏离快照: " + tree)
+            if readonly_worktree_fingerprint(Path(tree)) != snapshot["fingerprint"]:
+                raise CheckerError(EXIT_SCOPE, "只读 worktree 内容偏离快照: " + tree)
+            continue
         extra_entries = porcelain(Path(tree))
         extra_staged = [path for code, path in extra_entries if code[0] not in " ?"]
         extra_dirty = [path for code, path in extra_entries if code != "??"]
@@ -580,9 +735,34 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
     if staged:
         raise CheckerError(EXIT_SCOPE, "暂存区非空: " + ", ".join(staged))
 
+    status_by_path = {path: code for code, path in status_entries}
+    for path, frozen in frozen_external.items():
+        if any(path == prefix.rstrip("/") or path.startswith(prefix.rstrip("/") + "/")
+               for prefix in contract["paths"]["forbiddenPrefixes"]):
+            raise CheckerError(EXIT_SCOPE, "冻结外部文件命中禁止范围: " + path)
+        if status_by_path.get(path) != frozen["status"]:
+            raise CheckerError(EXIT_SCOPE, "冻结外部文件 Git 状态变化: " + path)
+        try:
+            info = (repo / path).lstat()
+        except OSError as exc:
+            raise CheckerError(EXIT_SCOPE, "冻结外部文件状态无法读取: " + path) from exc
+        if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != frozen["mode"]:
+            raise CheckerError(EXIT_SCOPE, "冻结外部文件类型或权限变化: " + path)
+        if content_sha256(repo / path) != frozen["sha256"]:
+            raise CheckerError(EXIT_SCOPE, "冻结外部文件内容变化: " + path)
+    if frozen_external:
+        review_path = contract["repository"]["frozenExternalReview"]
+        try:
+            review_text = (repo / review_path).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise CheckerError(EXIT_SCOPE, "无法读取冻结外部差异独立审计报告") from exc
+        review_lines = {normalize_line(line) for line in review_text.splitlines()}
+        if "隔离规则独立核验通过。" not in review_lines or "写入状态：已停止" not in review_lines:
+            raise CheckerError(EXIT_SCOPE, "冻结外部差异缺少已停止的独立通过报告")
+
     out_of_scope = []
     for code, path in status_entries:
-        if not path_allowed(path, code, contract, package_rel):
+        if path not in frozen_external and not path_allowed(path, code, contract, package_rel):
             out_of_scope.append(path)
     if out_of_scope:
         raise CheckerError(EXIT_SCOPE, "不在允许范围的差异: " + ", ".join(out_of_scope))

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import shutil
@@ -496,6 +497,164 @@ class CheckerTests(unittest.TestCase):
         write(repo / PACKAGE / "00C-任务契约.json", json.dumps(data, ensure_ascii=False, indent=2))
         result = invoke(repo)
         self.assertEqual(result.returncode, 0, result.stdout)
+
+    def _registered_dirty_readonly(self) -> tuple[Path, Path]:
+        repo = self.keep(make_repo(3))
+        extra = self.keep(Path(tempfile.mkdtemp(prefix="maic-snapshot-")).resolve())
+        extra.rmdir()
+        run_git(repo, "worktree", "add", "--detach", str(extra))
+        write(extra / "README.md", "already dirty\n")
+        write(extra / "existing evidence.txt", "existing\n")
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["allowedReadOnlyWorktrees"] = [str(extra)]
+        module = load_checker_module()
+        data["repository"]["readOnlyWorktreeSnapshots"] = [{
+            "path": str(extra), "branch": "HEAD",
+            "head": run_git(extra, "rev-parse", "HEAD"),
+            "fingerprint": module.readonly_worktree_fingerprint(extra),
+        }]
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        return repo, extra
+
+    def test_registered_dirty_readonly_snapshot_allows_unchanged_tree(self) -> None:
+        repo, _ = self._registered_dirty_readonly()
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_dirty_main_tree_and_separate_implementation_tree(self) -> None:
+        main = self.keep(make_repo(3))
+        run_git(main, "branch", "-m", "v1.13.9")
+        linked = self.keep(Path(tempfile.mkdtemp(prefix="maic-implementation-")).resolve())
+        linked.rmdir()
+        run_git(main, "worktree", "add", "-b", "v1.13.8", str(linked), "HEAD")
+        shutil.copytree(main / PACKAGE, linked / PACKAGE)
+        write(linked / "ZL00_项目总控/04-双AI协作与独立审计.md", f"方法版本：{METHOD}\n")
+        data_path = linked / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["implementationWorktree"] = str(linked)
+        data["repository"]["allowedReadOnlyWorktrees"] = [str(main.resolve())]
+        data["repository"]["forbiddenBranches"] = ["v1.14"]
+        module = load_checker_module()
+        data["repository"]["readOnlyWorktreeSnapshots"] = [{
+            "path": str(main.resolve()), "branch": "v1.13.9",
+            "head": run_git(main, "rev-parse", "HEAD"),
+            "fingerprint": module.readonly_worktree_fingerprint(main),
+        }]
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        result = invoke(linked)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        write(main / "README.md", "changed after snapshot\n")
+        result = invoke(linked)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("偏离快照", result.stdout)
+
+    def test_dirty_readonly_snapshot_rejects_content_change(self) -> None:
+        repo, extra = self._registered_dirty_readonly()
+        write(extra / "README.md", "changed after snapshot\n")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("偏离快照", result.stdout)
+
+    def test_dirty_readonly_snapshot_rejects_new_file(self) -> None:
+        repo, extra = self._registered_dirty_readonly()
+        write(extra / "new evidence.txt", "new\n")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("偏离快照", result.stdout)
+
+    def test_dirty_readonly_snapshot_rejects_staging(self) -> None:
+        repo, extra = self._registered_dirty_readonly()
+        run_git(extra, "add", "README.md")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("暂存", result.stdout)
+
+    def test_dirty_readonly_snapshot_rejects_branch_change(self) -> None:
+        repo, extra = self._registered_dirty_readonly()
+        run_git(extra, "switch", "-c", "another-branch")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("分支或 HEAD", result.stdout)
+
+    def test_dirty_readonly_snapshot_rejects_rename_status(self) -> None:
+        repo, extra = self._registered_dirty_readonly()
+        run_git(extra, "mv", "README.md", "renamed-readme.md")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("重命名或复制", result.stdout)
+
+    def test_readonly_snapshot_not_on_allowlist_rejected(self) -> None:
+        repo, _ = self._registered_dirty_readonly()
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["allowedReadOnlyWorktrees"] = []
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("已登记", result.stdout)
+
+    def _frozen_external(self) -> tuple[Path, Path]:
+        repo = self.keep(make_repo(3))
+        external = repo / "ZL00_项目总控/自动化/isolated-fix.py"
+        review = repo / "ZL02_研发档案/隔离修正/04-独立审计报告.md"
+        write(external, "# externally reviewed\n")
+        write(review, "隔离规则独立核验通过。\n写入状态：已停止\n")
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["frozenExternalReview"] = str(review.relative_to(repo))
+        data["repository"]["frozenExternalFiles"] = [
+            {"path": str(path.relative_to(repo)), "status": "??", "kind": "file",
+             "mode": path.stat().st_mode & 0o777,
+             "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            for path in (external, review)
+        ]
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        return repo, external
+
+    def test_frozen_external_files_allow_exact_reviewed_difference(self) -> None:
+        repo, _ = self._frozen_external()
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_frozen_external_files_reject_changed_content(self) -> None:
+        repo, external = self._frozen_external()
+        write(external, "# changed\n")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("内容变化", result.stdout)
+
+    def test_frozen_external_files_reject_mode_change(self) -> None:
+        repo, external = self._frozen_external()
+        external.chmod(0o755)
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("类型或权限变化", result.stdout)
+
+    def test_frozen_external_files_reject_symlink_replacement(self) -> None:
+        repo, external = self._frozen_external()
+        external.unlink()
+        external.symlink_to(repo / "README.md")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("类型或权限变化", result.stdout)
+
+    def test_frozen_external_files_reject_new_unlisted_difference(self) -> None:
+        repo, _ = self._frozen_external()
+        write(repo / "ZL00_项目总控/自动化/unlisted.py", "x\n")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("不在允许范围", result.stdout)
+
+    def test_frozen_external_files_require_review(self) -> None:
+        repo, _ = self._frozen_external()
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"].pop("frozenExternalReview")
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("独立审计报告", result.stdout)
 
     def test_rnn_gap(self) -> None:
         repo = self.keep(make_repo(7))
