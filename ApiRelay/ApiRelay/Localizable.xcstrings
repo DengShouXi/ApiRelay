@@ -1553,6 +1553,18 @@
         }
       }
     },
+    "paywall.pendingRetry" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Check approval and allow another attempt" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "核对批准状态，允许再次尝试" } }
+      }
+    },
+    "paywall.reloadProduct" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reload product" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新加载商品" } }
+      }
+    },
     "paywall.purchasePending" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Purchase is awaiting approval. Unlimited keys will unlock after it completes." } },

@@ -151,6 +151,17 @@ def validate_nested_contract(data: dict[str, Any]) -> None:
     repository = require_mapping(data.get("repository"), "repository", REQUIRED_REPOSITORY)
     if not isinstance(repository.get("protectedRefs"), dict) or not repository["protectedRefs"]:
         raise CheckerError(EXIT_INPUT, "契约 repository.protectedRefs 必须是非空对象")
+    progress = repository.get("authorizedProgressCommits", [])
+    if not isinstance(progress, list) or any(
+        not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit)
+        for commit in progress
+    ):
+        raise CheckerError(EXIT_INPUT, "repository.authorizedProgressCommits 必须是完整 SHA 数组")
+    if progress:
+        validate_package_rel_path(
+            repository.get("authorizedProgressEvidenceFile"),
+            "repository.authorizedProgressEvidenceFile",
+        )
     validate_readonly_snapshots(repository)
     validate_frozen_external_files(repository)
     roles = require_mapping(data.get("roles"), "roles", ("phaseOwners",))
@@ -160,6 +171,12 @@ def validate_nested_contract(data: dict[str, Any]) -> None:
     for key in REQUIRED_PATHS:
         if not isinstance(paths.get(key), list):
             raise CheckerError(EXIT_INPUT, f"契约 paths.{key} 必须是数组")
+    exceptions = paths.get("authorizedForbiddenFiles", [])
+    if not isinstance(exceptions, list) or any(
+        not isinstance(path, str) or path not in paths["allowedModify"]
+        for path in exceptions
+    ):
+        raise CheckerError(EXIT_INPUT, "paths.authorizedForbiddenFiles 必须逐一列入 allowedModify")
     checker = require_mapping(data.get("checker"), "checker", REQUIRED_CHECKER)
     for key in ("promptsByPhase", "fixedConclusions", "rnn"):
         if not isinstance(checker.get(key), dict):
@@ -612,7 +629,10 @@ def path_allowed(path: str, code: str, contract: dict[str, Any], package_rel: st
             return untracked
     for item in forbidden:
         if path == item.rstrip("/") or path.startswith(item):
-            return False
+            # A task-specific owner decision can name individual governance files;
+            # it never opens the rest of a forbidden directory.
+            exceptions = spec.get("authorizedForbiddenFiles", [])
+            return path in exceptions and path in spec.get("allowedModify", [])
     for item in allowed:
         if path == item or path.startswith(item.rstrip("/") + "/"):
             return True
@@ -885,8 +905,27 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
             raise CheckerError(EXIT_CHAIN, f"缺少阶段{earlier}有效产物却已有阶段{later}文件")
 
     head_moved = head != baseline_head
+    progress_commits = contract["repository"].get("authorizedProgressCommits", [])
+    progress_evidence = contract["repository"].get("authorizedProgressEvidenceFile")
+    authorized_progress = False
     if head_moved and not latest_effective_pass:
-        raise CheckerError(EXIT_CHAIN, f"HEAD {head} 不是基线 {baseline_head}")
+        if not isinstance(progress_commits, list) or not progress_commits or not isinstance(progress_evidence, str):
+            raise CheckerError(EXIT_CHAIN, f"HEAD {head} 不是基线 {baseline_head}")
+        evidence_rel = validate_package_rel_path(progress_evidence, "repository.authorizedProgressEvidenceFile")
+        evidence_path = package / evidence_rel
+        evidence_text = evidence_path.read_text(encoding="utf-8") if evidence_path.is_file() else ""
+        if (head != progress_commits[-1] or
+                baseline_head not in evidence_text or
+                any(commit not in evidence_text for commit in progress_commits)):
+            raise CheckerError(EXIT_CHAIN, "已授权进度提交与 HEAD 或上传证据不符")
+        parent = baseline_head
+        for commit in progress_commits:
+            if try_git(repo, "rev-parse", commit) != commit:
+                raise CheckerError(EXIT_CHAIN, "已授权进度提交不存在: " + commit)
+            if git(repo, "rev-parse", commit + "^").strip() != parent or try_git(repo, "rev-parse", commit + "^2") is not None:
+                raise CheckerError(EXIT_CHAIN, "已授权进度提交不是从原始基线线性接续: " + commit)
+            parent = commit
+        authorized_progress = True
 
     protected = {}
     for name, expected in contract["repository"]["protectedRefs"].items():
@@ -901,7 +940,7 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
         if try_git(repo, "show-ref", "--verify", "--quiet", f"refs/remotes/origin/{name}") is not None:
             raise CheckerError(EXIT_CHAIN, f"禁止远程分支已存在: {name}")
 
-    if head_moved and latest_effective_pass:
+    if head_moved and (latest_effective_pass or authorized_progress):
         tracking = contract["repository"].get("uploadTrackingRefs", [])
         for name in tracking:
             actual = try_git(repo, "rev-parse", name)

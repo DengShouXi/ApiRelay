@@ -64,7 +64,8 @@ final class EntitlementServiceTests: XCTestCase {
     }
 
     func testGrantPolicyXcodeHonorsLocalStoreKitTesting() {
-        XCTAssertTrue(grant(environment: .xcode, app: .xcode))
+        XCTAssertFalse(grant(environment: .xcode, app: .xcode))
+        XCTAssertTrue(grant(environment: .xcode, app: .xcode, localStoreKitTestingAllowed: true))
         XCTAssertTrue(grant(environment: .production, app: .xcode))
         XCTAssertTrue(grant(environment: .sandbox, app: .xcode))
     }
@@ -88,13 +89,15 @@ final class EntitlementServiceTests: XCTestCase {
         productID: String = EntitlementService.unlimitedKeysProductID,
         environment: AppStore.Environment,
         app: AppStore.Environment?,
-        revocationDate: Date? = nil
+        revocationDate: Date? = nil,
+        localStoreKitTestingAllowed: Bool = false
     ) -> Bool {
         EntitlementGrantPolicy.grantsUnlimitedKeys(
             productID: productID,
             environment: environment,
             revocationDate: revocationDate,
-            appEnvironment: app
+            appEnvironment: app,
+            localStoreKitTestingAllowed: localStoreKitTestingAllowed
         )
     }
 

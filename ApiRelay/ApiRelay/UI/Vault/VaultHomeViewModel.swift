@@ -255,6 +255,10 @@ final class VaultHomeViewModel: ObservableObject {
         }
 
         // 额度状态依赖 StoreKit；失败不能把已经成功加载的密钥列表判成失败。
+        await refreshQuota()
+    }
+
+    func refreshQuota() async {
         quotaRequestRevision &+= 1
         let quotaRevision = quotaRequestRevision
         quotaState = .checking

@@ -7,6 +7,50 @@ import SwiftData
 /// Runs serially: SKTestSession mutates the shared local test store.
 @MainActor
 final class StoreKitTransactionTests: XCTestCase {
+    func testNativeCompletionUsesVerifiedStoreKitTransaction() async throws {
+        let configuration = try XCTUnwrap(Bundle.main.url(forResource: "ApiRelay", withExtension: "storekit"))
+        let session = try SKTestSession(contentsOf: configuration)
+        session.disableDialogs = true
+        session.clearTransactions()
+        defer { session.clearTransactions() }
+        let transaction = try await session.buyProduct(identifier: EntitlementService.unlimitedKeysProductID)
+        let service = EntitlementService(modelContainer: try AppSchema.makeInMemoryContainer(),
+                                         localStoreKitTestingAllowed: true)
+        let tier = try await service.completeNativePurchase(.success(.success(.verified(transaction))))
+        XCTAssertEqual(tier, .unlimitedKeys)
+        let observed = try await service.currentTier()
+        XCTAssertEqual(observed, .unlimitedKeys)
+    }
+
+    func testXcodeTransactionCannotUnlockOrdinaryAppInstance() async throws {
+        let configuration = try XCTUnwrap(
+            Bundle.main.url(forResource: "ApiRelay", withExtension: "storekit")
+        )
+        let session = try SKTestSession(contentsOf: configuration)
+        session.disableDialogs = true
+        session.clearTransactions()
+        defer { session.clearTransactions() }
+
+        _ = try await session.buyProduct(
+            identifier: EntitlementService.unlimitedKeysProductID
+        )
+        let container = try AppSchema.makeInMemoryContainer()
+        let testOptIn = EntitlementService(
+            modelContainer: container,
+            localStoreKitTestingAllowed: true
+        )
+        var observedTier = try await testOptIn.currentTier()
+        for _ in 0..<20 where observedTier == .free {
+            try await Task.sleep(for: .milliseconds(250))
+            observedTier = try await testOptIn.currentTier()
+        }
+        XCTAssertEqual(observedTier, .unlimitedKeys)
+
+        let ordinaryApp = EntitlementService(modelContainer: container)
+        let ordinaryTier = try await ordinaryApp.currentTier()
+        XCTAssertEqual(ordinaryTier, .free)
+    }
+
     func testStoreKitEntitlementConvergesThenAllowsFourthKeyAndRefundRevokesGrant() async throws {
         let configuration = try XCTUnwrap(
             Bundle.main.url(forResource: "ApiRelay", withExtension: "storekit")
@@ -17,7 +61,10 @@ final class StoreKitTransactionTests: XCTestCase {
         defer { session.clearTransactions() }
 
         let container = try AppSchema.makeInMemoryContainer()
-        let entitlements = EntitlementService(modelContainer: container)
+        let entitlements = EntitlementService(
+            modelContainer: container,
+            localStoreKitTestingAllowed: true
+        )
         let beforePurchase = try await entitlements.currentTier()
         XCTAssertEqual(beforePurchase, .free)
 

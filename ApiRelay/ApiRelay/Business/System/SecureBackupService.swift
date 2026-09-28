@@ -11,6 +11,7 @@ actor SecureBackupService: SecureBackupServing {
     private let tools: ConsumerToolRepository
     private let assignments: KeyAssignmentRepository
     private let userPrefs: UserPreferencesRepository
+    private let entitlements: any EntitlementServing
     private let sessionLock: any SessionLockQuerying
     private let integrityQuarantine: VaultIntegrityQuarantineStore
     private let mutationGate: StorageMutationGate
@@ -28,6 +29,7 @@ actor SecureBackupService: SecureBackupServing {
         gate: RevealGateServing,
         keychain: KeychainStoring,
         modelContainer: ModelContainer,
+        entitlements: (any EntitlementServing)? = nil,
         sessionLock: any SessionLockQuerying = AlwaysUnlockedSessionLock(),
         integrityQuarantine: VaultIntegrityQuarantineStore = .shared,
         mutationGate: StorageMutationGate = StorageMutationGate(),
@@ -41,6 +43,10 @@ actor SecureBackupService: SecureBackupServing {
         self.tools = ConsumerToolRepository(modelContainer: modelContainer)
         self.assignments = KeyAssignmentRepository(modelContainer: modelContainer)
         self.userPrefs = UserPreferencesRepository(modelContainer: modelContainer)
+        self.entitlements = entitlements ?? EntitlementService(
+            modelContainer: modelContainer,
+            mutationGate: mutationGate
+        )
         self.sessionLock = sessionLock
         self.integrityQuarantine = integrityQuarantine
         self.mutationGate = mutationGate
@@ -652,6 +658,16 @@ actor SecureBackupService: SecureBackupServing {
                 // Safe to attempt the later atomic add when the backup contains
                 // plaintext, or to restore metadata as explicitly secret-less.
             }
+            let lifecycle = (key["lifecycle"] as? String)
+                .flatMap(KeyLifecycle.init(rawValue:)) ?? .active
+            if lifecycle == .active {
+                let activeCount = try await keys.countActiveNonDeleted()
+                try await KeyActivationQuotaPolicy.ensureCanActivate(
+                    activeCount: activeCount,
+                    additionalCount: 1,
+                    entitlements: entitlements
+                )
+            }
             let origin = (key["origin"] as? String)
                 .flatMap(KeyOrigin.init(rawValue:)) ?? .manualEntry
             let draft = KeyRecordDraft(
@@ -687,9 +703,7 @@ actor SecureBackupService: SecureBackupServing {
                 skippedKeys += 1
                 continue
             }
-            if let lifecycleRaw = key["lifecycle"] as? String,
-               let lifecycle = KeyLifecycle.init(rawValue: lifecycleRaw),
-               lifecycle != .active {
+            if lifecycle != .active {
                 try await keys.update(
                     id: id,
                     patch: KeyRecordPatch(lifecycle: lifecycle),

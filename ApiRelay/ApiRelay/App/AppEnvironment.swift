@@ -16,6 +16,7 @@ final class AppEnvironment: ObservableObject {
     let consumerTools: any ConsumerToolServing
     let trashBatch: any RecentlyDeletedBatchServing
     let entitlements: any EntitlementServing
+    let entitlementStore: EntitlementStore
     let preferences: any PreferencesServing
     let backups: any SecureBackupServing
     let backupPassphrase: any BackupPassphraseServing
@@ -73,6 +74,7 @@ final class AppEnvironment: ObservableObject {
             mutationGate: mutationGate
         )
         self.entitlements = entitlements
+        self.entitlementStore = EntitlementStore(service: entitlements)
         let sessionLock = SessionLockBox()
         // 所有会读取或改写密钥关联数据的服务共享同一设备本地隔离标记；
         // 任一跨存储补偿失败后，组合根不得留下可绕过隔离的另一条业务路径。
@@ -107,7 +109,7 @@ final class AppEnvironment: ObservableObject {
         Task {
             await entitlements.startListening()
             // 启动时纠偏：以 StoreKit currentEntitlements 为准，清掉脏的本地 unlimited 快照。
-            // 本地无限权益：Debug 下走付费墙正常购买（Scheme 已挂 ApiRelay.storekit）；不要启动参数后门。
+            // 普通 Run 不注入本地 StoreKit；仅 Test Action 显式使用测试配置，不设启动参数后门。
             try? await entitlements.refreshFromStore()
         }
         self.preferences = PreferencesService(
@@ -118,6 +120,7 @@ final class AppEnvironment: ObservableObject {
             gate: gate,
             keychain: keychain,
             modelContainer: modelContainer,
+            entitlements: entitlements,
             sessionLock: sessionLock,
             integrityQuarantine: integrityQuarantine,
             mutationGate: mutationGate,
@@ -241,6 +244,7 @@ final class AppEnvironment: ObservableObject {
         self.consumerTools = consumerTools
         self.trashBatch = trashBatch
         self.entitlements = entitlements
+        self.entitlementStore = EntitlementStore(service: entitlements)
         self.preferences = preferences
         self.backups = backups
         self.backupPassphrase = backupPassphrase

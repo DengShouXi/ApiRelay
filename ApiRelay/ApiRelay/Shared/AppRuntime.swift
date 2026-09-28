@@ -19,7 +19,7 @@ enum AppRuntime: Sendable {
         #if DEBUG
         let value = ProcessInfo.processInfo.environment["APIRELAY_UI_TEST_SCENARIO"]
         switch value {
-        case "settings", "lock", "entitlement-free", "entitlement-failure", "entitlement-loading", "entitlement-delayed-activation", "entitlement-pending-purchase":
+        case "settings", "lock", "entitlement-free", "entitlement-failure", "entitlement-loading", "entitlement-delayed-activation", "entitlement-pending-purchase", "entitlement-cancelled", "entitlement-product-retry", "entitlement-fourth-key":
             return value
         default:
             return nil

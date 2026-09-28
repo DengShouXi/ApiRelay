@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -172,8 +173,13 @@ struct VaultHomeView: View {
             }
         }
         .task {
+            let initialTab = selectedTab
             await viewModel.onAppear()
-            selectedTab = tab(for: viewModel.groupingMode)
+            // Startup maintenance can finish after the user has opened settings
+            // or purchases. A late preference load must not eject that page.
+            if selectedTab == initialTab {
+                selectedTab = tab(for: viewModel.groupingMode)
+            }
         }
         .onChange(of: selectedTab) { _, tab in
             viewModel.abandonCombinationPending()
@@ -189,6 +195,12 @@ struct VaultHomeView: View {
             Task { await applyTab(tab) }
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task {
+                    await viewModel.environment.entitlementStore.refresh()
+                    await viewModel.refreshQuota()
+                }
+            }
             if phase != .active {
                 viewModel.invalidateRevealReuseLeaveForeground()
                 revealedSecret = nil
@@ -212,6 +224,11 @@ struct VaultHomeView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .newKey)) { _ in
             beginNewKeyFromMenu()
+        }
+        // Initial quota comes from onAppear. A current-value publisher would
+        // restart that query whenever SwiftUI re-subscribes after a redraw.
+        .onReceive(viewModel.environment.entitlementStore.$state.dropFirst().removeDuplicates()) { _ in
+            Task { await viewModel.refreshQuota() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .userDataDidErase)) { _ in
             selectedKeyId = nil
@@ -891,10 +908,11 @@ struct VaultHomeView: View {
             Button("vault.paywall.open") { showPaywall = true }
                 .font(.caption.weight(.semibold))
                 .buttonStyle(.borderless)
+                .accessibilityIdentifier("vault.paywall.open")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 7)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -1385,6 +1403,7 @@ struct VaultHomeView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("vault.key.add"))
+            .accessibilityIdentifier("vault.key.add.action")
         case .consumer(let toolId, _):
             Button {
                 beginAssignExistingKey(to: toolId)
@@ -1639,11 +1658,15 @@ struct VaultHomeView: View {
 
     /// 免费档用尽时先弹配额，不打开添加表单。
     private func beginAddKey(for accountId: UUID) {
-        if viewModel.quotaState == .free(remaining: 0) {
-            viewModel.showQuotaAlert = true
-            return
+        Task {
+            await viewModel.refreshQuota()
+            guard !viewModel.environment.appPrivacy.session.showsAppLockUI else { return }
+            if viewModel.quotaState == .free(remaining: 0) {
+                viewModel.showQuotaAlert = true
+                return
+            }
+            showAddKeyFor = viewModel.accounts.first { $0.id == accountId }
         }
-        showAddKeyFor = viewModel.accounts.first { $0.id == accountId }
     }
 
     /// 菜单栏 ⌘N /「添加密钥」：接到 `ApiRelayCommands` 发出的 `.newKey`。
@@ -1854,6 +1877,7 @@ private struct VaultHomeAlertsModifier: ViewModifier {
             }
             .alert("vault.quota.exceeded.title", isPresented: $viewModel.showQuotaAlert) {
                 Button("vault.paywall.open") { showPaywall = true }
+                    .accessibilityIdentifier("vault.paywall.open")
                 Button("gate.cancel", role: .cancel) {}
             } message: {
                 Text("vault.quota.exceeded.body")

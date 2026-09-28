@@ -28,6 +28,11 @@
     "frozenExternalFiles": [],
     "baselineBranch": "v1.13.11",
     "baselineHead": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+    "authorizedProgressCommits": [
+      "1556e17d9e64653f6b9ecde3b771fe0efeda9d7f",
+      "47626b1930bcb227804c6caf9f37e05768a234e8"
+    ],
+    "authorizedProgressEvidenceFile": "10-上传记录.md",
     "protectedRefs": {
       "main": "539447ea9984608c74989da48b8770cb3fe32a6c",
       "origin/main": "539447ea9984608c74989da48b8770cb3fe32a6c",
@@ -60,6 +65,8 @@
   },
   "paths": {
     "allowedModify": [
+      "ZL00_项目总控/自动化/check_multi_ai_workflow.py",
+      "ZL00_项目总控/自动化/test_check_multi_ai_workflow.py",
       "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/release-sequence.md",
       "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/decision-log.md",
       "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/quickstart.md",
@@ -75,17 +82,30 @@
       "ApiRelay/ApiRelay/UI/Settings/PaywallView.swift",
       "ApiRelay/ApiRelay/UI/Vault/VaultHomeView.swift",
       "ApiRelay/ApiRelay/UI/Vault/VaultHomeViewModel.swift",
+      "ApiRelay/ApiRelay/UI/Vault/VaultEntitySheets.swift",
       "ApiRelay/ApiRelay/Business/System/EntitlementService.swift",
+      "ApiRelay/ApiRelay/Business/System/EntitlementGrantPolicy.swift",
+      "ApiRelay/ApiRelay/Business/System/SecureBackupService.swift",
+      "ApiRelay/ApiRelay/Business/Vault/KeyVaultService.swift",
+      "ApiRelay/ApiRelay/Data/SwiftData/Models/EntitlementSnapshot.swift",
+      "ApiRelay/ApiRelay/App/AppEnvironment.swift",
       "ApiRelay/ApiRelay/DebugSupport/UITesting/UITestFixture.swift",
       "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeEntitlements.swift",
       "ApiRelay/ApiRelay/Shared/AppRuntime.swift",
       "ApiRelay/ApiRelay/Localizable.xcstrings",
       "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/EntitlementServiceTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/StoreKitTransactionTests.swift",
       "ApiRelay/ApiRelayTests/V1/Phase03_Vault/KeyVaultServiceTests.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/SecureBackupTests.swift",
+      "ApiRelay/ApiRelayUITests/PurchaseEntitlementUITests.swift",
       "ApiRelay/ApiRelay.xcodeproj/xcshareddata/xcschemes/ApiRelay.xcscheme",
       "ApiRelay/ApiRelay.xcodeproj/project.pbxproj"
     ],
     "allowedAdd": [
+      "ApiRelay/ApiRelay/Business/System/StoreKitClient.swift",
+      "ApiRelay/ApiRelay/UI/Settings/EntitlementStore.swift",
+      "ApiRelay/ApiRelay/DebugSupport/Fakes/FakeStoreKitClient.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/EntitlementFlowTests.swift",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/00-总流程操作台.md",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/00C-任务契约.json",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/00D-实施前基线与隔离记录.md",
@@ -99,6 +119,7 @@
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/09-最终验收报告.md",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/10-上传记录.md",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/11-远端复核报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/12-单AI停写复核与Sandbox实测.md",
       "ApiRelay/ApiRelay/UI/Settings/EntitlementDisplayState.swift",
       "ApiRelay/ApiRelayUITests/PurchaseEntitlementUITests.swift",
       "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/StoreKitTransactionTests.swift",
@@ -119,6 +140,10 @@
     ],
     "allowedPrefixes": ["ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/"],
     "forbiddenPrefixes": ["ZL00_项目总控/"],
+    "authorizedForbiddenFiles": [
+      "ZL00_项目总控/自动化/check_multi_ai_workflow.py",
+      "ZL00_项目总控/自动化/test_check_multi_ai_workflow.py"
+    ],
     "knownUntracked": []
   },
   "writerStatus": {

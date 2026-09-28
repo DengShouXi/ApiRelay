@@ -890,10 +890,12 @@ struct AddKeySheet: View {
                     Text(accountName).foregroundStyle(.secondary)
                 }
                 TextField("vault.key.name.optional", text: $name)
+                    .accessibilityIdentifier("vault.key.name.input")
                 Text("vault.key.name.hint")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 SecureField("vault.key.secret", text: $secret)
+                    .accessibilityIdentifier("vault.key.secret.input")
                     .autocorrectionDisabled()
                 TextField("vault.key.notes", text: $notes, axis: .vertical)
                     .lineLimit(3...8)
@@ -916,6 +918,7 @@ struct AddKeySheet: View {
                     Button("vault.save") {
                         Task { await persist(acknowledgeDuplicate: false) }
                     }
+                    .accessibilityIdentifier("vault.key.save")
                     .disabled(isSaving || secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

@@ -20,29 +20,40 @@ enum UITestFixture {
         let master = FakeMasterPassword(initialPassword: password)
         let gate = UITestRevealGate(password: password)
         let clipboard = FakeClipboard()
-        let vault = FakeKeyVault(seedPreviewSample: true)
+        let vault: any KeyVaultServing
         let tools = FakeConsumerTools(seedPreviewSample: true)
         let trash = FakeRecentlyDeletedBatch()
-        let entitlements: FakeEntitlements
-        switch scenario {
-        case "entitlement-free":
-            entitlements = FakeEntitlements(tier: .free)
-        case "entitlement-failure":
-            entitlements = FakeEntitlements(tier: .unlimitedKeys, queryFails: true)
-        case "entitlement-loading":
-            entitlements = FakeEntitlements(
-                tier: .unlimitedKeys,
-                queryDelayNanoseconds: 30_000_000_000
+        let entitlements: any EntitlementServing
+        if scenario.hasPrefix("entitlement-") {
+            let store = FakeStoreKitClient(
+                pending: scenario == "entitlement-pending-purchase",
+                cancelled: scenario == "entitlement-cancelled",
+                productFailures: scenario == "entitlement-product-retry" ? 1 : 0,
+                queryFails: scenario == "entitlement-failure",
+                queryDelay: scenario == "entitlement-loading" ? .seconds(30) : .zero
             )
-        case "entitlement-delayed-activation":
-            entitlements = FakeEntitlements(
-                tier: .free,
-                activationDelayNanoseconds: 3_000_000_000
+            let service = EntitlementService(modelContainer: container, store: store)
+            entitlements = service
+            let account = UpstreamAccount(platform: "openai", displayName: "Purchase Fixture")
+            container.mainContext.insert(account)
+            for index in 1...3 {
+                container.mainContext.insert(APIKeyRecord(
+                    accountId: account.id, displayName: "fixture-key-\(index)"
+                ))
+            }
+            try container.mainContext.save()
+            vault = KeyVaultService(
+                keychain: keychain, gate: gate, clipboard: clipboard,
+                modelContainer: container, entitlements: service,
+                crossStoreJournal: DurableCrossStoreTransactionJournal(fileURL:
+                    FileManager.default.temporaryDirectory
+                        .appendingPathComponent("purchase-fixture-\(UUID().uuidString)")
+                        .appendingPathComponent("journal.json"))
             )
-        case "entitlement-pending-purchase":
-            entitlements = FakeEntitlements(tier: .free, purchaseIsPending: true)
-        default:
+            Task { await service.startListening() }
+        } else {
             entitlements = FakeEntitlements(tier: .unlimitedKeys)
+            vault = FakeKeyVault(seedPreviewSample: true)
         }
         let preferences = FakePreferences(initial: initial)
         let backups = FakeSecureBackup()

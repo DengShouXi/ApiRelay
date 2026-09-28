@@ -364,6 +364,70 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(payload["nextPhase"], "9")
         self.assert_no_execution_authority(payload)
 
+    def test_authorized_progress_preserves_baseline_and_routes_to_audit(self) -> None:
+        repo = self.keep(make_repo(4))
+        baseline = run_git(repo, "rev-parse", "HEAD")
+        commits = []
+        for value in ("first", "second"):
+            write(repo / "README.md", value + "\n")
+            run_git(repo, "add", "README.md")
+            run_git(repo, "commit", "-m", value)
+            commits.append(run_git(repo, "rev-parse", "HEAD"))
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["authorizedProgressCommits"] = commits
+        data["repository"]["authorizedProgressEvidenceFile"] = "06.md"
+        data["repository"]["uploadTrackingRefs"] = ["v1.13.8", "origin/v1.13.8"]
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        write(repo / PACKAGE / "06.md", identity_md("progress", baseline, "写入状态：已停止\n" + "\n".join([baseline, *commits])))
+        run_git(repo, "update-ref", "refs/remotes/origin/v1.13.8", commits[-1])
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(data["repository"]["baselineHead"], baseline)
+        self.assertEqual(payload["nextPhase"], "5")
+        self.assert_no_execution_authority(payload)
+
+        data["repository"]["authorizedProgressCommits"] = list(reversed(commits))
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        rejected = invoke(repo)
+        self.assertEqual(rejected.returncode, 3)
+        self.assertIn("已授权进度提交", rejected.stdout)
+
+    def test_authorized_progress_rejects_missing_remote_tracking(self) -> None:
+        repo = self.keep(make_repo(4))
+        baseline = run_git(repo, "rev-parse", "HEAD")
+        write(repo / "README.md", "progress\n")
+        run_git(repo, "add", "README.md")
+        run_git(repo, "commit", "-m", "progress")
+        tip = run_git(repo, "rev-parse", "HEAD")
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["authorizedProgressCommits"] = [tip]
+        data["repository"]["authorizedProgressEvidenceFile"] = "06.md"
+        data["repository"]["uploadTrackingRefs"] = ["origin/v1.13.8"]
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        write(repo / PACKAGE / "06.md", identity_md("progress", baseline, f"写入状态：已停止\n{baseline}\n{tip}"))
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("不是当前 HEAD", result.stdout)
+
+    def test_exact_forbidden_file_exception_does_not_open_directory(self) -> None:
+        repo = self.keep(make_repo(3))
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        exact = "secret/approved.txt"
+        data["paths"]["allowedModify"].append(exact)
+        data["paths"]["forbiddenPrefixes"].append("secret/")
+        data["paths"]["authorizedForbiddenFiles"] = [exact]
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        write(repo / exact, "approved\n")
+        allowed = invoke(repo)
+        self.assertEqual(allowed.returncode, 0, allowed.stdout + allowed.stderr)
+        write(repo / "secret/other.txt", "not approved\n")
+        rejected = invoke(repo)
+        self.assertEqual(rejected.returncode, 4)
+
     def test_missing_identity_on_strict_report(self) -> None:
         repo = self.keep(make_repo(4))
         write(repo / PACKAGE / "06.md", "# 无身份\n\n正文。\n")

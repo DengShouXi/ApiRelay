@@ -169,6 +169,72 @@ final class SecureBackupTests: XCTestCase {
         XCTAssertEqual(summary.skippedKeyCount, 1)
     }
 
+    func testFreeImportOfFourthActiveKeyRollsBackEntireBackup() async throws {
+        let env = try makeEnvironment()
+        let accountId = UUID()
+        let keyIds = (0..<4).map { _ in UUID() }
+        let payload = try makeUnprotectedBackupPayload(
+            accounts: [[
+                "id": accountId.uuidString,
+                "platform": "openai",
+                "displayName": "Over quota",
+            ]],
+            keys: keyIds.enumerated().map { index, id in
+                [
+                    "id": id.uuidString,
+                    "accountId": accountId.uuidString,
+                    "displayName": "key-\(index)",
+                    "secret": "sk-backup-quota-\(index)",
+                ]
+            }
+        )
+
+        do {
+            _ = try await env.backups.importBackup(data: payload, passphrase: nil)
+            XCTFail("A free account must not import a fourth active key")
+        } catch let ApiRelayError.quotaExceededFreeTier(limit) {
+            XCTAssertEqual(limit, KeyVaultService.freeTierLimit)
+        }
+
+        let remainingAccounts = try await env.vault.accounts()
+        let remainingKeys = try await env.vault.keys(in: nil)
+        XCTAssertTrue(remainingAccounts.isEmpty)
+        XCTAssertTrue(remainingKeys.isEmpty)
+        for id in keyIds {
+            do {
+                _ = try await env.keychain.read(service: .keys, account: id)
+                XCTFail("Rolled-back secret must not remain in Keychain")
+            } catch ApiRelayError.keychainFailure(let status) {
+                XCTAssertEqual(status, errSecItemNotFound)
+            }
+        }
+    }
+
+    func testUnlimitedImportAllowsFourthActiveKey() async throws {
+        let env = try makeEnvironment(tier: .unlimitedKeys)
+        let accountId = UUID()
+        let payload = try makeUnprotectedBackupPayload(
+            accounts: [[
+                "id": accountId.uuidString,
+                "platform": "openai",
+                "displayName": "Unlimited import",
+            ]],
+            keys: (0..<4).map { index in
+                [
+                    "id": UUID().uuidString,
+                    "accountId": accountId.uuidString,
+                    "displayName": "key-\(index)",
+                    "secret": "sk-backup-unlimited-\(index)",
+                ]
+            }
+        )
+
+        let summary = try await env.backups.importBackup(data: payload, passphrase: nil)
+        let restoredKeys = try await env.vault.keys(in: accountId)
+        XCTAssertEqual(summary.keyCount, 4)
+        XCTAssertEqual(restoredKeys.count, 4)
+    }
+
     func testImportWithEmptySecretCannotExposePreexistingOrphanKeychainItem() async throws {
         let container = try AppSchema.makeInMemoryContainer()
         let keychain = FakeKeychain()
@@ -516,7 +582,7 @@ final class SecureBackupTests: XCTestCase {
         )
     }
 
-    private func makeEnvironment() throws -> (
+    private func makeEnvironment(tier: EntitlementTier = .free) throws -> (
         vault: KeyVaultService,
         backups: SecureBackupService,
         keychain: KeychainStore,
@@ -527,17 +593,19 @@ final class SecureBackupTests: XCTestCase {
         let master = MasterPasswordService(keychain: keychain, calibratedIterations: 10_000)
         let gate = RevealGate(masterPassword: master) { _, _ in }
         // 本套件考的是备份导出导入，不是 StoreKit：配额走桩，免去商店超时。
+        let entitlements = StubEntitlements(tier: tier)
         let vault = KeyVaultService(
             keychain: keychain,
             gate: gate,
             clipboard: SecureClipboard(),
             modelContainer: container,
-            entitlements: StubEntitlements(tier: .free)
+            entitlements: entitlements
         )
         let backups = SecureBackupService(
             gate: gate,
             keychain: keychain,
-            modelContainer: container
+            modelContainer: container,
+            entitlements: entitlements
         )
         let tools = ConsumerToolService(modelContainer: container, gate: gate)
         return (vault, backups, keychain, tools)

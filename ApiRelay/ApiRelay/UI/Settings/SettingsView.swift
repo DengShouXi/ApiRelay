@@ -22,10 +22,10 @@ struct SettingsView: View {
     @State private var confirmErase = false
     @State private var eraseStatus = ""
     @State private var restoreStatus = ""
-    @State private var isRestoringPurchases = false
     @State private var showPaywall = false
-    @State private var entitlementState: EntitlementDisplayState = .checking
-    @State private var entitlementRequestRevision: UInt64 = 0
+    @ObservedObject private var entitlementStore: EntitlementStore
+    private var entitlementState: EntitlementDisplayState { entitlementStore.state }
+    private var isRestoringPurchases: Bool { entitlementStore.operation == .restoring }
     @State private var persistError = ""
     @State private var pendingSecurityAction = SettingsPendingActionState()
     @State private var weakenPassword = ""
@@ -40,6 +40,13 @@ struct SettingsView: View {
     @State private var authenticationScope: AuthenticationRequestScope?
     /// 子页退出或场景离开会推进代次；任何 await 后迟到的选档请求都不得重建提示或提交。
     @State private var securityPreferenceRequestRevision: UInt64 = 0
+
+    init(environment: AppEnvironment, showsDismissButton: Bool = true, onShowAccount: (() -> Void)? = nil) {
+        self.environment = environment
+        self.showsDismissButton = showsDismissButton
+        self.onShowAccount = onShowAccount
+        self.entitlementStore = environment.entitlementStore
+    }
 
     private var prefs: PreferencesDTO? {
         get { preferencesStore.presented }
@@ -108,9 +115,6 @@ struct SettingsView: View {
                 }) {
                     PaywallView(environment: environment)
                         .settingsTaskSheet()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .entitlementDidChange)) { _ in
-                    Task { await refreshEntitlementTier() }
                 }
                 .confirmationDialog("settings.eraseAll.confirm", isPresented: $confirmErase) {
                     Button("settings.eraseAll", role: .destructive) {
@@ -554,6 +558,7 @@ struct SettingsView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("settings.restorePurchases.action")
                         .disabled(isRestoringPurchases)
                         InlineHelpButton(
                             title: "settings.restorePurchases",
@@ -567,6 +572,12 @@ struct SettingsView: View {
                                 Spacer(minLength: 8)
                                 if isRestoringPurchases {
                                     ProgressView()
+                                } else if !restoreStatus.isEmpty {
+                                    Text(restoreStatus)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
                                 }
                             }
                             .contentShape(Rectangle())
@@ -582,6 +593,7 @@ struct SettingsView: View {
                     if !restoreStatus.isEmpty {
                         settingsDivider()
                         Text(restoreStatus)
+                            .accessibilityIdentifier("settings.restorePurchases.result")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1152,40 +1164,13 @@ struct SettingsView: View {
     }
 
     private func refreshEntitlementTier() async {
-        guard !isRestoringPurchases else { return }
-        entitlementRequestRevision &+= 1
-        let revision = entitlementRequestRevision
-        entitlementState = .checking
-        do {
-            let tier = try await environment.entitlements.currentTier()
-            guard revision == entitlementRequestRevision else { return }
-            entitlementState = EntitlementDisplayState(tier: tier)
-        } catch {
-            guard revision == entitlementRequestRevision else { return }
-            entitlementState = .unavailable
-        }
+        await entitlementStore.refresh()
     }
 
     /// FR-028：设置内始终可达的恢复购买（不依赖免费额度条 / 付费墙）。
     private func restorePurchasesFromSettings() async {
         restoreStatus = ""
-        isRestoringPurchases = true
-        entitlementRequestRevision &+= 1
-        let revision = entitlementRequestRevision
-        entitlementState = .checking
-        defer { isRestoringPurchases = false }
-        do {
-            let tier = try await environment.entitlements.restorePurchases()
-            guard revision == entitlementRequestRevision else { return }
-            entitlementState = EntitlementDisplayState(tier: tier)
-            restoreStatus = tier == .free
-                ? String(localized: "settings.restorePurchases.none")
-                : String(localized: "settings.restorePurchases.done")
-        } catch {
-            guard revision == entitlementRequestRevision else { return }
-            entitlementState = .unavailable
-            restoreStatus = error.localizedDescription
-        }
+        restoreStatus = await entitlementStore.restore()
     }
 
     private func performWithPageAuthenticationScope<T>(

@@ -1223,11 +1223,11 @@ actor KeyVaultService: KeyVaultServing, AutomatedSecretReading {
     private func ensureCanActivateKeys(_ additionalCount: Int) async throws {
         guard additionalCount > 0 else { return }
         let activeCount = try await keysRepo.countActiveNonDeleted()
-        guard activeCount + additionalCount > Self.freeTierLimit else { return }
-        let tier = try await entitlements.currentTier()
-        guard tier != .free else {
-            throw ApiRelayError.quotaExceededFreeTier(limit: Self.freeTierLimit)
-        }
+        try await KeyActivationQuotaPolicy.ensureCanActivate(
+            activeCount: activeCount,
+            additionalCount: additionalCount,
+            entitlements: entitlements
+        )
     }
 
     private func acquireActivationSerialization() async {
