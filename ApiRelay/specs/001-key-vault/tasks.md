@@ -261,7 +261,7 @@ CloudKit 工程开关已接好。**2a 通过后方可进入 Phase 3+ 功能开�
 ## Phase 5: US5 — 付费解锁
 
 - [x] **T038** `Business/System/EntitlementService.swift`：StoreKit 2；
-      `Transaction.currentEntitlements` 为真相源，`EntitlementSnapshot` 仅离线兜底；
+      `Transaction.currentEntitlements` 为真相源，`EntitlementSnapshot` 仅记录最近一次 StoreKit 观测，离线、查询失败或快照为已购时均不得单独授权；
       监听 `Transaction.updates`（data-model §3.8）。
       放行规则见 `EntitlementGrantPolicy` 与 research §6：MUST NOT 要求交易环境与 App 包完全相等；
       只挡非 Xcode 包里的 `.xcode` 假交易；`.verified` 成功后不得因再查档位失败而报购买失败。

@@ -117,15 +117,17 @@ struct PaywallView: View {
         #endif
     }
 
-    private var nativeProduct: some View {
+    @ViewBuilder private var nativeProduct: some View {
         // Apple owns payment presentation. Never also call Product.purchase
         // from the start/completion callbacks of ProductView.
-        ProductView(id: EntitlementService.unlimitedKeysProductID)
-            .productViewStyle(.large)
-            .id(productReloadID)
-            .disabled(!store.canPurchase)
-            .onInAppPurchaseStart { _ in store.beginNativePurchase() }
-            .onInAppPurchaseCompletion { _, result in await store.completeNativePurchase(result) }
-            .accessibilityIdentifier("paywall.nativeProduct")
+        if let product = store.product?.nativeProduct {
+            ProductView(product)
+                .productViewStyle(.large)
+                .id(productReloadID)
+                .disabled(!store.canPurchase)
+                .onInAppPurchaseStart { _ in store.beginNativePurchase() }
+                .onInAppPurchaseCompletion { _, result in await store.completeNativePurchase(result) }
+                .accessibilityIdentifier("paywall.nativeProduct")
+        }
     }
 }

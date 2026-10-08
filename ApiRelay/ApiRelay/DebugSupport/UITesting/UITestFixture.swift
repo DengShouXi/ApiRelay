@@ -24,6 +24,7 @@ enum UITestFixture {
         let tools = FakeConsumerTools(seedPreviewSample: true)
         let trash = FakeRecentlyDeletedBatch()
         let entitlements: any EntitlementServing
+        let storeKit: any StoreKitClient
         if scenario.hasPrefix("entitlement-") {
             let store = FakeStoreKitClient(
                 pending: scenario == "entitlement-pending-purchase",
@@ -32,6 +33,7 @@ enum UITestFixture {
                 queryFails: scenario == "entitlement-failure",
                 queryDelay: scenario == "entitlement-loading" ? .seconds(30) : .zero
             )
+            storeKit = store
             let service = EntitlementService(modelContainer: container, store: store)
             entitlements = service
             let account = UpstreamAccount(platform: "openai", displayName: "Purchase Fixture")
@@ -52,6 +54,7 @@ enum UITestFixture {
             )
             Task { await service.startListening() }
         } else {
+            storeKit = FakeStoreKitClient(owned: true)
             entitlements = FakeEntitlements(tier: .unlimitedKeys)
             vault = FakeKeyVault(seedPreviewSample: true)
         }
@@ -79,6 +82,7 @@ enum UITestFixture {
             consumerTools: tools,
             trashBatch: trash,
             entitlements: entitlements,
+            storeKit: storeKit,
             preferences: preferences,
             backups: backups,
             backupPassphrase: backupPassphrase,

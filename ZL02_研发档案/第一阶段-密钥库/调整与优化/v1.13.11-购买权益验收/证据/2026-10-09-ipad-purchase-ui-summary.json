@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "platform": "iOS Simulator",
+  "device": "iPad (10th generation)",
+  "osVersion": "18.0",
+  "suite": "PurchaseEntitlementUITests",
+  "totalTests": 11,
+  "passedTests": 11,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "runtimeWarnings": 0,
+  "result": "Passed",
+  "note": "Includes the $4.99 purchase-label regression assertion.",
+  "archive": "2026-10-09-ipad-purchase-ui.xcresult.zip",
+  "archiveSha256": "8cf158398602dbf892868bb677db1b19fb7fc77ea65cb7fdb00689c7043f83f8"
+}

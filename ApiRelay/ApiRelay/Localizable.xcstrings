@@ -158,118 +158,6 @@
         }
       }
     },
-    "appLock.storageRecovery.action" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retry Secure Recovery"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重试安全恢复"
-          }
-        }
-      }
-    },
-    "appLock.storageRecovery.erase.action" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erase All Local Data"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除本机全部数据"
-          }
-        }
-      }
-    },
-    "appLock.storageRecovery.erase.confirm" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Authenticate and Erase"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "验证并清除"
-          }
-        }
-      }
-    },
-    "appLock.storageRecovery.erase.message" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use this only if secure recovery keeps failing. After device-owner authentication, all local vault data and credentials will be permanently removed."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仅在安全恢复持续失败时使用。通过设备主人验证后，本机密钥库数据和凭据将被永久清除。"
-          }
-        }
-      }
-    },
-    "appLock.storageRecovery.erase.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erase All Local Data?"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除本机全部数据？"
-          }
-        }
-      }
-    },
-    "appLock.storageRecovery.hint" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A protected storage transaction was interrupted. The app will remain locked until recovery completes."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一次受保护的存储事务被中断。恢复完成前，应用会保持锁定且不会显示密钥数据。"
-          }
-        }
-      }
-    },
-    "appLock.storageRecovery.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Secure Recovery Required"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要完成安全恢复"
-          }
-        }
-      }
-    },
     "appLock.masterPassword.empty" : {
       "localizations" : {
         "en" : {
@@ -494,6 +382,118 @@
         }
       }
     },
+    "appLock.storageRecovery.action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry Secure Recovery"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试安全恢复"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.erase.action" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase All Local Data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除本机全部数据"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.erase.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate and Erase"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证并清除"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.erase.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this only if secure recovery keeps failing. After device-owner authentication, all local vault data and credentials will be permanently removed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅在安全恢复持续失败时使用。通过设备主人验证后，本机密钥库数据和凭据将被永久清除。"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.erase.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase All Local Data?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除本机全部数据？"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A protected storage transaction was interrupted. The app will remain locked until recovery completes."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一次受保护的存储事务被中断。恢复完成前，应用会保持锁定且不会显示密钥数据。"
+          }
+        }
+      }
+    },
+    "appLock.storageRecovery.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure Recovery Required"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要完成安全恢复"
+          }
+        }
+      }
+    },
     "appLock.unlock" : {
       "localizations" : {
         "en" : {
@@ -594,6 +594,22 @@
         }
       }
     },
+    "error.authenticationContextInvalid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This authentication request expired. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次身份验证请求已失效，请重新尝试。"
+          }
+        }
+      }
+    },
     "error.authenticationFailed" : {
       "localizations" : {
         "en" : {
@@ -606,6 +622,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "身份验证失败，请使用本机密码重试。"
+          }
+        }
+      }
+    },
+    "error.authenticationInterrupted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication was interrupted by the system. Keep ApiRelay in the foreground and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身份验证被系统中断。请保持 ApiRelay 在前台并重新尝试。"
+          }
+        }
+      }
+    },
+    "error.authenticationNotInteractive" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication cannot be displayed right now. Return to ApiRelay and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前无法显示身份验证界面。请返回 ApiRelay 后重试。"
           }
         }
       }
@@ -690,6 +738,22 @@
         }
       }
     },
+    "error.devicePasscodeNotSet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a device passcode or Mac login password before using device authentication."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先设置设备密码或 Mac 登录密码，再使用设备验证。"
+          }
+        }
+      }
+    },
     "error.keychainFailure %lld" : {
       "localizations" : {
         "en" : {
@@ -722,22 +786,6 @@
         }
       }
     },
-    "error.masterPasswordRetryDelayed %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Too many incorrect attempts. Try again in %lld seconds."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连续输错次数过多，请 %lld 秒后再试。"
-          }
-        }
-      }
-    },
     "error.masterPasswordLocked" : {
       "localizations" : {
         "en" : {
@@ -754,66 +802,18 @@
         }
       }
     },
-    "error.authenticationContextInvalid" : {
+    "error.masterPasswordRetryDelayed %lld" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This authentication request expired. Please try again."
+            "value" : "Too many incorrect attempts. Try again in %lld seconds."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本次身份验证请求已失效，请重新尝试。"
-          }
-        }
-      }
-    },
-    "error.authenticationInterrupted" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Authentication was interrupted by the system. Keep ApiRelay in the foreground and try again."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "身份验证被系统中断。请保持 ApiRelay 在前台并重新尝试。"
-          }
-        }
-      }
-    },
-    "error.authenticationNotInteractive" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Authentication cannot be displayed right now. Return to ApiRelay and try again."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前无法显示身份验证界面。请返回 ApiRelay 后重试。"
-          }
-        }
-      }
-    },
-    "error.devicePasscodeNotSet" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set a device passcode or Mac login password before using device authentication."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请先设置设备密码或 Mac 登录密码，再使用设备验证。"
+            "value" : "连续输错次数过多，请 %lld 秒后再试。"
           }
         }
       }
@@ -868,6 +868,22 @@
         }
       }
     },
+    "error.sessionLocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock the app first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先解锁应用。"
+          }
+        }
+      }
+    },
     "error.storageIntegrityQuarantined" : {
       "comment" : "Fail-closed message after a vault transaction could not restore visible storage consistency; internal diagnostics must not be shown here",
       "localizations" : {
@@ -898,22 +914,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "安全清理未完整完成。请关闭并重新打开 ApiRelay 后重试；若问题持续，请联系支持人员。"
-          }
-        }
-      }
-    },
-    "error.sessionLocked" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unlock the app first."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请先解锁应用。"
           }
         }
       }
@@ -1390,6 +1390,23 @@
         }
       }
     },
+    "paywall.activationPending" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchase completed. Waiting for StoreKit to activate unlimited keys. Check again or restore purchases; you won't be charged again here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "购买已完成，正在等待商店权益生效。可重新核对或恢复购买；此处不会再次发起购买。"
+          }
+        }
+      }
+    },
     "paywall.body" : {
       "localizations" : {
         "en" : {
@@ -1423,22 +1440,36 @@
         }
       }
     },
-    "paywall.activationPending" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Purchase completed. Waiting for StoreKit to activate unlimited keys. Check again or restore purchases; you won't be charged again here." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "购买已完成，正在等待商店权益生效。可重新核对或恢复购买；此处不会再次发起购买。" } }
-      }
-    },
     "paywall.entitlementChecking" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Checking your purchase…" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在核对购买权益…" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking your purchase…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在核对购买权益…"
+          }
+        }
       }
     },
     "paywall.entitlementUnavailable" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "We couldn't verify your purchase. Try again or restore purchases." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂时无法核对购买权益。请重试或恢复购买。" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn't verify your purchase. Try again or restore purchases."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时无法核对购买权益。请重试或恢复购买。"
+          }
+        }
       }
     },
     "paywall.nav" : {
@@ -1473,7 +1504,24 @@
         }
       }
     },
+    "paywall.pendingRetry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check approval and allow another attempt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核对批准状态，允许再次尝试"
+          }
+        }
+      }
+    },
     "paywall.plan.badge.current" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1490,6 +1538,7 @@
       }
     },
     "paywall.plan.badge.owned" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1506,6 +1555,7 @@
       }
     },
     "paywall.plan.once" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1553,24 +1603,6 @@
         }
       }
     },
-    "paywall.pendingRetry" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Check approval and allow another attempt" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "核对批准状态，允许再次尝试" } }
-      }
-    },
-    "paywall.reloadProduct" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reload product" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新加载商品" } }
-      }
-    },
-    "paywall.purchasePending" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Purchase is awaiting approval. Unlimited keys will unlock after it completes." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "购买正在等待批准，完成后才会解锁无限密钥。" } }
-      }
-    },
     "paywall.productUnavailable" : {
       "localizations" : {
         "en" : {
@@ -1587,10 +1619,36 @@
         }
       }
     },
-    "paywall.retry" : {
+    "paywall.purchasePending" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Check Again" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新核对" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchase is awaiting approval. Unlimited keys will unlock after it completes."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "购买正在等待批准，完成后才会解锁无限密钥。"
+          }
+        }
+      }
+    },
+    "paywall.reloadProduct" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reload product"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新加载商品"
+          }
+        }
       }
     },
     "paywall.restore" : {
@@ -1610,6 +1668,7 @@
       }
     },
     "paywall.restore.none" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1626,6 +1685,7 @@
       }
     },
     "paywall.restored" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1637,6 +1697,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已恢复购买"
+          }
+        }
+      }
+    },
+    "paywall.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Again"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新核对"
           }
         }
       }
@@ -1657,12 +1733,6 @@
         }
       }
     },
-    "paywall.verificationFailed" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The purchase could not be verified. No paid access was granted." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法验证此次购买，尚未授予付费权益。" } }
-      }
-    },
     "paywall.title" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1681,6 +1751,7 @@
       }
     },
     "paywall.upgrade" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1697,6 +1768,7 @@
       }
     },
     "paywall.upgradeWithPrice %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1708,6 +1780,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "升级 · %@"
+          }
+        }
+      }
+    },
+    "paywall.verificationFailed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The purchase could not be verified. No paid access was granted."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法验证此次购买，尚未授予付费权益。"
           }
         }
       }
@@ -5471,12 +5559,6 @@
         }
       }
     },
-    "settings.upgrade.status.checking" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Checking" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "核对中" } }
-      }
-    },
     "settings.upgrade.status.action" : {
       "localizations" : {
         "en" : {
@@ -5489,6 +5571,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "升级"
+          }
+        }
+      }
+    },
+    "settings.upgrade.status.checking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核对中"
           }
         }
       }
@@ -5511,8 +5609,18 @@
     },
     "settings.upgrade.status.unavailable" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Can't Verify" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂不可核对" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can't Verify"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂不可核对"
+          }
+        }
       }
     },
     "settings.weakenConfirm.appPassword.message" : {
@@ -8590,12 +8698,6 @@
         }
       }
     },
-    "vault.quota.unavailable" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unable to check your free-key limit right now." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂时无法核对免费密钥额度。" } }
-      }
-    },
     "vault.quota.remaining %lld" : {
       "localizations" : {
         "en" : {
@@ -8608,6 +8710,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "剩余免费额度：%lld"
+          }
+        }
+      }
+    },
+    "vault.quota.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to check your free-key limit right now."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时无法核对免费密钥额度。"
           }
         }
       }

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "platform": "Mac Catalyst",
+  "device": "My Mac",
+  "osVersion": "26.7.1",
+  "test": "SecureBackupTests.testUnprotectedExportImportRoundTrip",
+  "iterations": 20,
+  "passedRuns": 20,
+  "failedRuns": 0,
+  "skippedRuns": 0,
+  "runtimeWarnings": 0,
+  "result": "Passed",
+  "archive": "2026-10-09-catalyst-secure-backup-repeat.xcresult.zip",
+  "archiveSha256": "38ee751c6ef43b9a41423b8f57400c5207163e89f67b85eeb989d2a3a5fecd17"
+}

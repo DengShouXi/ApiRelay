@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "platform": "Mac Catalyst",
+  "device": "My Mac",
+  "osVersion": "26.7.1",
+  "totalTests": 640,
+  "passedTests": 640,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "runtimeWarnings": 0,
+  "result": "Passed",
+  "note": "Run after the three snapshot-distrust tests were isolated from the shared Xcode StoreKit session by injecting an explicitly empty StoreKitClient boundary.",
+  "archive": "2026-10-09-catalyst-unit-full.xcresult.zip",
+  "archiveSha256": "a19d8973a669ecaa9c0395f29c4f781975570aeb0faa206ea49b74b0014c1a6c"
+}

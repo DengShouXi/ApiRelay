@@ -69,12 +69,14 @@ final class AppEnvironment: ObservableObject {
         self.gate = gate
         let clipboard = SecureClipboard(mutationGate: mutationGate)
         self.clipboard = clipboard
+        let storeKit = LiveStoreKitClient()
         let entitlements = EntitlementService(
             modelContainer: modelContainer,
-            mutationGate: mutationGate
+            mutationGate: mutationGate,
+            store: storeKit
         )
         self.entitlements = entitlements
-        self.entitlementStore = EntitlementStore(service: entitlements)
+        self.entitlementStore = EntitlementStore(service: entitlements, storeKit: storeKit)
         let sessionLock = SessionLockBox()
         // 所有会读取或改写密钥关联数据的服务共享同一设备本地隔离标记；
         // 任一跨存储补偿失败后，组合根不得留下可绕过隔离的另一条业务路径。
@@ -228,6 +230,7 @@ final class AppEnvironment: ObservableObject {
         consumerTools: any ConsumerToolServing,
         trashBatch: any RecentlyDeletedBatchServing,
         entitlements: any EntitlementServing,
+        storeKit: any StoreKitClient,
         preferences: any PreferencesServing,
         backups: any SecureBackupServing,
         backupPassphrase: any BackupPassphraseServing,
@@ -244,7 +247,7 @@ final class AppEnvironment: ObservableObject {
         self.consumerTools = consumerTools
         self.trashBatch = trashBatch
         self.entitlements = entitlements
-        self.entitlementStore = EntitlementStore(service: entitlements)
+        self.entitlementStore = EntitlementStore(service: entitlements, storeKit: storeKit)
         self.preferences = preferences
         self.backups = backups
         self.backupPassphrase = backupPassphrase
@@ -299,6 +302,7 @@ final class AppEnvironment: ObservableObject {
             consumerTools: consumerTools,
             trashBatch: trashBatch,
             entitlements: entitlements,
+            storeKit: FakeStoreKitClient(owned: true),
             preferences: preferences,
             backups: backups,
             backupPassphrase: backupPassphrase,

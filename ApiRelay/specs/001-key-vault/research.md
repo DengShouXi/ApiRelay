@@ -234,7 +234,8 @@ Touch ID 由**设备硬件决定**——iPhone 是 Face ID，多数 MacBook 是 
 - **业务元数据**（密钥元信息、使用方工具、平台账号配置、用量快照、单价规则、偏好）：
   SwiftData + CloudKit Private Database 自动同步。
 - **纯本机状态**（同步健康度、UI 临时状态）：UserDefaults，不入 SwiftData schema。
-- **权益状态**：StoreKit 2 的 `Transaction.currentEntitlements` 为唯一真相源；本地仅存离线兜底快照，
+- **权益状态**：StoreKit 2 已验签、产品匹配且未撤权的交易是唯一授权事实；本地
+  `EntitlementSnapshot` 仅存最近一次观测结果，**不得**在离线或查询失败时单独授权，且
   **不同步**（避免双真相源与调试态污染其他设备）。
 
 ### Rationale

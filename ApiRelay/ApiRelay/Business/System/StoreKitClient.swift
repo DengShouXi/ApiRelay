@@ -6,6 +6,15 @@ import StoreKit
 nonisolated struct StoreProductInfo: Sendable {
     let id: String
     let displayPrice: String
+    /// The exact product fetched for presentation. Keeping it here prevents
+    /// ProductView from issuing a second, independently failing catalog load.
+    let nativeProduct: Product?
+
+    init(id: String, displayPrice: String, nativeProduct: Product? = nil) {
+        self.id = id
+        self.displayPrice = displayPrice
+        self.nativeProduct = nativeProduct
+    }
 }
 
 nonisolated struct VerifiedStoreTransaction: Sendable {
@@ -16,10 +25,15 @@ nonisolated struct VerifiedStoreTransaction: Sendable {
     let finish: @Sendable () async -> Void
 }
 
+nonisolated enum StoreVerificationFailure: Sendable {
+    case verificationFailed
+    case unknownPurchaseResult
+}
+
 nonisolated enum StoreTransactionObservation: Sendable {
     case verified(VerifiedStoreTransaction)
     /// Untrusted product identity is used only to report an error, never a grant.
-    case unverified(productID: String)
+    case unverified(productID: String, failure: StoreVerificationFailure)
 }
 
 nonisolated enum StorePurchaseOutcome: Sendable {
@@ -40,7 +54,11 @@ nonisolated protocol StoreKitClient: Sendable {
 nonisolated struct LiveStoreKitClient: StoreKitClient {
     func productInfo() async throws -> StoreProductInfo {
         let product = try await product()
-        return StoreProductInfo(id: product.id, displayPrice: product.displayPrice)
+        return StoreProductInfo(
+            id: product.id,
+            displayPrice: product.displayPrice,
+            nativeProduct: product
+        )
     }
 
     func purchase() async throws -> StorePurchaseOutcome {
@@ -88,7 +106,11 @@ nonisolated struct LiveStoreKitClient: StoreKitClient {
         case .success(let verification): .success(observation(verification))
         case .userCancelled: .cancelled
         case .pending: .pending
-        @unknown default: .success(.unverified(productID: EntitlementService.unlimitedKeysProductID))
+        @unknown default:
+            .success(.unverified(
+                productID: EntitlementService.unlimitedKeysProductID,
+                failure: .unknownPurchaseResult
+            ))
         }
     }
 
@@ -101,7 +123,7 @@ nonisolated struct LiveStoreKitClient: StoreKitClient {
                 finish: { await transaction.finish() }
             ))
         case .unverified(let transaction, _):
-            .unverified(productID: transaction.productID)
+            .unverified(productID: transaction.productID, failure: .verificationFailed)
         }
     }
 }

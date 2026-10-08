@@ -2,13 +2,28 @@ import Foundation
 import StoreKit
 import SwiftData
 
+nonisolated struct EntitlementChange: Sendable {
+    nonisolated enum Source: Sendable {
+        case purchaseCompleted
+        case transactionUpdate
+        case bridgeExpired
+    }
+
+    let revision: UInt64
+    let source: Source
+}
+
 protocol EntitlementServing: Actor {
     func currentTier() async throws -> EntitlementTier
     func refreshFromStore() async throws
     func restorePurchases() async throws -> EntitlementTier
     func purchaseUnlimitedKeys() async throws -> EntitlementTier
-    func productInfo() async throws -> StoreProductInfo
-    func completeNativePurchase(_ result: Result<Product.PurchaseResult, any Error>) async throws -> EntitlementTier
+    /// Completes a purchase after the StoreKit boundary has translated it into
+    /// the app's verified, platform-independent outcome.
+    func completePurchase(_ result: StorePurchaseOutcome) async throws -> EntitlementTier
+    /// Typed, instance-scoped changes; consumers do not listen to a global,
+    /// payload-free NotificationCenter broadcast.
+    func changes() -> AsyncStream<EntitlementChange>
     /// 监听 StoreKit `Transaction.updates`。
     func startListening()
     /// FR-061：清本地权益快照；不吊销 StoreKit。
@@ -20,13 +35,6 @@ protocol EntitlementServing: Actor {
     #if DEBUG
     func debugOverride(tier: EntitlementTier?) async throws
     #endif
-}
-
-extension EntitlementServing {
-    func productInfo() async throws -> StoreProductInfo { try await LiveStoreKitClient().productInfo() }
-    func completeNativePurchase(_ result: Result<Product.PurchaseResult, any Error>) async throws -> EntitlementTier {
-        throw ApiRelayError.validationFailed(field: "product", reason: "native_purchase_not_supported")
-    }
 }
 
 actor EntitlementService: EntitlementServing {
@@ -45,6 +53,9 @@ actor EntitlementService: EntitlementServing {
     private var handledPurchaseIDs: Set<UInt64> = []
     private var revokedIDs: Set<UInt64> = []
     private var eventRevision: UInt64 = 0
+    private var changeRevision: UInt64 = 0
+    private var latestChange: EntitlementChange?
+    private var changeContinuations: [UUID: AsyncStream<EntitlementChange>.Continuation] = [:]
     private var verificationFailurePending = false
     private var purchaseInFlight = false
     private var updatesTask: Task<Void, Never>?
@@ -100,7 +111,7 @@ actor EntitlementService: EntitlementServing {
         guard recentPurchase?.id == id, recentPurchase?.expires == expires else { return }
         recentPurchase = nil
         // Do not leave the UI indefinitely owned after a temporary proof ends.
-        await publishChange()
+        publishChange(source: .bridgeExpired)
     }
 
     private func processUpdate(_ update: StoreTransactionObservation) async {
@@ -109,12 +120,30 @@ actor EntitlementService: EntitlementServing {
         if case .verified(let transaction) = update,
            transaction.productID != Self.unlimitedKeysProductID { return }
         do { _ = try await accept(update) } catch { /* refresh reports unknown */ }
-        await publishChange()
+        publishChange(source: .transactionUpdate)
     }
 
-    private func publishChange() async {
-        await MainActor.run {
-            NotificationCenter.default.post(name: .entitlementDidChange, object: nil)
+    func changes() -> AsyncStream<EntitlementChange> {
+        let id = UUID()
+        return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            changeContinuations[id] = continuation
+            if let latestChange { continuation.yield(latestChange) }
+            continuation.onTermination = { [weak self] _ in
+                Task { await self?.removeChangeContinuation(id) }
+            }
+        }
+    }
+
+    private func removeChangeContinuation(_ id: UUID) {
+        changeContinuations[id] = nil
+    }
+
+    private func publishChange(source: EntitlementChange.Source) {
+        changeRevision &+= 1
+        let change = EntitlementChange(revision: changeRevision, source: source)
+        latestChange = change
+        for continuation in changeContinuations.values {
+            continuation.yield(change)
         }
     }
 
@@ -146,8 +175,6 @@ actor EntitlementService: EntitlementServing {
         return try await currentTier()
     }
 
-    func productInfo() async throws -> StoreProductInfo { try await store.productInfo() }
-
     func purchaseUnlimitedKeys() async throws -> EntitlementTier {
         guard !purchaseInFlight else {
             throw ApiRelayError.validationFailed(field: "product", reason: "purchase_in_progress")
@@ -157,15 +184,15 @@ actor EntitlementService: EntitlementServing {
         return try await complete(try await store.purchase())
     }
 
-    func completeNativePurchase(_ result: Result<Product.PurchaseResult, any Error>) async throws -> EntitlementTier {
-        try await complete(LiveStoreKitClient.outcome(result.get()))
+    func completePurchase(_ result: StorePurchaseOutcome) async throws -> EntitlementTier {
+        try await complete(result)
     }
 
     private func complete(_ result: StorePurchaseOutcome) async throws -> EntitlementTier {
         switch result {
         case .success(let observation):
             let tier = try await accept(observation)
-            await publishChange()
+            publishChange(source: .purchaseCompleted)
             return tier
         case .cancelled:
             throw ApiRelayError.authenticationCancelled
@@ -177,7 +204,7 @@ actor EntitlementService: EntitlementServing {
     private func accept(_ observation: StoreTransactionObservation) async throws -> EntitlementTier {
         eventRevision &+= 1
         switch observation {
-        case .unverified(let productID):
+        case .unverified(let productID, _):
             if productID == Self.unlimitedKeysProductID {
                 recentPurchase = nil
                 verificationFailurePending = true
@@ -228,7 +255,7 @@ actor EntitlementService: EntitlementServing {
             var ownedIDs: Set<UInt64> = []
             for observation in observations {
                 switch observation {
-                case .unverified(let productID):
+                case .unverified(let productID, _):
                     unknown = unknown || productID == Self.unlimitedKeysProductID
                 case .verified(let transaction):
                     if transaction.productID == Self.unlimitedKeysProductID, transaction.revocationDate != nil {

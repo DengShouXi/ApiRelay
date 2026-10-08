@@ -62,6 +62,26 @@ actor FakeEntitlements: EntitlementServing {
         return tier
     }
 
+    func completePurchase(_ result: StorePurchaseOutcome) async throws -> EntitlementTier {
+        switch result {
+        case .success(.verified(let transaction))
+            where transaction.productID == EntitlementService.unlimitedKeysProductID
+                && transaction.revocationDate == nil:
+            tier = .unlimitedKeys
+            return tier
+        case .success:
+            throw ApiRelayError.validationFailed(field: "product", reason: "unverified_transaction")
+        case .cancelled:
+            throw ApiRelayError.authenticationCancelled
+        case .pending:
+            throw ApiRelayError.validationFailed(field: "product", reason: "purchase_pending")
+        }
+    }
+
+    func changes() -> AsyncStream<EntitlementChange> {
+        AsyncStream { _ in }
+    }
+
     func startListening() {
         journal.recordNonThrowing("startListening")
     }

@@ -7,7 +7,7 @@ import SwiftData
 final class EntitlementFlowTests: XCTestCase {
     func testStoreUpdateDuringNativePaymentIsNotLostOnCancel() async throws {
         let client = FakeStoreKitClient()
-        let model = EntitlementStore(service: try makeService(client))
+        let model = EntitlementStore(service: try makeService(client), storeKit: client)
         await model.refresh()
         model.beginNativePurchase()
         await client.setObservations([.verified(FakeStoreKitClient.transaction())])
@@ -20,7 +20,8 @@ final class EntitlementFlowTests: XCTestCase {
     }
 
     func testProductReloadCannotErasePendingPurchaseMessage() async throws {
-        let model = EntitlementStore(service: try makeService(FakeStoreKitClient(pending: true)))
+        let client = FakeStoreKitClient(pending: true)
+        let model = EntitlementStore(service: try makeService(client), storeKit: client)
         await model.refresh()
         await model.loadProduct()
         await model.purchase()
@@ -34,7 +35,7 @@ final class EntitlementFlowTests: XCTestCase {
     func testBridgeExpiryRefreshesSharedUIWithoutAnotherUserAction() async throws {
         let client = FakeStoreKitClient(purchaseVisibleInQueries: false)
         let service = try makeService(client, bridge: .milliseconds(100))
-        let model = EntitlementStore(service: service)
+        let model = EntitlementStore(service: service, storeKit: client)
         await model.refresh()
         await model.loadProduct()
         await model.purchase()
@@ -68,7 +69,7 @@ final class EntitlementFlowTests: XCTestCase {
     func testExternalApprovalAndRevocationRefreshSharedState() async throws {
         let client = FakeStoreKitClient(pending: true)
         let service = try makeService(client)
-        let model = EntitlementStore(service: service)
+        let model = EntitlementStore(service: service, storeKit: client)
         await model.refresh()
         await model.loadProduct()
         await model.purchase()
@@ -95,7 +96,8 @@ final class EntitlementFlowTests: XCTestCase {
     }
 
     func testNativePendingAndCancelShareTheSameStateMachine() async throws {
-        let store = EntitlementStore(service: try makeService(FakeStoreKitClient()))
+        let client = FakeStoreKitClient()
+        let store = EntitlementStore(service: try makeService(client), storeKit: client)
         await store.refresh()
         await store.loadProduct()
         store.beginNativePurchase()
@@ -125,8 +127,11 @@ final class EntitlementFlowTests: XCTestCase {
 
     func testRelevantUnverifiedQueryIsUnknownNotFree() async throws {
         let client = FakeStoreKitClient()
-        await client.setObservations([.unverified(productID: EntitlementService.unlimitedKeysProductID)])
-        let store = EntitlementStore(service: try makeService(client))
+        await client.setObservations([.unverified(
+            productID: EntitlementService.unlimitedKeysProductID,
+            failure: .verificationFailed
+        )])
+        let store = EntitlementStore(service: try makeService(client), storeKit: client)
         await store.refresh()
         XCTAssertEqual(store.state, .unavailable)
         XCTAssertFalse(store.canPurchase)
@@ -134,14 +139,17 @@ final class EntitlementFlowTests: XCTestCase {
 
     func testUnrelatedUnverifiedProductDoesNotBlockFreeTier() async throws {
         let client = FakeStoreKitClient()
-        await client.setObservations([.unverified(productID: "unrelated.product")])
+        await client.setObservations([.unverified(
+            productID: "unrelated.product",
+            failure: .verificationFailed
+        )])
         let tier = try await makeService(client).currentTier()
         XCTAssertEqual(tier, .free)
     }
 
     func testProductLoadFailureRetriesOnSameStore() async throws {
         let client = FakeStoreKitClient(productFailures: 1)
-        let store = EntitlementStore(service: try makeService(client))
+        let store = EntitlementStore(service: try makeService(client), storeKit: client)
         await store.refresh()
         await store.loadProduct()
         XCTAssertNil(store.product)
@@ -155,7 +163,7 @@ final class EntitlementFlowTests: XCTestCase {
 
     func testCancelLeavesSamePageReadyForAnotherPurchase() async throws {
         let client = FakeStoreKitClient(cancelled: true)
-        let store = EntitlementStore(service: try makeService(client))
+        let store = EntitlementStore(service: try makeService(client), storeKit: client)
         await store.refresh()
         await store.loadProduct()
         await store.purchase()
@@ -169,7 +177,7 @@ final class EntitlementFlowTests: XCTestCase {
 
     func testPendingRequiresExplicitRetryButDoesNotPermanentlyDisablePage() async throws {
         let client = FakeStoreKitClient(pending: true)
-        let store = EntitlementStore(service: try makeService(client))
+        let store = EntitlementStore(service: try makeService(client), storeKit: client)
         await store.refresh()
         await store.loadProduct()
         await store.purchase()
@@ -186,8 +194,11 @@ final class EntitlementFlowTests: XCTestCase {
 
     func testUnverifiedPurchaseDoesNotGrantAndShowsUnknown() async throws {
         let client = FakeStoreKitClient()
-        await client.setOutcome(.success(.unverified(productID: EntitlementService.unlimitedKeysProductID)))
-        let store = EntitlementStore(service: try makeService(client))
+        await client.setOutcome(.success(.unverified(
+            productID: EntitlementService.unlimitedKeysProductID,
+            failure: .verificationFailed
+        )))
+        let store = EntitlementStore(service: try makeService(client), storeKit: client)
         await store.refresh()
         await store.loadProduct()
         await store.purchase()
@@ -240,7 +251,7 @@ final class EntitlementFlowTests: XCTestCase {
     func testLateFreeQueryCannotOverwriteVerifiedPurchase() async throws {
         let client = FakeStoreKitClient(queryDelay: .milliseconds(100))
         let service = try makeService(client)
-        let store = EntitlementStore(service: service)
+        let store = EntitlementStore(service: service, storeKit: client)
         await store.refresh()
         await store.loadProduct()
         let stale = Task { await store.refresh() }
@@ -260,9 +271,20 @@ final class EntitlementFlowTests: XCTestCase {
     func testPurchaseUpdatesSharedStateWithoutDependingOnTransactionUpdates() async throws {
         let client = FakeStoreKitClient()
         let service = try makeService(client)
-        let store = EntitlementStore(service: service)
+        let store = EntitlementStore(service: service, storeKit: client)
         await store.refresh()
         _ = try await service.purchaseUnlimitedKeys()
+        for _ in 0..<40 where store.state != .owned {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(store.state, .owned)
+    }
+
+    func testLateSubscriberReplaysLatestEntitlementChange() async throws {
+        let client = FakeStoreKitClient()
+        let service = try makeService(client)
+        _ = try await service.purchaseUnlimitedKeys()
+        let store = EntitlementStore(service: service, storeKit: client)
         for _ in 0..<40 where store.state != .owned {
             try await Task.sleep(for: .milliseconds(10))
         }
@@ -287,7 +309,7 @@ final class EntitlementFlowTests: XCTestCase {
             _ = try await vault.createKey(KeyDraft(accountId: account, displayName: "k\(index)"),
                                           secret: "sk-purchase-flow-\(index)")
         }
-        let model = EntitlementStore(service: service)
+        let model = EntitlementStore(service: service, storeKit: client)
         await model.refresh()
         await model.loadProduct()
         await model.purchase()

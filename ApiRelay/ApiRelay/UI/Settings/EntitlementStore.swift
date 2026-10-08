@@ -13,17 +13,31 @@ final class EntitlementStore: ObservableObject {
     @Published private(set) var approvalPending = false
     @Published private(set) var message = ""
     private let service: any EntitlementServing
+    private let storeKit: any StoreKitClient
     private var revision: UInt64 = 0
     private var productRevision: UInt64 = 0
+    private var lastChangeRevision: UInt64 = 0
     private var refreshQueued = false
-    private var observer: AnyCancellable?
+    private var eventTask: Task<Void, Never>?
 
-    init(service: any EntitlementServing) {
+    init(service: any EntitlementServing, storeKit: any StoreKitClient) {
         self.service = service
-        observer = NotificationCenter.default.publisher(for: .entitlementDidChange)
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in await self?.refresh() }
+        self.storeKit = storeKit
+        eventTask = Task { [weak self, service] in
+            let changes = await service.changes()
+            for await change in changes {
+                guard !Task.isCancelled else { break }
+                await self?.receive(change)
             }
+        }
+    }
+
+    deinit { eventTask?.cancel() }
+
+    private func receive(_ change: EntitlementChange) async {
+        guard change.revision > lastChangeRevision else { return }
+        lastChangeRevision = change.revision
+        await refresh()
     }
 
     var isBusy: Bool { operation != .idle }
@@ -55,7 +69,7 @@ final class EntitlementStore: ObservableObject {
         let request = productRevision
         isLoadingProduct = true
         do {
-            let loaded = try await service.productInfo()
+            let loaded = try await storeKit.productInfo()
             guard request == productRevision else { return }
             product = loaded
         } catch {
@@ -89,7 +103,10 @@ final class EntitlementStore: ObservableObject {
     }
 
     func completeNativePurchase(_ result: Result<Product.PurchaseResult, any Error>) async {
-        do { complete(tier: try await service.completeNativePurchase(result)) }
+        do {
+            let outcome = LiveStoreKitClient.outcome(try result.get())
+            complete(tier: try await service.completePurchase(outcome))
+        }
         catch { complete(error: error) }
     }
 

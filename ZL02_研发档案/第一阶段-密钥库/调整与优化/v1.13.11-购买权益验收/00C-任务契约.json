@@ -9,20 +9,27 @@
     "implementationWorktree": "/Users/xitongzhili/.codex/worktrees/v1-13-11-entitlements/E02_ApiRelay_Github",
     "allowedReadOnlyWorktrees": [
       "/Users/xitongzhili/Desktop/MacTransfer/08_Code/E02_ApiRelay_Github",
-      "/Users/xitongzhili/.codex/worktrees/v1-13-10-structural/E02_ApiRelay_Github"
+      "/Users/xitongzhili/.codex/worktrees/v1-13-10-structural/E02_ApiRelay_Github",
+      "/Users/xitongzhili/.codex/worktrees/v1-14-sync-analysis/E02_ApiRelay_Github"
     ],
     "readOnlyWorktreeSnapshots": [
       {
         "path": "/Users/xitongzhili/Desktop/MacTransfer/08_Code/E02_ApiRelay_Github",
-        "branch": "v1.13.9",
-        "head": "25fe006896a816475e269e155530c1464cc19304",
-        "fingerprint": "f65cbd67583845544e575820540a90a8390db14257faff9b4a2a6d1ad445ecbd"
+        "branch": "v1.13.12",
+        "head": "47626b1930bcb227804c6caf9f37e05768a234e8",
+        "fingerprint": "ee9e0f4e2363d2ffc25bd909964555e30faec0a6691dc57ad2919dcfb0ea0234"
       },
       {
         "path": "/Users/xitongzhili/.codex/worktrees/v1-13-10-structural/E02_ApiRelay_Github",
         "branch": "v1.13.10",
         "head": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
         "fingerprint": "44caecab438774f7e79e1ccc65acb071c1f3f3a9c242c09a9a7a5c97f1f0e75c"
+      },
+      {
+        "path": "/Users/xitongzhili/.codex/worktrees/v1-14-sync-analysis/E02_ApiRelay_Github",
+        "branch": "v1.14",
+        "head": "f80b1a65a7f28e1e5afbebfda6c646331a3b9b02",
+        "fingerprint": "add796303e3ab75cb14a8759e7888bab6325b6b7362c4edde963134c74179d13"
       }
     ],
     "frozenExternalFiles": [],
@@ -30,7 +37,9 @@
     "baselineHead": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
     "authorizedProgressCommits": [
       "1556e17d9e64653f6b9ecde3b771fe0efeda9d7f",
-      "47626b1930bcb227804c6caf9f37e05768a234e8"
+      "47626b1930bcb227804c6caf9f37e05768a234e8",
+      "5654cb4df31950bfbbcdd436de38bf7cec1114ee",
+      "0f00255bc380eab8d5ff80c8e6145e5b28641172"
     ],
     "authorizedProgressEvidenceFile": "10-上传记录.md",
     "protectedRefs": {
@@ -41,10 +50,15 @@
       "origin/v1": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
       "v1.13.9": "25fe006896a816475e269e155530c1464cc19304",
       "origin/v1.13.9": "25fe006896a816475e269e155530c1464cc19304",
+      "codex/archive-v1.13.9-aee2f8a": "aee2f8ab17390a909e83af040e1e3e1abd4d886b",
       "v1.13.10": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
       "origin/v1.13.10": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
+      "v1.13.12": "47626b1930bcb227804c6caf9f37e05768a234e8",
+      "origin/v1.13.12": "47626b1930bcb227804c6caf9f37e05768a234e8",
       "v1.14": "f80b1a65a7f28e1e5afbebfda6c646331a3b9b02",
-      "origin/v1.14": "f80b1a65a7f28e1e5afbebfda6c646331a3b9b02"
+      "origin/v1.14": "f80b1a65a7f28e1e5afbebfda6c646331a3b9b02",
+      "v1.15": "47626b1930bcb227804c6caf9f37e05768a234e8",
+      "origin/v1.15": "47626b1930bcb227804c6caf9f37e05768a234e8"
     },
     "uploadTrackingRefs": ["v1.13.11", "origin/v1.13.11"],
     "forbiddenBranches": []
@@ -76,7 +90,14 @@
       "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/contracts/migration-protocol.md",
       "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/checklists/requirements.md",
       "ApiRelay/specs/001-key-vault/follow-ups/controlled-ciphertext-sync/checklists/migration.md",
+      "ApiRelay/specs/playbooks/v1-key-vault/phases/P05-付费解锁.md",
+      "ApiRelay/specs/001-key-vault/data-model.md",
+      "ApiRelay/specs/001-key-vault/research.md",
+      "ApiRelay/specs/001-key-vault/tasks.md",
+      "ZL00_项目总控/04-双AI协作与独立审计.md",
+      "ZL01_具体说明/09-上传流程.md",
       "ZL01_具体说明/14-项目当前状态.md",
+      "ApiRelay/specs/playbooks/热修-save.md",
       "ApiRelay/ApiRelay/UI/Settings/SettingsView.swift",
       "ApiRelay/ApiRelay/UI/Settings/SettingsGroupedChrome.swift",
       "ApiRelay/ApiRelay/UI/Settings/PaywallView.swift",
@@ -96,6 +117,8 @@
       "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/EntitlementServiceTests.swift",
       "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/StoreKitTransactionTests.swift",
       "ApiRelay/ApiRelayTests/V1/Phase03_Vault/KeyVaultServiceTests.swift",
+      "ApiRelay/ApiRelayTests/Support/StubEntitlements.swift",
+      "ApiRelay/ApiRelayTests/V1/Phase06_Settings/RevealGateCoordinatorTests.swift",
       "ApiRelay/ApiRelayTests/V1/Phase06_Settings/SecureBackupTests.swift",
       "ApiRelay/ApiRelayUITests/PurchaseEntitlementUITests.swift",
       "ApiRelay/ApiRelay.xcodeproj/xcshareddata/xcschemes/ApiRelay.xcscheme",
@@ -120,6 +143,13 @@
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/10-上传记录.md",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/11-远端复核报告.md",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/12-单AI停写复核与Sandbox实测.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/证据/2026-10-09-catalyst-secure-backup-repeat.xcresult.zip",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/证据/2026-10-09-catalyst-secure-backup-repeat-summary.json",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/证据/2026-10-09-catalyst-unit-full-initial-failed-summary.json",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/证据/2026-10-09-catalyst-unit-full.xcresult.zip",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/证据/2026-10-09-catalyst-unit-full-summary.json",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/证据/2026-10-09-ipad-purchase-ui.xcresult.zip",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/证据/2026-10-09-ipad-purchase-ui-summary.json",
       "ApiRelay/ApiRelay/UI/Settings/EntitlementDisplayState.swift",
       "ApiRelay/ApiRelayUITests/PurchaseEntitlementUITests.swift",
       "ApiRelay/ApiRelayTests/V1/Phase05_Entitlement/StoreKitTransactionTests.swift",
@@ -136,11 +166,18 @@
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段7S-轮次整改.md",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段7T-轮次复验.md",
       "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段8-上传.md",
-      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段9-远端复核.md"
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/提示词/阶段9-远端复核.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/整改轮次/R01/01-整改定稿.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/整改轮次/R01/02-整改报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/整改轮次/R01/03-复验报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/整改轮次/R02/01-整改定稿.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/整改轮次/R02/02-整改报告.md",
+      "ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/整改轮次/R02/03-复验报告.md"
     ],
     "allowedPrefixes": ["ZL02_研发档案/第一阶段-密钥库/调整与优化/v1.13.11-购买权益验收/"],
     "forbiddenPrefixes": ["ZL00_项目总控/"],
     "authorizedForbiddenFiles": [
+      "ZL00_项目总控/04-双AI协作与独立审计.md",
       "ZL00_项目总控/自动化/check_multi_ai_workflow.py",
       "ZL00_项目总控/自动化/test_check_multi_ai_workflow.py"
     ],
@@ -172,6 +209,30 @@
       "appliesToHead": "8e6c22109b9f5851dacb31b96e8915d855b0e0f3",
       "authorityLevel": "owner-approved", "freshness": "current",
       "undecidedItems": ["v1.14 G1 D01-D17", "production migration", "main", "tag", "TestFlight", "App review"]
+    },
+    {
+      "id": "owner-approved-plan-branch-snapshots-2026-09-28",
+      "source": "current task owner authorization to freeze v1.13.12, v1.14 and v1.15 planning state while v1.13.11 remains the sole product-code writer",
+      "observedAt": "2026-09-28", "appliesToBranch": "v1.13.11",
+      "appliesToHead": "0f00255bc380eab8d5ff80c8e6145e5b28641172",
+      "authorityLevel": "owner-approved", "freshness": "current",
+      "undecidedItems": ["v1.13.12 implementation", "v1.14 implementation", "v1.15 implementation", "main", "tag", "TestFlight", "App review"]
+    },
+    {
+      "id": "owner-approved-recover-v1-13-9-ref-2026-09-28",
+      "source": "current task owner authorization to preserve aee2f8a under a recoverable local branch and restore local v1.13.9 to origin/v1.13.9",
+      "observedAt": "2026-09-28", "appliesToBranch": "v1.13.11",
+      "appliesToHead": "0f00255bc380eab8d5ff80c8e6145e5b28641172",
+      "authorityLevel": "owner-approved", "freshness": "current",
+      "undecidedItems": ["archive branch review or deletion", "main", "tag", "TestFlight", "App review"]
+    },
+    {
+      "id": "owner-approved-v1-13-11-entitlement-implementation-2026-09-28",
+      "source": "current task owner instruction to implement the approved purchase-entitlement plan with tests while all other planning branches remain read-only",
+      "observedAt": "2026-09-28", "appliesToBranch": "v1.13.11",
+      "appliesToHead": "0f00255bc380eab8d5ff80c8e6145e5b28641172",
+      "authorityLevel": "owner-approved", "freshness": "current",
+      "undecidedItems": ["real Sandbox free-state purchase", "real Sandbox cancellation", "real Sandbox refund and revocation", "real Mac payment", "main", "tag", "TestFlight", "App review"]
     }
   ],
   "checker": {

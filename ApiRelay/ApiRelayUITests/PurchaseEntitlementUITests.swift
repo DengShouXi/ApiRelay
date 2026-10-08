@@ -68,6 +68,8 @@ final class PurchaseEntitlementUITests: XCTestCase {
     func testCancellationKeepsPurchasePageUsable() {
         let app = launchPaywall("entitlement-cancelled", settingsState: "free")
         let purchase = UITestSupport.assertAppears("paywall.purchase", in: app)
+        XCTAssertTrue(purchase.label.contains("$4.99"),
+                      "The UI-test catalog price must match the approved US price")
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: purchase)
         XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 10), .completed)
         purchase.tap()
@@ -82,7 +84,23 @@ final class PurchaseEntitlementUITests: XCTestCase {
         // Exercise the actual free-tier denial before buying, then retry the
         // same add action. The fixture must not have an unlimited fake vault.
         UITestSupport.assertAppears("vault.key.add.action", in: app).tap()
-        UITestSupport.assertAppears("vault.paywall.open", in: app).tap()
+        let quotaPrompt = presentedQuotaPrompt(in: app)
+        XCTAssertTrue(quotaPrompt.waitForExistence(timeout: 10), "The free-tier denial must be presented")
+        let identifiedPaywall = quotaPrompt.descendants(matching: .any)
+            .matching(identifier: "vault.paywall.open").firstMatch
+        let openPaywall: XCUIElement
+        if identifiedPaywall.exists {
+            openPaywall = identifiedPaywall
+        } else {
+            // Catalyst's AppKit-hosted SwiftUI alert replaces the supplied
+            // accessibility identifier with a private action-button ID.
+            let labels = ["Unlock Unlimited Keys", "解锁无限密钥"]
+            openPaywall = quotaPrompt.buttons.matching(NSPredicate(
+                format: "label IN %@ OR title IN %@", labels, labels
+            )).firstMatch
+        }
+        XCTAssertTrue(openPaywall.waitForExistence(timeout: 10))
+        openPaywall.tap()
         let purchase = UITestSupport.assertAppears("paywall.purchase", in: app)
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: purchase)
         XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 15), .completed)
@@ -92,22 +110,80 @@ final class PurchaseEntitlementUITests: XCTestCase {
         // No tab switch, app relaunch or second visit to settings.
         UITestSupport.assertAppears("vault.key.add.action", in: app).tap()
         let name = UITestSupport.assertAppears("vault.key.name.input", in: app)
+        let expectedName: String
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        // Synthesized typing into a normal macOS text field triggers a
+        // Security-framework runtime warning inside the system text service.
+        // The generated fourth-key name is sufficient for this quota test and
+        // avoids mutating the user's pasteboard as a workaround.
+        expectedName = name.value as? String ?? ""
+        XCTAssertFalse(expectedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        #else
         name.tap()
+        expectedName = "Fourth UI Key"
         let oldName = name.value as? String ?? ""
-        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + "Fourth UI Key")
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + expectedName)
+        XCTAssertEqual(name.value as? String, expectedName, "The key name must be complete before saving")
+        #endif
         let secret = UITestSupport.assertAppears("vault.key.secret.input", in: app)
         secret.tap()
         secret.typeText("sk-ui-fourth-key-test")
         UITestSupport.assertAppears("vault.key.save", in: app).tap()
-        XCTAssertTrue(app.staticTexts["Fourth UI Key"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts[expectedName].firstMatch.waitForExistence(timeout: 15))
+    }
+
+    func testCancellingQuotaAlertKeepsFreeLimitAndAllowsAnotherAttempt() {
+        let app = UITestSupport.launch("entitlement-fourth-key")
+        for _ in 0..<2 {
+            UITestSupport.assertAppears("vault.key.add.action", in: app).tap()
+            let prompt = presentedQuotaPrompt(in: app)
+            XCTAssertTrue(prompt.waitForExistence(timeout: 10))
+            let cancel = prompt.buttons.matching(NSPredicate(
+                format: "identifier == %@ OR label IN %@ OR title IN %@",
+                "gate.cancel", ["Cancel", "取消"], ["Cancel", "取消"]
+            )).firstMatch
+            XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+            cancel.tap()
+            let dismissed = XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in !prompt.exists }, object: nil
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 10), .completed)
+            if prompt.exists {
+                let hierarchy = XCTAttachment(string: app.debugDescription)
+                hierarchy.name = "quota-cancel-hierarchy"
+                hierarchy.lifetime = .keepAlways
+                add(hierarchy)
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "quota-cancel-screen"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+            }
+            XCTAssertFalse(prompt.exists, "The quota prompt must actually be dismissed")
+            XCTAssertFalse(UITestSupport.element("vault.key.name.input", in: app).exists,
+                           "Cancelling must not bypass the free-tier write gate")
+            XCTAssertFalse(UITestSupport.element("paywall.purchase", in: app).exists,
+                           "Cancelling must not open the purchase page")
+        }
+    }
+
+    private func presentedQuotaPrompt(in app: XCUIApplication) -> XCUIElement {
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        return app.sheets.firstMatch
+        #else
+        // The security cover also exposes an alert accessibility trait, even
+        // while not covering the UI. It is not a purchase quota presentation.
+        return app.alerts.matching(NSPredicate(
+            format: "identifier != %@", "vault.lock.cover"
+        )).firstMatch
+        #endif
     }
 
     func testSettingsRestoreReportsOwnedResult() {
         let app = launchSettings("settings", state: "owned")
         restoreFromSettings(in: app)
         let result = UITestSupport.assertAppears("settings.restorePurchases.result", in: app)
-        XCTAssertTrue(["Purchases restored", "已恢复购买"].contains(result.label))
-        XCTAssertTrue(result.isHittable, "Restore feedback should be visible without extra scrolling")
+        XCTAssertTrue(["Purchases restored", "已恢复购买"].contains(displayedText(of: result)))
+        assertVisible(result, in: app, message: "Restore feedback should be visible without extra scrolling")
         UITestSupport.assertAppears("settings.entitlement.state.owned", in: app)
     }
 
@@ -115,9 +191,23 @@ final class PurchaseEntitlementUITests: XCTestCase {
         let app = launchSettings("entitlement-free", state: "free")
         restoreFromSettings(in: app)
         let result = UITestSupport.assertAppears("settings.restorePurchases.result", in: app)
-        XCTAssertTrue(["No previous purchase was found", "未找到可恢复的购买"].contains(result.label))
-        XCTAssertTrue(result.isHittable, "Restore feedback should be visible without extra scrolling")
+        XCTAssertTrue(["No previous purchase was found", "未找到可恢复的购买"].contains(displayedText(of: result)))
+        assertVisible(result, in: app, message: "Restore feedback should be visible without extra scrolling")
         UITestSupport.assertAppears("settings.entitlement.state.free", in: app)
+    }
+
+    private func assertVisible(_ element: XCUIElement, in app: XCUIApplication, message: String) {
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.exists, "The app window must exist")
+        XCTAssertFalse(element.frame.isEmpty, message)
+        XCTAssertTrue(window.frame.intersects(element.frame), message)
+    }
+
+    private func displayedText(of element: XCUIElement) -> String {
+        if !element.label.isEmpty {
+            return element.label
+        }
+        return element.value as? String ?? ""
     }
 
     private func launchSettings(_ scenario: String, state: String) -> XCUIApplication {

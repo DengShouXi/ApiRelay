@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "platform": "Mac Catalyst",
+  "device": "My Mac",
+  "osVersion": "26.7.1",
+  "totalTests": 640,
+  "passedTests": 637,
+  "failedTests": 3,
+  "skippedTests": 0,
+  "runtimeWarnings": 0,
+  "result": "Failed",
+  "failures": [
+    {
+      "test": "EntitlementServiceTests.testDebugOverrideClearResyncsFromStore",
+      "failure": "expected free, received unlimitedKeys"
+    },
+    {
+      "test": "EntitlementServiceTests.testStaleUnlimitedSnapshotReconcilesToFreeWithoutPurchase",
+      "failure": "expected free, received unlimitedKeys; persisted observation also remained unlimitedKeys"
+    },
+    {
+      "test": "KeyVaultServiceTests.testStaleUnlimitedSnapshotStillEnforcesFreeQuota",
+      "failure": "expected quotaExceeded despite stale unlimited snapshot"
+    }
+  ],
+  "diagnosis": "The tests unintentionally used the TestAction shared Xcode StoreKit session. Other transaction tests may leave that authoritative test store owned, so the assertions did not represent an empty store. The production service did not authorize from EntitlementSnapshot.",
+  "preservation": "This structured summary and the exact source-line failures were extracted with xcresulttool. The 103 MiB diagnostic-heavy archive remains temporary and is not added to the repository."
+}

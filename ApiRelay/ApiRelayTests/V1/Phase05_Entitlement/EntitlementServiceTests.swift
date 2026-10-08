@@ -37,7 +37,10 @@ final class EntitlementServiceTests: XCTestCase {
 
     func testStaleUnlimitedSnapshotReconcilesToFreeWithoutPurchase() async throws {
         let container = try AppSchema.makeInMemoryContainer()
-        let sut = EntitlementService(modelContainer: container)
+        // This test is about snapshot distrust, not the shared Xcode StoreKit
+        // session. Other transaction tests may legitimately leave that session
+        // owned, so inject an explicitly empty Apple boundary.
+        let sut = EntitlementService(modelContainer: container, store: FakeStoreKitClient())
         let snap = EntitlementSnapshotRepository(modelContainer: container)
         try await snap.update(tier: .unlimitedKeys, source: "stale")
         let tier = try await sut.currentTier()
@@ -112,7 +115,7 @@ final class EntitlementServiceTests: XCTestCase {
 
     func testDebugOverrideClearResyncsFromStore() async throws {
         let container = try AppSchema.makeInMemoryContainer()
-        let sut = EntitlementService(modelContainer: container)
+        let sut = EntitlementService(modelContainer: container, store: FakeStoreKitClient())
         try await sut.debugOverride(tier: .unlimitedKeys)
         try await sut.debugOverride(tier: nil)
         let tier = try await sut.currentTier()

@@ -1831,6 +1831,7 @@ struct MacPaneChrome<Leading: View, Trailing: View>: View {
 
 private struct VaultHomeAlertsModifier: ViewModifier {
     @ObservedObject var viewModel: VaultHomeViewModel
+    @State private var quotaAlertIsPresented = false
     @Binding var showPaywall: Bool
     @Binding var pendingDeleteAccountId: UUID?
     @Binding var pendingDeleteToolId: UUID?
@@ -1875,12 +1876,24 @@ private struct VaultHomeAlertsModifier: ViewModifier {
             } message: {
                 Text(viewModel.toastDetail ?? "")
             }
-            .alert("vault.quota.exceeded.title", isPresented: $viewModel.showQuotaAlert) {
+            .alert("vault.quota.exceeded.title", isPresented: $quotaAlertIsPresented) {
                 Button("vault.paywall.open") { showPaywall = true }
                     .accessibilityIdentifier("vault.paywall.open")
                 Button("gate.cancel", role: .cancel) {}
             } message: {
                 Text("vault.quota.exceeded.body")
+            }
+            .onChange(of: viewModel.showQuotaAlert, initial: true) { _, requested in
+                quotaAlertIsPresented = requested
+            }
+            .onChange(of: quotaAlertIsPresented) { _, presented in
+                guard !presented else { return }
+                // Let SwiftUI dismiss its local presentation state immediately.
+                // Reset the observable request outside the view update.
+                DispatchQueue.main.async {
+                    guard viewModel.showQuotaAlert else { return }
+                    viewModel.showQuotaAlert = false
+                }
             }
             .overlay(alignment: .bottom) {
                 if CombinationExplicitAuth.shouldShowExplicitEntry(

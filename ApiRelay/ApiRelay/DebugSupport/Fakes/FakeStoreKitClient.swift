@@ -40,7 +40,7 @@ actor FakeStoreKitClient: StoreKitClient {
             productFailures -= 1
             throw ApiRelayError.networkUnavailable
         }
-        return StoreProductInfo(id: EntitlementService.unlimitedKeysProductID, displayPrice: "$0.99")
+        return StoreProductInfo(id: EntitlementService.unlimitedKeysProductID, displayPrice: "$4.99")
     }
 
     func purchase() async throws -> StorePurchaseOutcome {

@@ -41,7 +41,3 @@ enum FreeQuotaDisplayState: Equatable {
         }
     }
 }
-
-extension Notification.Name {
-    static let entitlementDidChange = Notification.Name("ApiRelay.entitlementDidChange")
-}

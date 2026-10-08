@@ -22,7 +22,7 @@
 | 单价规则 | SwiftData `PricingRule` | ✅ CloudKit | FR-015 |
 | 用户偏好（**安全相关**） | SwiftData `UserPreferences` | ✅ CloudKit | FR-021、FR-060 |
 | 设备偏好（**界面相关**） | SwiftData `DevicePreferences`（**local 配置**） | ❌ | FR-060、DC-021 |
-| 权益状态 | SwiftData `EntitlementSnapshot`（**local 配置**） | ❌ | research §6 |
+| 权益观测缓存 | SwiftData `EntitlementSnapshot`（**local 配置，不参与授权**） | ❌ | FR-028、research §6 |
 | 刷新健康度 | **UserDefaults** `RefreshHealth`（Codable） | ❌ | FR-017 |
 | 平台能力矩阵 | **代码内静态表**，不持久化 | — | 见 §6 |
 
@@ -44,9 +44,10 @@ ModelContainer(for: fullSchema, configurations: synced, local)
 > （= `iCloud.$(CFBundleIdentifier)`，Bundle ID 定稿为 `com.apirelay.ApiRelay`）。
 > 权威登记见 [plan.md](./plan.md) A5。MUST NOT 使用 `iCloud.com.apirelay.app` 或其他别名。
 
-**权益不同步的理由**：StoreKit 2 的 `Transaction.currentEntitlements` 是 Apple ID 级、跨设备自动
-一致的真相源。再经 CloudKit 同步一份快照会造成双真相源，且调试用的 `debugOverride` 状态会污染
-其他设备。
+**权益不同步的理由**：StoreKit 2 的已验签、产品匹配、未撤权交易是 Apple ID 级、跨设备自动
+一致的唯一授权事实。`EntitlementSnapshot` 仅记录最近一次本机观测结果，不得解除额度或在 StoreKit
+查询失败时兜底放行。再经 CloudKit 同步会制造类似第二真相源的误用风险，且调试用的
+`debugOverride` 状态会污染其他设备。
 
 **设备偏好不同步的理由**：外观与默认视角是**每台设备各自的选择**——「在 Mac 上改深色导致 iPhone
 也变深色」是用户并不想要的联动。而验证方式、剪贴板时长这类安全设置正相反，必须各设备一致
@@ -421,7 +422,7 @@ CloudKit 无唯一约束，同步竞态可能留下多条同 `singletonID` 的�
 `ModelConfiguration` 的数据搬迁**——要在迁移代码里读旧库、写新库、并处理两台设备各有一份不同旧值
 时以谁为准。这比新增字段麻烦得多，属于典型的「越晚做越贵」。
 
-### 3.8 EntitlementSnapshot（local 配置，不同步）
+### 3.8 EntitlementSnapshot（local 观测缓存，不同步、不授权）
 
 | 字段 | 类型 | 同步 | 说明 |
 |------|------|------|------|
@@ -430,11 +431,13 @@ CloudKit 无唯一约束，同步竞态可能留下多条同 `singletonID` 的�
 | source | String | ❌ | `storekit` / `debugOverride` |
 | updatedAt | Date | ❌ | 最近一次从 StoreKit 刷新的时间 |
 
-**刷新时机**：启动、进入前台、购买/恢复完成、`Transaction.updates` 推送。快照仅作离线兜底，
-联网时以 StoreKit 结果覆盖。
+**刷新时机**：启动、进入前台、购买/恢复完成、`Transaction.updates` 推送。快照只保存最近一次
+StoreKit 观测结果；空权益必须回写 `free`。离线、StoreKit 查询失败、未验签或快照自身为
+`unlimitedKeys` 时，快照均不得单独放行。
 
-**权限推导**：`tier != .free` → 解除密钥数量上限。`tier == .relay` 本期 MUST NOT 可达，
-且 MUST NOT 出现在付费界面。
+**权限推导**：业务授权不得从本实体推导；只能由 StoreKit 2 当前已验签、产品匹配、未撤权的交易
+（以及购买成功后等待 `currentEntitlements` 收敛的同一已验签交易短桥）决定。`tier == .relay`
+本期 MUST NOT 可达，且 MUST NOT 出现在付费界面。
 
 ### 3.9 RefreshHealth（UserDefaults，非 SwiftData）
 
