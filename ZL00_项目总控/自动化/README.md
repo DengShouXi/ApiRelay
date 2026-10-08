@@ -11,8 +11,8 @@ ZL00/04 仍是治理权威。这里的脚本只报告机械事实；与 ZL00 冲
 | `task-contract.template.json` | 可选的**阶段式**工作包契约模板，不是所有新任务的必填文件；无注释 JSON。新包用 `MAIC-1.4.0`，`worktreeIsolation: scoped`，`uploadTrackingRefs` 初始为空，须填入本次获准推进的分支及远端引用，绝不默认 `v1`。`PROTECTED_REF_TO_REPLACE` 必须换成本任务实际保护引用，空路径和角色也必须填实；禁止直接复制模板运行检查器。`authorizationRecord` 只记录用户指令来源和范围，自填内容不产生授权。旧版契约与报告保留原身份。`checker.legacyArtifactMethodVersions` 仅精确列出旧产物路径，不用通配；`documentInvariants` 可选。 |
 | `check_multi_ai_workflow.py` | 只读阶段检查器 |
 | `test_check_multi_ai_workflow.py` | 标准库单元测试与故障夹具 |
-| `check_governance_consistency.py` | 只读检查当前治理入口的方法版本、契约默认引用和已经废止的强制上传语句；不扫描历史档案 |
-| `test_check_governance_consistency.py` | 对版本与旧上传硬规则漂移做故障注入；不改真实仓库 |
+| `check_governance_consistency.py` | 只读检查当前治理入口的方法版本、契约默认引用、废止的强制上传语句及单 AI／对话归档路由；不扫描历史档案 |
+| `test_check_governance_consistency.py` | 对版本、旧上传硬规则和单 AI／对话归档漂移做故障注入；不改真实仓库 |
 
 ## 命令
 

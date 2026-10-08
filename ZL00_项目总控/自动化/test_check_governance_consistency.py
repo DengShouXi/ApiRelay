@@ -65,6 +65,44 @@ class GovernanceConsistencyTests(unittest.TestCase):
         path.write_text(path.read_text(encoding="utf-8") + "\ngit checkout -B plan.3\n", encoding="utf-8")
         self.assertTrue(any("旧危险步骤" in issue for issue in module.check(self.root)))
 
+    def test_unconditional_dialog_archive_is_detected(self) -> None:
+        path = self.root / "ZL01_具体说明/00-从这里开始.md"
+        path.write_text(
+            path.read_text(encoding="utf-8") + "\n一段对话做完或停在一半：在 `10` 补。\n",
+            encoding="utf-8",
+        )
+        self.assertTrue(any("旧强制规则" in issue for issue in module.check(self.root)))
+
+    def test_single_ai_route_disappearing_is_detected(self) -> None:
+        path = self.root / "AGENTS.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("普通对话不自动归档", "普通对话全部归档"),
+            encoding="utf-8",
+        )
+        self.assertTrue(any("通用路由标记" in issue for issue in module.check(self.root)))
+
+    def test_document_writing_becoming_dialog_only_is_detected(self) -> None:
+        path = self.root / "ZL01_具体说明/12-通用格式要求.md"
+        path.write_text(path.read_text(encoding="utf-8").replace("`11` 只在", "`11` 一律在"), encoding="utf-8")
+        self.assertTrue(any("通用路由标记" in issue for issue in module.check(self.root)))
+
+    def test_fixed_branch_ledger_on_every_upload_is_detected(self) -> None:
+        path = self.root / "ZL01_具体说明/00-从这里开始.md"
+        path.write_text(
+            path.read_text(encoding="utf-8")
+            + "\n`BRANCHES.md` 与 [`13`](./13-上传记录.md) 是第三步的一部分\n",
+            encoding="utf-8",
+        )
+        self.assertTrue(any("旧强制规则" in issue for issue in module.check(self.root)))
+
+    def test_dialog_archive_does_not_force_upload_flow(self) -> None:
+        path = self.root / "ZL00_项目总控/05-通用AI任务闭环与方法反馈.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("若同时上传，另按", "无论是否上传，都先按"),
+            encoding="utf-8",
+        )
+        self.assertTrue(any("通用路由标记" in issue for issue in module.check(self.root)))
+
 
 if __name__ == "__main__":
     unittest.main()

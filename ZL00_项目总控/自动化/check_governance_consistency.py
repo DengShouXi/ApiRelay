@@ -17,15 +17,22 @@ CHECKER = ROOT / "ZL00_项目总控/自动化/check_multi_ai_workflow.py"
 CURRENT_ENTRYPOINTS = (
     "AGENTS.md",
     "ZL01_具体说明/00-从这里开始.md",
+    "ZL01_具体说明/01-仓库地图.md",
     "ZL00_项目总控/00-项目治理总纲.md",
     "ZL00_项目总控/01-权威职责与边界.md",
     "ZL00_项目总控/03-关账与发布闸门.md",
     "ZL00_项目总控/04-双AI协作与独立审计.md",
+    "ZL00_项目总控/05-通用AI任务闭环与方法反馈.md",
+    ".cursor/rules/project-governance.mdc",
+    ".cursor/rules/implementation-closeout.mdc",
     "ZL01_具体说明/07-计划流程.md",
     "ZL01_具体说明/08-开发流程.md",
     "ZL01_具体说明/09-上传流程.md",
     "ZL01_具体说明/13-上传记录.md",
     "ZL01_具体说明/14-项目当前状态.md",
+    "ZL01_具体说明/06-AI铁律清单.md",
+    "ZL01_具体说明/11-AI对话相关格式要求.md",
+    "ZL01_具体说明/12-通用格式要求.md",
     ".cursor/rules/versioning-release.mdc",
     "ApiRelay/specs/playbooks/README.md",
     "ApiRelay/specs/playbooks/BRANCHES.md",
@@ -72,7 +79,31 @@ FORBIDDEN_CURRENT_PHRASES = (
     "只建立阶段1所需入口",
     "每次 save 还必须",
     "**当前：T062 已执行**",
+    "一段对话做完或停在一半：在",
+    "`BRANCHES.md` 与 [`13`](./13-上传记录.md) 是第三步的一部分",
 )
+ROUTING_MARKERS = {
+    "AGENTS.md": ("05-通用AI任务闭环与方法反馈.md", "普通对话不自动归档"),
+    ".cursor/rules/project-governance.mdc": ("05-通用AI任务闭环与方法反馈.md", "不自动把对话写入"),
+    ".cursor/rules/implementation-closeout.mdc": ("05-通用AI任务闭环与方法反馈.md",),
+    "ZL00_项目总控/00-项目治理总纲.md": ("05-通用AI任务闭环与方法反馈.md",),
+    "ZL00_项目总控/04-双AI协作与独立审计.md": ("05-通用AI任务闭环与方法反馈.md", "单 AI 任务不能"),
+    "ZL00_项目总控/05-通用AI任务闭环与方法反馈.md": ("单 AI", "多 AI", "实质阶段", "不自动", "若同时上传"),
+    "ZL01_具体说明/00-从这里开始.md": ("不自动补 `10`", "05-通用AI任务闭环与方法反馈.md", "若同时上传"),
+    "ZL01_具体说明/01-仓库地图.md": ("单 AI／多 AI 通用闭环",),
+    "ZL01_具体说明/07-计划流程.md": ("05-通用AI任务闭环与方法反馈.md",),
+    "ZL01_具体说明/08-开发流程.md": ("05-通用AI任务闭环与方法反馈.md",),
+    "ZL01_具体说明/09-上传流程.md": ("05-通用AI任务闭环与方法反馈.md",),
+    "ZL01_具体说明/11-AI对话相关格式要求.md": ("只有明确要更新 `10`",),
+    "ZL01_具体说明/12-通用格式要求.md": ("普通文档", "`11` 只在"),
+    "ApiRelay/specs/playbooks/README.md": ("05-通用AI任务闭环与方法反馈.md",),
+}
+# 11/12 contain literal sample Markdown and optional local Cursor-tool links. Their
+# routing text is checked above; the simple link regex cannot distinguish examples.
+LINK_EXAMPLE_FILES = {
+    "ZL01_具体说明/11-AI对话相关格式要求.md",
+    "ZL01_具体说明/12-通用格式要求.md",
+}
 LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 
 
@@ -113,7 +144,10 @@ def check(root: Path = ROOT) -> list[str]:
         for phrase in FORBIDDEN_CURRENT_PHRASES:
             if phrase in content:
                 issues.append(f"现行入口含旧强制规则: {relative}: {phrase}")
-        if path.suffix == ".md":
+        for marker in ROUTING_MARKERS.get(relative, ()):
+            if marker not in content:
+                issues.append(f"现行入口缺少通用路由标记: {relative}: {marker}")
+        if path.suffix == ".md" and relative not in LINK_EXAMPLE_FILES:
             for target in LINK_RE.findall(content):
                 target = target.strip().strip("<>").split("#", 1)[0]
                 if not target or "://" in target or target.startswith("mailto:"):
