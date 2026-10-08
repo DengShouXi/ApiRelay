@@ -1,7 +1,7 @@
 # V0 — 规划大阶段 Playbook
 
 **大阶段分支**：`plan`  
-**规则**：每写完一个规划小阶段，也要打小迭代分支并上传（与产品阶段相同）。  
+**现行规则**：历史规划阶段以小迭代分支留证；完成内容不自动授权创建分支、commit 或 push。新规划任务按 `ZL00/03` 与 `ZL01/09` 核对具体授权。
 台账：[BRANCHES.md](../BRANCHES.md)
 
 记法：`plan.N` = 规划线第 N 个小迭代。
@@ -10,7 +10,7 @@
 |--------|------|------------|-----------|------|
 | `plan.1` | 工程基线 | [`phases/P01-工程基线.md`](./phases/P01-工程基线.md) | [`phases/P01-save.md`](./phases/P01-save.md) | 已完成（历史） |
 | `plan.2` | 规格冻住 | [`phases/P02-规格冻住.md`](./phases/P02-规格冻住.md) | [`phases/P02-save.md`](./phases/P02-save.md) | 已完成（历史） |
-| `plan.3` | 规划补充（下一规划迭代） | [`phases/P03-规划补充.md`](./phases/P03-规划补充.md) | [`phases/P03-save.md`](./phases/P03-save.md) | **模板：写完再上传** |
+| `plan.3` | 规划补充（下一规划迭代） | [`phases/P03-规划补充.md`](./phases/P03-规划补充.md) | [`phases/P03-save.md`](./phases/P03-save.md) | 模板；按本次授权决定是否上传 |
 | `plan.4+` | 继续规划时再加 | 复制 P03 模式新建 `P0N` + `P0N-save` | 同左 | 做到再开 |
 
 索引：[`05-annotate-branch.md`](./05-annotate-branch.md) · [`15-phase-push.md`](./15-phase-push.md)

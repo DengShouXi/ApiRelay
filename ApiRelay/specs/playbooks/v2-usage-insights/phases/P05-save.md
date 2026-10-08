@@ -1,15 +1,17 @@
 # V2 用量看板与关系图 · 小迭代 Phase 5 — 保存并上传提示词
 
-> **硬规则**：本小阶段内容写完后，必须执行本文件，打小迭代分支并 `git push`（规划线 `plan.N` 与产品线相同）。备注必须 English → 简体中文。
+> **现行闸门**：本页的分支名和命令是阶段示例；完成内容不自动授权创建分支、commit、push 或移动大阶段 tip。实际操作先按 `ZL00/03`、`ZL01/09` 核对用户本次范围。备注如需入库仍用 English → 简体中文。
 
 **把下面从「请为」开始到文末整段复制给 Cursor。**  
-本对话只做：写备注 + commit + 推送到**小迭代分支**。不要继续写实现代码。
+本提示只处理保存目标，不继续写实现代码；是否本地 commit、远端 push 或只报告待授权，按用户本次明确指令决定。
 
 命名记法：`plan.N`（规划）或 `v{阶段}.{小迭代}`（产品）—— **开发里程碑用分支**；商店上架才打 `release/N.0.0` tag。
 
 ---
 
 请为 **V2 用量看板与关系图 · Phase 5（签发与作废）** 保存本小迭代并上传。
+
+执行下列任何 Git 命令前，分别核对创建分支、本地 commit、目标小迭代分支 push 和大阶段 tip 移动是否已获授权；未获授权的步骤只列为待办，不执行。保存完成不等于上传或发布授权。
 
 ## 固定目标（写错迭代名视为失败）
 
@@ -23,28 +25,22 @@
 | 实现提示词（对照，勿在本对话实现） | `phases/P05-签发与作废.md` |
 | 本迭代测试目录 | `ApiRelay/ApiRelayTests/V2/Phase05_Issuance/` |
 
-## A. 更新迭代备注（必须英 → 中）
+## A. 本次范围包含迭代备注时更新（英 → 中）
 
 编辑 `BRANCHES.md`，为小迭代 **`v2.5`** 写入/更新：
 
 1. **English**（2–4 句）：相对上一小迭代多了什么、不含什么、何时 `git checkout v2.5`。  
 2. **简体中文**：同样信息。  
-3. tip commit（push 后的 hash）。
+3. 只记实际已产生的 commit SHA；远端结果须在 push 后核对，不预填。
 
 ## B. 提交并推到小迭代分支 `v2.5`
 
 1. 汇报：`git status -sb`、`git branch --show-current`、`git log -5 --oneline`。  
-2. 确保在 `v2.5` 上工作（经我确认后再执行切换/创建）：
+2. 核对当前工作树、目标分支是否已存在及其基线 SHA。仅在本次授权包含建分支时，从已确认的 `v2` 基线创建 `v2.5`；已存在则安全切换，不使用 `checkout -B` 重置分支，不在脏树里盲目 `pull`。
 
-```bash
-git checkout v2
-git pull
-git checkout -B v2.5
-```
-
-3. 暂存：本 Phase 实现 + `ApiRelayTests/V2/Phase05_Issuance/` 下本迭代测试 + `BRANCHES.md`。  
+3. 只暂存本次批准范围内的 Phase 实现与测试；`BRANCHES.md` 只有在本次范围含迭代备注时才加入，不因模板默认扩大路径。
 4. **禁止**加入：`ApiRelay/build/`、`ApiRelay/DebugScratch/`、`__pycache__/`、`spec-kit-0.15.2/`、密钥、`.env`。  
-5. 展示 `git diff --cached --stat`，**等我同意后再 commit**。  
+5. 展示 `git diff --cached --stat` 并核对精确路径；本次授权已包含本地提交才 commit，否则停在待授权。
 6. 建议 message：`feat(v2.5): Phase 5 签发与作废 iteration`  
 7. 上传本小迭代：
 
@@ -52,18 +48,18 @@ git checkout -B v2.5
 git push -u origin v2.5
 ```
 
-8. （推荐）同步大阶段线：
+8. （仅在另获明确授权、当前工作树可安全切换且祖先关系／目标 SHA 已核对时）同步大阶段线；只允许 fast-forward：
 
 ```bash
 git checkout v2
-git merge v2.5
+git merge --ff-only v2.5
 git push origin v2
 git checkout v2.5
 ```
 
 ## C. 完成汇报
 
-- 小迭代 `v2.5` @ `<hash>` 已在远程  
+- 仅在实际推送并核对远端 SHA 后，报告小迭代 `v2.5` @ `<hash>` 已在远程；否则如实报告未上传。
 - `BRANCHES.md` 已有英 + 中备注  
 - 测试仅在对应 `Phase05_Issuance/`  
 - 下一步：打开下一 Phase **实现**提示词；保存时再开下一小迭代 `v2.6`  

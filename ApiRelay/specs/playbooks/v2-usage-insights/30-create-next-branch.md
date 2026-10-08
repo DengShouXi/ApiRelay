@@ -1,3 +1,3 @@
 # 创建大阶段 `v3`
 
-从已验收 `v2`：`git checkout -b v3`，写 `BRANCHES.md` 英→中，push。不要预建 `v3.1`。打开 `40-checkout-next-branch.md`。
+本页是候选步骤，不是自动建线或上传授权。仅在用户已授权创建 `v3` 且核对它所依赖的已验收 `v2` 基线 SHA、目标分支不存在、当前工作树可安全操作后，创建 `v3`。`BRANCHES.md` 只记实际事实；本地 commit、push 分别核对授权，远端 SHA 在 push 后复核。不要预建 `v3.1`。满足前置条件后再打开 `40-checkout-next-branch.md`。

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import hashlib
 import json
@@ -364,6 +365,36 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(payload["nextPhase"], "9")
         self.assert_no_execution_authority(payload)
 
+    def test_branch_only_upload_does_not_require_v1_move(self) -> None:
+        repo = self.keep(make_repo(7))
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["uploadTrackingRefs"] = ["v1.13.8", "origin/v1.13.8"]
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        old_v1 = run_git(repo, "rev-parse", "v1")
+        write(repo / "README.md", "branch only\n")
+        run_git(repo, "add", "README.md")
+        run_git(repo, "commit", "-m", "branch only")
+        new_head = run_git(repo, "rev-parse", "HEAD")
+        run_git(repo, "update-ref", "refs/remotes/origin/v1.13.8", new_head)
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(json.loads(result.stdout)["nextPhase"], "9")
+        self.assertEqual(run_git(repo, "rev-parse", "v1"), old_v1)
+
+    def test_head_move_with_empty_tracking_cannot_claim_upload(self) -> None:
+        repo = self.keep(make_repo(7))
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["uploadTrackingRefs"] = []
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        write(repo / "README.md", "moved\n")
+        run_git(repo, "add", "README.md")
+        run_git(repo, "commit", "-m", "moved")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("未登记本次授权", result.stdout)
+
     def test_missing_identity_on_strict_report(self) -> None:
         repo = self.keep(make_repo(4))
         write(repo / PACKAGE / "06.md", "# 无身份\n\n正文。\n")
@@ -486,6 +517,79 @@ class CheckerTests(unittest.TestCase):
         result = invoke(repo)
         self.assertEqual(result.returncode, 4)
         self.assertIn("worktree", result.stdout)
+
+    def test_scoped_unrelated_dirty_worktree_is_warning(self) -> None:
+        repo = self.keep(make_repo(3))
+        extra = self.keep(Path(tempfile.mkdtemp(prefix="maic-scoped-")))
+        extra.rmdir()
+        run_git(repo, "worktree", "add", "--detach", str(extra))
+        write(extra / "README.md", "unrelated dirty\n")
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["worktreeIsolation"] = "scoped"
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        payload = json.loads(result.stdout)
+        self.assertTrue(any("未关联 worktree" in item for item in payload["warnings"]))
+        write(repo / "staged.txt", "x\n")
+        run_git(repo, "add", "staged.txt")
+        self.assertEqual(invoke(repo).returncode, 4)
+
+    def test_invalid_worktree_isolation_exits_input(self) -> None:
+        repo = self.keep(make_repo(3))
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["repository"]["worktreeIsolation"] = "ignore-everything"
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        self.assertEqual(invoke(repo).returncode, 2)
+
+    def test_new_schema_requires_authorization_record_shape(self) -> None:
+        repo = self.keep(make_repo(3))
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["schemaVersion"] = "1.1"
+        data["repository"]["uploadTrackingRefs"] = []
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        self.assertEqual(invoke(repo).returncode, 2)
+        data["authorizationRecord"] = {
+            "source": "user message",
+            "approvedOperations": ["local implementation"],
+            "targetRefs": [],
+            "conditions": [],
+        }
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        self.assertEqual(invoke(repo).returncode, 0)
+
+    def test_new_schema_rejects_tracking_without_matching_upload_authorization(self) -> None:
+        repo = self.keep(make_repo(7))
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["schemaVersion"] = "1.1"
+        data["repository"]["uploadTrackingRefs"] = ["v1.13.8", "origin/v1.13.8"]
+        data["authorizationRecord"] = {
+            "source": "",
+            "approvedOperations": [],
+            "targetRefs": [],
+            "conditions": [],
+        }
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("用户授权来源", result.stdout)
+
+        data["authorizationRecord"] = {
+            "source": "user message in this task",
+            "approvedOperations": ["push"],
+            "targetRefs": ["v1.13.8"],
+            "conditions": ["acceptance passed"],
+        }
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        self.assertIn("精确一致", invoke(repo).stdout)
+
+        data["authorizationRecord"]["targetRefs"].append("origin/v1.13.8")
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        self.assertEqual(invoke(repo).returncode, 0)
 
     def test_readonly_worktree_allowed(self) -> None:
         repo = self.keep(make_repo(3))
@@ -685,10 +789,26 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 4)
 
     def test_checker_source_has_no_write_git(self) -> None:
-        source = CHECKER.read_text(encoding="utf-8")
-        for banned in ("commit", "checkout", "reset", "push", "add", "fetch"):
-            self.assertNotIn(f'"{banned}"', source)
-            self.assertNotIn(f"'{banned}'", source)
+        tree = ast.parse(CHECKER.read_text(encoding="utf-8"))
+        allowlist = next(
+            ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "READ_ONLY_GIT" for target in node.targets)
+        )
+        self.assertFalse(set(allowlist) & {"commit", "checkout", "reset", "push", "add", "fetch"})
+        subprocess_callers = {
+            function.name
+            for function in tree.body
+            if isinstance(function, ast.FunctionDef)
+            for node in ast.walk(function)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "subprocess"
+            and node.func.attr == "run"
+        }
+        self.assertEqual(subprocess_callers, {"git", "try_git", "git_status_bytes"})
 
     def _upgrade(self, repo: Path, version: str, legacy: dict[str, list[str]]) -> None:
         write(repo / "ZL00_项目总控/04-双AI协作与独立审计.md", f"方法版本：{version}\n")
@@ -709,6 +829,31 @@ class CheckerTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["methodVersion"], "MAIC-1.1")
         self.assertEqual(payload["nextPhase"], "4")
+
+    def test_previous_method_contract_is_readonly_after_upgrade(self) -> None:
+        repo = self.keep(make_repo(3))
+        write(repo / "ZL00_项目总控/04-双AI协作与独立审计.md", "方法版本：MAIC-1.4.0\n")
+        data_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        data["methodVersion"] = "MAIC-1.3.1"
+        data["checker"]["legacyArtifactMethodVersions"] = {
+            "MAIC-1.0": ["01.md", "03.md", "04.md", "05.md"]
+        }
+        write(data_path, json.dumps(data, ensure_ascii=False, indent=2))
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["legacyReadOnly"])
+        self.assertEqual(payload["nextPhase"], "generic")
+        self.assertFalse(payload["methodVersionMatch"])
+        self.assert_no_execution_authority(payload)
+
+    def test_template_does_not_force_v1_or_old_method(self) -> None:
+        template = json.loads((ROOT / "ZL00_项目总控/自动化/task-contract.template.json").read_text(encoding="utf-8"))
+        self.assertEqual(template["methodVersion"], "MAIC-1.4.0")
+        self.assertEqual(template["repository"]["worktreeIsolation"], "scoped")
+        self.assertEqual(template["repository"]["uploadTrackingRefs"], [])
+        self.assertEqual(template["authorizationRecord"]["approvedOperations"], [])
 
     def test_unlisted_legacy_path_exits_chain(self) -> None:
         repo = self.keep(make_repo(3))

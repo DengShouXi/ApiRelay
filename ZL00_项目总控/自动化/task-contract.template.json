@@ -1,12 +1,13 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "workPackageId": "",
-  "methodVersion": "MAIC-1.3.1",
+  "methodVersion": "MAIC-1.4.0",
   "sourceKind": "ZL02",
   "riskLevel": "standard",
   "objective": "",
   "repository": {
     "implementationWorktree": "",
+    "worktreeIsolation": "scoped",
     "allowedReadOnlyWorktrees": [],
     "readOnlyWorktreeSnapshots": [],
     "frozenExternalFiles": [],
@@ -15,12 +16,9 @@
     "protectedRefs": {
       "main": "",
       "origin/main": "",
-      "release/1.0.0": ""
+      "PROTECTED_REF_TO_REPLACE": ""
     },
-    "uploadTrackingRefs": [
-      "v1",
-      "origin/v1"
-    ],
+    "uploadTrackingRefs": [],
     "forbiddenBranches": []
   },
   "roles": {
@@ -49,17 +47,18 @@
       "9": "Codex"
     }
   },
+  "authorizationRecord": {
+    "source": "",
+    "approvedOperations": [],
+    "targetRefs": [],
+    "conditions": []
+  },
   "paths": {
     "allowedModify": [],
     "allowedAdd": [],
     "allowedPrefixes": [],
-    "forbiddenPrefixes": [
-      "ApiRelay/ApiRelay/",
-      "ApiRelay/ApiRelayTests/"
-    ],
-    "knownUntracked": [
-      "tools/"
-    ]
+    "forbiddenPrefixes": [],
+    "knownUntracked": []
   },
   "writerStatus": {
     "files": [
@@ -91,8 +90,7 @@
   },
   "userAuthorizationPoints": [
     "finalPlanBeforePhase4",
-    "uploadBeforePhase8",
-    "nextProductBranchAfterCloseout"
+    "uploadBeforePhase8"
   ],
   "externalInputs": [
     {
@@ -134,9 +132,9 @@
     "fixedConclusions": {
       "phase5Pass": "审计通过，无阻塞问题，可以进入阶段7。",
       "phase5Fail": "审计不通过，存在阻塞问题，不得进入阶段7或8。",
-      "phase7Pass": "验收通过，可以在用户明确授权后提交并上传 v1.13.8。",
+      "phase7Pass": "验收通过，提交和上传仍须核对用户已批准的具体范围。",
       "phase7Fail": "验收不通过，必须进入可重复整改轮次。",
-      "roundPass": "本轮复验通过，可以在用户明确授权后进入阶段8。",
+      "roundPass": "本轮复验通过，进入上传前须核对用户已批准的具体范围。",
       "roundFail": "本轮复验不通过，必须创建下一整改轮次。"
     },
     "rnn": {
