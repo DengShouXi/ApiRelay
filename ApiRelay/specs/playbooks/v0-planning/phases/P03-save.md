@@ -1,15 +1,17 @@
 # V0 规划 · 小迭代 Phase 3 — 保存并上传提示词
 
-> **硬规则**：本小阶段内容写完后，必须执行本文件，打小迭代分支并 `git push`（规划线 `plan.N` 与产品线相同）。备注必须 English → 简体中文。
+> **现行闸门**：本页命令是候选步骤；完成内容不自动授权创建分支、commit、push 或移动 `plan`。按 `ZL00/03` 与 `ZL01/09` 核对本次范围。备注如需入库仍用 English → 简体中文。
 
 **把下面从「请为」开始到文末整段复制给 Cursor。**  
-本对话只做：写备注 + commit + 推送到小迭代分支 `plan.3`。不要夹带产品实现代码（除非该迭代本身需要）。
+本提示只处理规划保存目标；是否 commit／push 或只报告待授权按用户本次指令决定。不要夹带产品实现代码（除非该迭代本身需要）。
 
-命名：`plan.{小迭代}` —— 规划大阶段下的第 N 次迭代；**写完也要打分支上传**（与 v1.N 同规则）。
+命名：`plan.{小迭代}` —— 规划大阶段下的第 N 次迭代；是否建分支和上传以本次授权为准。
 
 ---
 
-请为 **V0 规划 · Phase 3（规划补充）** 保存本小迭代并上传。
+请为 **V0 规划 · Phase 3（规划补充）** 核对保存范围；仅执行我已明确授权的 Git 操作。
+
+执行下列 Git 命令前，分别核对创建分支、本地 commit、目标分支 push 和 `plan` tip 移动的授权；未获授权的步骤只列待办，不执行。
 
 ## 固定目标
 
@@ -22,37 +24,31 @@
 | 说明提示词 | `phases/P03-规划补充.md` |
 | 测试目录（可空） | `ApiRelay/ApiRelayTests/V0/Phase03_PlanningExtra/` |
 
-> **新规划迭代模板**：写完规格/备注/路线图补充后，用本文件打分支 `plan.3` 上传。
+> **新规划迭代模板**：写完规格／备注／路线图补充后，用本文件核对是否需要 `plan.3` 分支；不自动上传。
 
 
-## A. 更新迭代备注（必须英 → 中）
+## A. 本次范围包含迭代备注时更新（英 → 中）
 
 编辑 `BRANCHES.md`，为 **`plan.3`** 写入/更新：
 
 1. **English**（2–4 句）  
 2. **简体中文**  
-3. tip commit hash  
+3. 只记实际已产生的 commit SHA；远端结果须在 push 后核对，不预填。
 
 ## B. 提交并推到 `plan.3`
 
 1. 汇报 `git status` / 当前分支 / `git log -5`。  
-2. 经我确认后：
+2. 核对当前工作树、`plan.3` 是否已存在及其基线 SHA。仅在本次授权包含建分支时，从已确认的 `plan` 基线安全创建；已存在则安全切换，不使用 `checkout -B` 重置分支，不在脏树里盲目 `pull`。
 
-```bash
-git checkout plan
-git pull
-git checkout -B plan.3
-```
-
-3. 暂存本迭代文档/规划改动 + `BRANCHES.md`（及 `V0/Phase03_PlanningExtra/` 若有测试）。  
+3. 只暂存本次批准范围内的规划文件；`BRANCHES.md` 和测试目录仅在本次范围确实包含时加入。
 4. 禁止：`build/`、`DebugScratch/`、密钥、`spec-kit-0.15.2/`。  
-5. 展示 cached diff，**同意后再 commit**：`docs(plan.3): Phase 3 规划补充 iteration`  
+5. 展示 cached diff 并核对精确路径；本次授权已包含本地提交才 commit，否则停在待授权。建议 message：`docs(plan.3): Phase 3 规划补充 iteration`
 6. `git push -u origin plan.3`  
-7. 推荐同步大阶段：`git checkout plan && git merge plan.3 && git push origin plan && git checkout plan.3`
+7. 仅在另获明确授权且祖先关系／目标 SHA 已核对时同步大阶段；只允许 fast-forward，不生成额外合并提交。推送后核对实际远端 SHA。
 
 ## C. 汇报
 
-- `plan.3` @ `<hash>` 已在远程  
+- 仅在实际推送并核对远端 SHA 后，报告 `plan.3` @ `<hash>` 已在远程；否则如实报告未上传。
 - 备注英+中已写  
 - 下一步：若还要规划 → `P04` / `plan.4`；若开始产品实现 → 到 `v1` / `v1.N` 线  
 

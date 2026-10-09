@@ -1,6 +1,6 @@
 ---
 description: 模拟器系统日志是 Apple 已知问题，禁止当应用回归修。
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 模拟器控制台噪音

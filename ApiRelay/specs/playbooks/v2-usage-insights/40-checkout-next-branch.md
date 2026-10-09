@@ -1,3 +1,3 @@
 # 切换到 `v3`
 
-`git checkout v3`，打开 `../v3-relay-service/00-README.md`。小迭代用 `P0N-save.md` → `v3.N`。
+本页只做导航：先确认用户本次任务确需进入 `v3`、分支与目标工作树存在且 SHA 已核对、切换不会覆盖未提交改动；再安全切换并打开 [`Stage3 README`](../v3-relay-service/00-README.md)。是否新建／上传 `v3.N` 由具体任务授权决定，不因打开本页自动执行。

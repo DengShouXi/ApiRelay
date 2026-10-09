@@ -82,6 +82,8 @@ RNN_REL_RE = re.compile(
 )
 CHECKER_GRANTS_EXECUTION_AUTHORITY = False
 AUTHORIZATION_NOTE = "检查器只判断状态和路由，不授予下一阶段执行权限"
+CURRENT_METHOD_VERSION = "MAIC-1.4.0"
+READ_ONLY_LEGACY_METHODS = {"MAIC-1.3.1"}
 
 
 class CheckerError(Exception):
@@ -148,6 +150,23 @@ def require_mapping(value: Any, name: str, keys: tuple[str, ...]) -> dict[str, A
 
 
 def validate_nested_contract(data: dict[str, Any]) -> None:
+    schema = data.get("schemaVersion")
+    if schema not in {"1.0", "1.1"}:
+        raise CheckerError(EXIT_INPUT, "契约 schemaVersion 只允许 1.0 或 1.1")
+    if schema == "1.0" and data.get("methodVersion") == CURRENT_METHOD_VERSION:
+        raise CheckerError(EXIT_INPUT, "当前方法的新契约必须使用 schemaVersion 1.1 并记录授权范围")
+    record = None
+    if schema == "1.1":
+        record = require_mapping(
+            data.get("authorizationRecord"),
+            "authorizationRecord",
+            ("source", "approvedOperations", "targetRefs", "conditions"),
+        )
+        if not isinstance(record["source"], str) or any(
+            not isinstance(record[key], list) or any(not isinstance(item, str) for item in record[key])
+            for key in ("approvedOperations", "targetRefs", "conditions")
+        ):
+            raise CheckerError(EXIT_INPUT, "契约 authorizationRecord 类型无效")
     repository = require_mapping(data.get("repository"), "repository", REQUIRED_REPOSITORY)
     if not isinstance(repository.get("protectedRefs"), dict) or not repository["protectedRefs"]:
         raise CheckerError(EXIT_INPUT, "契约 repository.protectedRefs 必须是非空对象")
@@ -162,6 +181,22 @@ def validate_nested_contract(data: dict[str, Any]) -> None:
             repository.get("authorizedProgressEvidenceFile"),
             "repository.authorizedProgressEvidenceFile",
         )
+    isolation = repository.get("worktreeIsolation", "strict")
+    if isolation not in {"strict", "scoped"}:
+        raise CheckerError(EXIT_INPUT, "契约 repository.worktreeIsolation 只允许 strict 或 scoped")
+    tracking = repository.get("uploadTrackingRefs", [])
+    if not isinstance(tracking, list) or any(not isinstance(ref, str) or not ref for ref in tracking):
+        raise CheckerError(EXIT_INPUT, "契约 repository.uploadTrackingRefs 必须是非空引用名数组或空数组")
+    if len(set(tracking)) != len(tracking):
+        raise CheckerError(EXIT_INPUT, "契约 repository.uploadTrackingRefs 不得重复")
+    if record is not None and tracking:
+        if not record["source"].strip() or 'push' not in record["approvedOperations"]:
+            raise CheckerError(EXIT_INPUT, "登记上传引用时必须记录用户授权来源和 push 操作")
+        target_refs = record["targetRefs"]
+        if len(set(target_refs)) != len(target_refs) or set(target_refs) != set(tracking):
+            raise CheckerError(EXIT_INPUT, "授权 targetRefs 必须与上传跟踪 refs 精确一致")
+        if not any(ref.startswith("origin/") for ref in tracking):
+            raise CheckerError(EXIT_INPUT, "上传跟踪 refs 至少包含 origin/ 远端追踪引用")
     validate_readonly_snapshots(repository)
     validate_frozen_external_files(repository)
     roles = require_mapping(data.get("roles"), "roles", ("phaseOwners",))
@@ -671,11 +706,19 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
     contract = load_json(package / "00C-任务契约.json")
     method_file = repo / contract["checker"]["methodFile"]
     method_version = read_method_version(method_file)
-    if contract["methodVersion"] != method_version:
+    contract_method_version = contract["methodVersion"]
+    legacy_readonly = (
+        method_version == CURRENT_METHOD_VERSION
+        and contract_method_version in READ_ONLY_LEGACY_METHODS
+    )
+    if contract_method_version != method_version and not legacy_readonly:
         raise CheckerError(
             EXIT_CHAIN,
-            f"契约方法版本 {contract['methodVersion']} 与方法文件 {method_version} 不一致",
+            f"契约方法版本 {contract_method_version} 与方法文件 {method_version} 不一致",
         )
+    warnings: list[str] = []
+    if legacy_readonly:
+        warnings.append("旧版契约仅供只读诊断；下一次写入前须迁移契约并复验受影响关口")
 
     duplicates = []
     for dirpath, dirnames, filenames in os.walk(repo):
@@ -720,8 +763,11 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
         for path in (os.path.realpath(item) for item in list_worktrees(repo))
         if path not in allowed_trees
     ]
-    if extra_trees:
+    isolation = contract["repository"].get("worktreeIsolation", "strict")
+    if extra_trees and isolation == "strict":
         raise CheckerError(EXIT_SCOPE, "发现契约外 worktree: " + ", ".join(extra_trees))
+    if extra_trees:
+        warnings.append("未关联 worktree 不参与本次阻断检查: " + ", ".join(extra_trees))
 
     readonly_trees = [
         os.path.realpath(item)
@@ -813,7 +859,7 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
     strict_names = set(contract["checker"].get("strictIdentityArtifacts", []))
     legacy = validate_legacy_artifact_method_versions(
         contract["checker"].get("legacyArtifactMethodVersions"),
-        method_version,
+        contract_method_version,
     )
     valid: list[str] = []
     invalid: dict[str, str] = {}
@@ -831,7 +877,7 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
                 identity,
                 baseline_branch,
                 baseline_head,
-                method_version,
+                contract_method_version,
                 relative in strict_names,
                 relative,
                 legacy,
@@ -872,7 +918,7 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
                 parse_identity(text),
                 baseline_branch,
                 baseline_head,
-                method_version,
+                contract_method_version,
                 True,
                 relative,
                 legacy,
@@ -942,12 +988,14 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
 
     if head_moved and (latest_effective_pass or authorized_progress):
         tracking = contract["repository"].get("uploadTrackingRefs", [])
+        if not tracking:
+            raise CheckerError(EXIT_CHAIN, "HEAD 已离开基线，但未登记本次授权的上传跟踪 refs，不能视为已上传")
         for name in tracking:
             actual = try_git(repo, "rev-parse", name)
             if actual != head:
                 raise CheckerError(
                     EXIT_CHAIN,
-                    f"HEAD 已离开基线，但 {name} 不是当前 HEAD，不能视为已完成 A/B",
+                    f"HEAD 已离开基线，但 {name} 不是当前 HEAD，不能视为已完成授权范围内的上传",
                 )
 
     enforce_document_invariants(
@@ -1037,11 +1085,19 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
 
     if next_phase == "generic":
         blockers.append("无法唯一确定下一阶段")
+    if legacy_readonly:
+        next_phase = "generic"
+        approval = "旧契约迁移并复验后才能继续写入"
+        prompt = prompt_path(package, contract, next_phase)
+        if not prompt.is_file():
+            raise CheckerError(EXIT_INPUT, f"旧契约的通用只读提示词不存在: {prompt}")
 
     payload = {
         "contractValid": True,
         "methodVersion": method_version,
-        "methodVersionMatch": True,
+        "contractMethodVersion": contract_method_version,
+        "methodVersionMatch": not legacy_readonly,
+        "legacyReadOnly": legacy_readonly,
         "branch": branch,
         "head": head,
         "stagingEmpty": not staged,
@@ -1057,6 +1113,7 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
         "requiredUserApproval": approval,
         "checkerGrantsExecutionAuthority": CHECKER_GRANTS_EXECUTION_AUTHORITY,
         "authorizationNote": AUTHORIZATION_NOTE,
+        "warnings": warnings,
         "blockers": blockers,
         "workPackageId": contract["workPackageId"],
     }
@@ -1079,6 +1136,8 @@ def render_text(payload: dict[str, Any]) -> str:
     ]
     if payload.get("blockers"):
         lines.append("阻塞: " + "; ".join(payload["blockers"]))
+    if payload.get("warnings"):
+        lines.append("提示: " + "; ".join(payload["warnings"]))
     return "\n".join(lines) + "\n"
 
 
