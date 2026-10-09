@@ -177,6 +177,8 @@ def validate_nested_contract(data: dict[str, Any]) -> None:
     ):
         raise CheckerError(EXIT_INPUT, "repository.authorizedProgressCommits 必须是完整 SHA 数组")
     if progress:
+        if schema == "1.1":
+            raise CheckerError(EXIT_INPUT, "新版契约不得使用旧包的已授权进度提交例外")
         validate_package_rel_path(
             repository.get("authorizedProgressEvidenceFile"),
             "repository.authorizedProgressEvidenceFile",
@@ -195,8 +197,17 @@ def validate_nested_contract(data: dict[str, Any]) -> None:
         target_refs = record["targetRefs"]
         if len(set(target_refs)) != len(target_refs) or set(target_refs) != set(tracking):
             raise CheckerError(EXIT_INPUT, "授权 targetRefs 必须与上传跟踪 refs 精确一致")
-        if not any(ref.startswith("origin/") for ref in tracking):
-            raise CheckerError(EXIT_INPUT, "上传跟踪 refs 至少包含 origin/ 远端追踪引用")
+        tracking_refs = set(tracking)
+        if any(
+            not ref.removeprefix("origin/")
+            or (
+                ref.removeprefix("origin/") not in tracking_refs
+                if ref.startswith("origin/")
+                else f"origin/{ref}" not in tracking_refs
+            )
+            for ref in tracking
+        ):
+            raise CheckerError(EXIT_INPUT, "上传跟踪 refs 必须成对登记本地引用与 origin/ 远端追踪引用")
     validate_readonly_snapshots(repository)
     validate_frozen_external_files(repository)
     roles = require_mapping(data.get("roles"), "roles", ("phaseOwners",))
@@ -212,6 +223,8 @@ def validate_nested_contract(data: dict[str, Any]) -> None:
         for path in exceptions
     ):
         raise CheckerError(EXIT_INPUT, "paths.authorizedForbiddenFiles 必须逐一列入 allowedModify")
+    if schema == "1.1" and exceptions:
+        raise CheckerError(EXIT_INPUT, "新版契约不得使用旧包的禁止路径例外")
     checker = require_mapping(data.get("checker"), "checker", REQUIRED_CHECKER)
     for key in ("promptsByPhase", "fixedConclusions", "rnn"):
         if not isinstance(checker.get(key), dict):
@@ -666,7 +679,7 @@ def path_allowed(path: str, code: str, contract: dict[str, Any], package_rel: st
         if path == item.rstrip("/") or path.startswith(item):
             # A task-specific owner decision can name individual governance files;
             # it never opens the rest of a forbidden directory.
-            exceptions = spec.get("authorizedForbiddenFiles", [])
+            exceptions = spec.get("authorizedForbiddenFiles", []) if contract.get("schemaVersion") == "1.0" else []
             return path in exceptions and path in spec.get("allowedModify", [])
     for item in allowed:
         if path == item or path.startswith(item.rstrip("/") + "/"):
@@ -955,6 +968,8 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
     progress_evidence = contract["repository"].get("authorizedProgressEvidenceFile")
     authorized_progress = False
     if head_moved and not latest_effective_pass:
+        if contract.get("schemaVersion") == "1.1":
+            raise CheckerError(EXIT_CHAIN, f"最新验收未通过，新版契约不得使 HEAD {head} 离开基线 {baseline_head}")
         if not isinstance(progress_commits, list) or not progress_commits or not isinstance(progress_evidence, str):
             raise CheckerError(EXIT_CHAIN, f"HEAD {head} 不是基线 {baseline_head}")
         evidence_rel = validate_package_rel_path(progress_evidence, "repository.authorizedProgressEvidenceFile")
