@@ -364,6 +364,43 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(payload["nextPhase"], "9")
         self.assert_no_execution_authority(payload)
 
+    def test_head_move_requires_authorized_tracking_refs(self) -> None:
+        repo = self.keep(make_repo(7))
+        data = json.loads((repo / PACKAGE / "00C-任务契约.json").read_text(encoding="utf-8"))
+        data["repository"]["uploadTrackingRefs"] = []
+        write(repo / PACKAGE / "00C-任务契约.json", json.dumps(data, ensure_ascii=False, indent=2))
+        write(repo / "README.md", "moved\n")
+        run_git(repo, "add", "README.md")
+        run_git(repo, "commit", "-m", "move")
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("未登记本次授权的上传跟踪引用", result.stdout)
+
+    def test_uninstantiated_source_and_risk_rejected(self) -> None:
+        repo = self.keep(make_repo(3))
+        contract_path = repo / PACKAGE / "00C-任务契约.json"
+        data = json.loads(contract_path.read_text(encoding="utf-8"))
+        data["sourceKind"] = ""
+        data["riskLevel"] = ""
+        write(contract_path, json.dumps(data, ensure_ascii=False, indent=2))
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("sourceKind", result.stdout)
+
+    def test_branch_only_tracking_does_not_require_v1_move(self) -> None:
+        repo = self.keep(make_repo(7))
+        data = json.loads((repo / PACKAGE / "00C-任务契约.json").read_text(encoding="utf-8"))
+        data["repository"]["uploadTrackingRefs"] = ["origin/v1.13.8"]
+        write(repo / PACKAGE / "00C-任务契约.json", json.dumps(data, ensure_ascii=False, indent=2))
+        write(repo / "README.md", "moved\n")
+        run_git(repo, "add", "README.md")
+        run_git(repo, "commit", "-m", "move")
+        new_head = run_git(repo, "rev-parse", "HEAD")
+        run_git(repo, "update-ref", "refs/remotes/origin/v1.13.8", new_head)
+        result = invoke(repo)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(json.loads(result.stdout)["nextPhase"], "9")
+
     def test_missing_identity_on_strict_report(self) -> None:
         repo = self.keep(make_repo(4))
         write(repo / PACKAGE / "06.md", "# 无身份\n\n正文。\n")
@@ -478,14 +515,16 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 4)
         self.assertIn("只读 worktree 不洁净", result.stdout)
 
-    def test_extra_worktree_rejected(self) -> None:
+    def test_unregistered_worktree_reported_without_blocking(self) -> None:
         repo = self.keep(make_repo(3))
         extra = self.keep(Path(tempfile.mkdtemp(prefix="maic-wt-")))
         extra.rmdir()
         run_git(repo, "worktree", "add", "--detach", str(extra))
+        write(extra / "README.md", "unrelated dirty work\n")
         result = invoke(repo)
-        self.assertEqual(result.returncode, 4)
-        self.assertIn("worktree", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('"unregisteredWorktrees"', result.stdout)
+        self.assertIn(str(extra), result.stdout)
 
     def test_readonly_worktree_allowed(self) -> None:
         repo = self.keep(make_repo(3))

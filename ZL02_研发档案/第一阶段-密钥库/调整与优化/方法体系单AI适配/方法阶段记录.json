@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "taskId": "method-iteration-2026-10-09",
+  "riskLevel": "high",
+  "expectedStages": [
+    "1-现场与位置",
+    "2-机制诊断",
+    "3-架构决定",
+    "4-闭环设计",
+    "5-规则整改",
+    "6-工具接线",
+    "7-旧问题试跑",
+    "8-总验收"
+  ],
+  "checks": [
+    {
+      "stage": "1-现场与位置",
+      "verdict": "issue",
+      "evidence": "已核对 Git 现状、ZL00/ZL01/Cursor/playbook/自动化及既有审计报告；用户的产品工程、AppIcon、Xcode Cloud、UI 草稿差异不在本次范围。",
+      "issueIds": ["MI-20261009-01"]
+    },
+    {
+      "stage": "2-机制诊断",
+      "verdict": "issue",
+      "evidence": "旧 05/04 有阶段检查文字，Cursor 收尾有提醒，但无稳定跨任务问题索引，旧检查器只核机械路由，不能发现阶段记录缺失；因此用户仍须反复提醒。",
+      "issueIds": ["MI-20261009-01"]
+    },
+    {
+      "stage": "3-架构决定",
+      "verdict": "clear",
+      "evidence": "保留 ZL00 治理、ZL01 导航、ZL02 过程证据、Spec Kit 产品规格四层；共用闭环单列 ZL00/06，任务记录留原工作包，跨任务索引只存指针。",
+      "issueIds": []
+    },
+    {
+      "stage": "4-闭环设计",
+      "verdict": "clear",
+      "evidence": "ZL00/06 定义任务开始、阶段结束、卡壳、提交上传前的触发，分类、指纹去重、受控修正、回归和关闭；不把外部网络故障写成方法缺陷。",
+      "issueIds": []
+    },
+    {
+      "stage": "5-规则整改",
+      "verdict": "clear",
+      "evidence": "共同闭环只在 ZL00/06 定义；ZL00/04、05、03，AGENTS、Cursor 与 ZL01/09 等现行入口改为引用它，保留原有用户决定权和历史工作包身份。",
+      "issueIds": []
+    },
+    {
+      "stage": "6-工具接线",
+      "verdict": "clear",
+      "evidence": "新增任务阶段记录模板、只读记录检查器及跨任务索引；入口一致性检查器核对 06 连接。上传前复核后的三组标准库测试共 114 项通过。",
+      "issueIds": []
+    },
+    {
+      "stage": "7-旧问题试跑",
+      "verdict": "clear",
+      "evidence": "缺阶段、假称已解决、未关方法阻塞、索引断链均在夹具中失败；封闭白名单、连续授权、旧台账误当实时权威也有反例夹具；外部待验证可留为待验证而不冒充产品通过；无关 worktree 只提示、只授权热修分支不强推 v1 由旧检查器夹具覆盖。",
+      "issueIds": []
+    },
+    {
+      "stage": "8-总验收",
+      "verdict": "issue",
+      "evidence": "上传前逐条复核发现并修正四项冲突：封闭白名单与强制索引、连续授权与旧阶段点名、历史 BRANCHES 自称当前并强制每次改写、ZL01/00/09/13 把旧台账当必改或实时 SHA 权威，且不再强制每段对话越界改 10。三组标准库测试 114 项通过，入口检查通过，修改文件内相对 Markdown 链接无断链，项目自检红线通过，git diff --check 通过；原工作树产品工程、AppIcon、Xcode Cloud 和 UI 草稿差异保留。本阶段仅为单 AI 自查，不冒称独立审计。",
+      "issueIds": ["MI-20261009-02", "MI-20261009-03", "MI-20261009-04", "MI-20261009-05"]
+    }
+  ],
+  "issues": [
+    {
+      "id": "MI-20261009-01",
+      "category": "method",
+      "indexStatus": "linked",
+      "fingerprint": "method|stage-end|missing-record-and-gate|repeat-user-reminders",
+      "impact": "blocking",
+      "status": "resolved",
+      "evidence": "阶段方法检查只靠文档提醒；无统一可找回问题指针、阶段缺项校验和回归关闭约束。",
+      "action": "已补共用闭环、任务记录、跨任务索引、只读检查器和入口接线；缺项/假通过/未关阻塞及旧上传边界回归已重跑。",
+      "regressionCase": "缺阶段记录、已解决但回归未过、未关闭阻塞缺陷须失败；外部退款阻塞不得被认作方法验收通过。",
+      "regressionResult": "pass"
+    },
+    {
+      "id": "MI-20261009-02",
+      "category": "method",
+      "indexStatus": "linked",
+      "fingerprint": "method|exact-file-scope|mandatory-index-gate|unrelated-product-upload-block",
+      "impact": "blocking",
+      "status": "resolved",
+      "evidence": "原 06 禁止越出精确文件白名单，但 03/09 又强制所有新版标准/高风险包写阶段记录和索引；范围排除索引时无关产品上传也会被机械挡住。",
+      "action": "加入封闭范围例外：非阻塞方法问题延期并注明待补索引，阻塞问题仍停受影响动作；记录本身不在范围则在允许报告或答复明示欠项。",
+      "regressionCase": "非阻塞且索引不在范围时可显式 pending_scope 通过但显示待办；阻塞问题不得借例外通过。",
+      "regressionResult": "pass"
+    },
+    {
+      "id": "MI-20261009-03",
+      "category": "method",
+      "indexStatus": "linked",
+      "fingerprint": "method|continuous-authorization|old-explicit-stage-only-clause|repeat-user-approval",
+      "impact": "blocking",
+      "status": "resolved",
+      "evidence": "04 第三节允许已批准连续计划跨阶段执行，但第七节旧句仍说只有用户明确调用该阶段才可执行，会造成重复索权。",
+      "action": "第七节改为明确调用或已有覆盖该阶段的连续计划均可；检查器加入旧句回归。",
+      "regressionCase": "现行 04 无旧的每阶段重新点名句；故意加回旧句时入口检查器失败。",
+      "regressionResult": "pass"
+    },
+    {
+      "id": "MI-20261009-04",
+      "category": "method",
+      "indexStatus": "linked",
+      "fingerprint": "method|historical-branch-ledger|current-label-and-mandatory-update|wrong-branch-decision",
+      "impact": "blocking",
+      "status": "resolved",
+      "evidence": "BRANCHES.md 自称当前工作分支仍为 v1.13.10，并要求每次 save 必改本页；与 ZL01/14 当前 v1.13.12 和按授权范围同步相冲突。",
+      "action": "已把 BRANCHES 的旧动态段明确标为截至 2026-09-24 的历史快照，取消每次必改，并指向 ZL01/14 唯一当前状态。",
+      "regressionCase": "现行 BRANCHES 无每次 save 必改句，且指向 ZL01/14；故意恢复旧句时入口检查器失败。",
+      "regressionResult": "pass"
+    },
+    {
+      "id": "MI-20261009-05",
+      "category": "method",
+      "indexStatus": "linked",
+      "fingerprint": "method|upload-navigation|old-ledger-authority-and-mandate|false-current-tip-or-scope-block",
+      "impact": "blocking",
+      "status": "resolved",
+      "evidence": "ZL01/00 仍说每次上传必须改 BRANCHES/13、每段对话必须改 10；ZL01/09 顶部和 13 维护节仍让历史 BRANCHES 充当 tip/hash 权威。",
+      "action": "总入口改为只同步获准且受影响的文件；上传页与记录页以实时 Git 核对本地 tip 与远端 SHA，BRANCHES 仅作历史台账，10 只在范围包含且有值得保留的进展时更新。",
+      "regressionCase": "故意恢复强制双台账句、无条件改 10 句或 09/13 的旧 tip 权威句，入口检查器分别失败；现行入口通过。",
+      "regressionResult": "pass"
+    }
+  ]
+}

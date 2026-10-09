@@ -1,6 +1,7 @@
 ---
 description: 设置行 〉/ⓘ 与推入/盖层。权威在 Spec Kit 宪法，本文件只作提醒。
-alwaysApply: true
+globs: ApiRelay/ApiRelay/UI/Settings/**
+alwaysApply: false
 ---
 
 # 设置行与呈现

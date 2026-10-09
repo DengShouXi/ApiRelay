@@ -148,6 +148,12 @@ def require_mapping(value: Any, name: str, keys: tuple[str, ...]) -> dict[str, A
 
 
 def validate_nested_contract(data: dict[str, Any]) -> None:
+    if data.get("sourceKind") not in {"SpecKit", "ZL02"}:
+        raise CheckerError(EXIT_INPUT, "契约 sourceKind 必须按任务填写为 SpecKit 或 ZL02")
+    if data.get("riskLevel") not in {"light", "standard", "high"}:
+        raise CheckerError(EXIT_INPUT, "契约 riskLevel 必须按任务填写为 light、standard 或 high")
+    if not isinstance(data.get("objective"), str) or not data["objective"].strip():
+        raise CheckerError(EXIT_INPUT, "契约 objective 不得为空")
     repository = require_mapping(data.get("repository"), "repository", REQUIRED_REPOSITORY)
     if not isinstance(repository.get("protectedRefs"), dict) or not repository["protectedRefs"]:
         raise CheckerError(EXIT_INPUT, "契约 repository.protectedRefs 必须是非空对象")
@@ -695,13 +701,13 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
         if item
     }
     allowed_trees.add(expected_worktree)
-    extra_trees = [
+    unregistered_trees = [
         path
         for path in (os.path.realpath(item) for item in list_worktrees(repo))
         if path not in allowed_trees
     ]
-    if extra_trees:
-        raise CheckerError(EXIT_SCOPE, "发现契约外 worktree: " + ", ".join(extra_trees))
+    # Other worktrees do not write to this checkout. Report their existence,
+    # but enforce cleanliness only for trees explicitly registered as inputs.
 
     readonly_trees = [
         os.path.realpath(item)
@@ -903,12 +909,14 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
 
     if head_moved and latest_effective_pass:
         tracking = contract["repository"].get("uploadTrackingRefs", [])
+        if not tracking:
+            raise CheckerError(EXIT_CHAIN, "HEAD 已离开基线，但契约未登记本次授权的上传跟踪引用")
         for name in tracking:
             actual = try_git(repo, "rev-parse", name)
             if actual != head:
                 raise CheckerError(
                     EXIT_CHAIN,
-                    f"HEAD 已离开基线，但 {name} 不是当前 HEAD，不能视为已完成 A/B",
+                    f"HEAD 已离开基线，但 {name} 不是当前 HEAD，不能视为已完成上传",
                 )
 
     enforce_document_invariants(
@@ -1012,6 +1020,7 @@ def inspect(repo: Path, package_rel: str) -> tuple[int, dict[str, Any]]:
         "untracked": untracked,
         "dirty": dirty,
         "writerConflict": False,
+        "unregisteredWorktrees": unregistered_trees,
         "nextPhase": next_phase,
         "owner": owner_for(contract, next_phase),
         "promptPath": str(prompt),
@@ -1033,6 +1042,7 @@ def render_text(payload: dict[str, Any]) -> str:
         f"有效产物: {', '.join(payload.get('validArtifacts') or []) or '无'}",
         f"失效产物: {payload.get('invalidArtifacts') or '{}'}",
         f"写入冲突: {payload.get('writerConflict')}",
+        f"未登记的其他 worktree（仅提示）: {', '.join(payload.get('unregisteredWorktrees') or []) or '无'}",
         f"下一阶段: {payload.get('nextPhase')}  负责人: {payload.get('owner')}",
         f"需要用户批准: {payload.get('requiredUserApproval')}",
         f"提示词: {payload.get('promptPath')}",

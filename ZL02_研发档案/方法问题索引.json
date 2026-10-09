@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "MI-20261009-01",
+      "fingerprint": "method|stage-end|missing-record-and-gate|repeat-user-reminders",
+      "records": [
+        "ZL02_研发档案/第一阶段-密钥库/调整与优化/方法体系单AI适配/方法阶段记录.json"
+      ]
+    },
+    {
+      "id": "MI-20261009-02",
+      "fingerprint": "method|exact-file-scope|mandatory-index-gate|unrelated-product-upload-block",
+      "records": [
+        "ZL02_研发档案/第一阶段-密钥库/调整与优化/方法体系单AI适配/方法阶段记录.json"
+      ]
+    },
+    {
+      "id": "MI-20261009-03",
+      "fingerprint": "method|continuous-authorization|old-explicit-stage-only-clause|repeat-user-approval",
+      "records": [
+        "ZL02_研发档案/第一阶段-密钥库/调整与优化/方法体系单AI适配/方法阶段记录.json"
+      ]
+    },
+    {
+      "id": "MI-20261009-04",
+      "fingerprint": "method|historical-branch-ledger|current-label-and-mandatory-update|wrong-branch-decision",
+      "records": [
+        "ZL02_研发档案/第一阶段-密钥库/调整与优化/方法体系单AI适配/方法阶段记录.json"
+      ]
+    },
+    {
+      "id": "MI-20261009-05",
+      "fingerprint": "method|upload-navigation|old-ledger-authority-and-mandate|false-current-tip-or-scope-block",
+      "records": [
+        "ZL02_研发档案/第一阶段-密钥库/调整与优化/方法体系单AI适配/方法阶段记录.json"
+      ]
+    }
+  ]
+}

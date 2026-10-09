@@ -1,7 +1,7 @@
 ---
 description: 用户要求更新/整理/补写「10」AI对话记录，或改对话排版/编号/状态时，必须按 11 逐步执行，不得凭记忆偷工。
 globs: ZL01_具体说明/10-AI对话相关记录.md, ZL01_具体说明/11-AI对话相关格式要求.md
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 更新 `10`（AI 对话记录）
